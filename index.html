@@ -52,15 +52,24 @@
                     <h3 class="font-black text-xl mb-4 italic text-slate-800">Ajouter un Membre</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <input type="text" id="adm-prenom" placeholder="Prénom" class="p-4 bg-slate-50 rounded-xl font-bold">
+                        <input type="text" id="adm-nom" placeholder="Nom" class="p-4 bg-slate-50 rounded-xl font-bold">
+                        
                         <select id="adm-maison" class="p-4 bg-slate-50 rounded-xl font-bold text-slate-500"></select>
-                        <input type="number" id="adm-alloc" placeholder="Alloc (€)" class="p-4 bg-slate-50 rounded-xl font-bold">
+                        
+                        <select id="adm-role" class="p-4 bg-slate-50 rounded-xl font-bold text-slate-500">
+                            <option value="user">Utilisateur Simple</option>
+                            <option value="chef">Chef de Maison</option>
+                        </select>
+
+                        <input type="number" id="adm-alloc" placeholder="Allocation Mensuelle (€)" class="p-4 bg-slate-50 rounded-xl font-bold">
                         <input type="text" id="adm-iban" placeholder="IBAN" class="p-4 bg-slate-50 rounded-xl font-bold uppercase">
-                        <input type="password" id="adm-pass" placeholder="Mot de passe" class="p-4 bg-slate-50 rounded-xl font-bold">
-                        <button onclick="createNewUser()" class="bg-blue-600 text-white p-4 rounded-xl font-black shadow-md hover:bg-blue-700">CRÉER LE COMPTE</button>
+                        <input type="text" id="adm-pass" placeholder="Mot de passe provisoire" class="p-4 bg-slate-50 rounded-xl font-bold">
+                        
+                        <button onclick="createNewUser()" class="bg-blue-600 text-white p-4 rounded-xl font-black shadow-md hover:bg-blue-700 md:col-span-2">CRÉER LE COMPTE</button>
                     </div>
                 </div>
 
-                <h3 class="font-black text-sm uppercase text-slate-400 ml-4 tracking-widest">Liste des comptes</h3>
+                <h3 class="font-black text-sm uppercase text-slate-400 ml-4 tracking-widest">Membres actifs</h3>
                 <div id="admin-user-list" class="space-y-3"></div>
             </div>
 
@@ -72,15 +81,13 @@
                         <button onclick="addHouse()" class="bg-slate-900 text-white px-8 rounded-xl font-black hover:bg-black">CRÉER</button>
                     </div>
                 </div>
-
-                <h3 class="font-black text-sm uppercase text-slate-400 ml-4 tracking-widest">Maisons & Rapports Excel</h3>
                 <div id="admin-house-list" class="space-y-3"></div>
             </div>
 
             <div id="tab-history" class="tab-content space-y-4">
+                <h3 class="font-black text-sm uppercase text-slate-400 ml-4 tracking-widest">Flux financier</h3>
                 <div id="history-list" class="space-y-3"></div>
             </div>
-
         </main>
 
         <nav class="fixed bottom-6 inset-x-4 max-w-lg mx-auto bg-white/90 backdrop-blur-xl border border-white shadow-2xl rounded-[2.5rem] p-2 z-50">
@@ -109,26 +116,21 @@
             const u = document.getElementById('login-user').value.toLowerCase().trim();
             const p = document.getElementById('login-pass').value;
             if(!u || !p) return;
-            
             showLoading(true);
             const email = u.includes('@') ? u : `${u}@smmd.fr`;
-
             try {
                 const { data, error } = await client.auth.signInWithPassword({ email, password: p });
                 if (error) throw error;
                 await checkSession();
             } catch (err) {
                 document.getElementById('login-error').classList.remove('hidden');
-            } finally {
-                showLoading(false);
-            }
+            } finally { showLoading(false); }
         }
 
         async function checkSession() {
             const { data: { session } } = await client.auth.getSession();
             if (session) {
                 const { data: profile } = await client.from('profiles').select('*, maisons(*)').eq('id', session.user.id).single();
-                
                 if (session.user.email === 'admin@smmd.fr') {
                     userProfile = profile || { prenom: 'Admin', role: 'admin' };
                     userProfile.role = 'admin'; 
@@ -136,7 +138,7 @@
                     document.getElementById('app-screen').classList.remove('hidden');
                     setupAdminUI();
                 } else {
-                    alert("Accès refusé : Interface réservée à l'administrateur.");
+                    alert("Accès réservé.");
                     await handleLogout();
                 }
             }
@@ -153,7 +155,7 @@
             const { data: users } = await client.from('profiles').select('*, maisons(nom)').order('prenom');
             
             const sel = document.getElementById('adm-maison');
-            sel.innerHTML = '<option value="">Maison ?</option>' + houses.map(h => `<option value="${h.id}">${h.nom}</option>`).join('');
+            sel.innerHTML = '<option value="">Choisir Maison</option>' + houses.map(h => `<option value="${h.id}">${h.nom}</option>`).join('');
             
             document.getElementById('admin-house-list').innerHTML = houses.map(h => `
                 <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-50 flex justify-between items-center font-bold">
@@ -164,36 +166,44 @@
 
             document.getElementById('admin-user-list').innerHTML = users.map(u => `
                 <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-50 flex justify-between items-center">
-                    <div><p class="font-black">${u.prenom}</p><p class="text-[10px] uppercase text-slate-400">${u.maisons?.nom || 'Sans maison'}</p></div>
+                    <div>
+                        <p class="font-black">${u.prenom} ${u.nom_complet || ''}</p>
+                        <p class="text-[10px] uppercase text-slate-400 font-bold">${u.role === 'chef' ? 'Chef de maison' : 'Utilisateur'} • ${u.maisons?.nom || 'Aucune'}</p>
+                    </div>
                 </div>
             `).join('');
         }
 
         async function createNewUser() {
-            const prenom = document.getElementById('adm-prenom').value;
+            const prenom = document.getElementById('adm-prenom').value.trim();
+            const nom = document.getElementById('adm-nom').value.trim();
+            const role = document.getElementById('adm-role').value;
             const maisonId = document.getElementById('adm-maison').value;
             const alloc = document.getElementById('adm-alloc').value;
             const iban = document.getElementById('adm-iban').value;
             const pass = document.getElementById('adm-pass').value;
 
-            if(!prenom || !pass || !maisonId) return alert("Remplir tous les champs");
+            if(!prenom || !nom || !pass || !maisonId) return alert("Champs obligatoires : Prénom, Nom, Maison, Mot de passe");
 
             showLoading(true);
-            const email = `${prenom.toLowerCase()}@smmd.fr`;
+            const email = `${prenom.toLowerCase()}.${nom.toLowerCase()}@smmd.fr`.replace(/\s/g, '');
 
+            // Création Auth
             const { data, error } = await client.auth.signUp({ email, password: pass });
             if (error) { alert(error.message); showLoading(false); return; }
 
+            // Création Profil
             await client.from('profiles').insert({
                 id: data.user.id,
-                prenom,
+                prenom: prenom,
+                nom_complet: nom,
                 maison_id: maisonId,
                 allocation: parseFloat(alloc) || 0,
                 iban: iban,
-                role: 'user'
+                role: role
             });
 
-            alert(`Compte créé : ${email}`);
+            alert(`Compte créé !\nEmail : ${email}\nPass : ${pass}`);
             refreshAdminData();
             showLoading(false);
         }
@@ -207,30 +217,28 @@
         }
 
         async function refreshHistory() {
-            const { data } = await client.from('transactions').select('*, profiles(prenom), maisons(nom)').order('created_at', { ascending: false }).limit(50);
+            const { data } = await client.from('transactions').select('*, profiles(prenom), maisons(nom)').order('created_at', { ascending: false }).limit(30);
             document.getElementById('history-list').innerHTML = (data || []).map(t => `
                 <div class="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center">
-                    <div>
-                        <p class="font-bold">${t.note || t.type}</p>
-                        <p class="text-[9px] font-black text-blue-500 uppercase">${t.maisons?.nom} • ${t.profiles?.prenom}</p>
-                    </div>
+                    <div><p class="font-bold">${t.note || t.type}</p><p class="text-[9px] font-black text-blue-500 uppercase">${t.maisons?.nom} • ${t.profiles?.prenom}</p></div>
                     <p class="font-black text-slate-900">${t.montant}€</p>
                 </div>
             `).join('');
         }
 
         async function exportMaison(houseId, houseName) {
-            const { data } = await client.from('transactions').select('*, profiles(prenom)').eq('maison_id', houseId);
+            const { data } = await client.from('transactions').select('*, profiles(prenom, nom_complet)').eq('maison_id', houseId);
             const ws = XLSX.utils.json_to_sheet(data.map(t => ({
                 Date: new Date(t.created_at).toLocaleDateString(),
-                Membre: t.profiles?.prenom,
+                Nom: t.profiles?.nom_complet,
+                Prenom: t.profiles?.prenom,
                 Type: t.type,
                 Montant: t.montant,
                 Note: t.note
             })));
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Compta");
-            XLSX.writeFile(wb, `Rapport_${houseName}.xlsx`);
+            XLSX.writeFile(wb, `SMMD_${houseName}.xlsx`);
         }
 
         function switchTab(id) {
@@ -242,7 +250,6 @@
 
         function showLoading(s) { document.getElementById('loading').style.display = s ? 'flex' : 'none'; }
         async function handleLogout() { await client.auth.signOut(); location.reload(); }
-
         window.onload = checkSession;
     </script>
 </body>
