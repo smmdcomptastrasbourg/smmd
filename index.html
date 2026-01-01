@@ -3,10 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>SMMD - Système Complet</title>
+    
+    <title>SMMD Comptabilité</title>
+    <meta name="apple-mobile-web-app-title" content="SMMD Compta">
+    <meta name="application-name" content="SMMD Compta">
+    
+    <link rel="icon" href="https://fav.farm/🏠">
+    <link rel="apple-touch-icon" href="https://fav.farm/🏠">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1e40af">
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
@@ -33,7 +45,7 @@
     <div id="view-login" class="view p-6 bg-slate-50">
         <div class="w-full max-w-md mx-auto mt-20 bg-white p-10 rounded-[3.5rem] shadow-2xl text-center border">
             <h1 class="text-6xl font-black text-blue-600 italic mb-2">SMMD</h1>
-            <p class="text-[10px] font-black uppercase text-slate-300 tracking-[0.3em] mb-10">Maison Connectée</p>
+            <p class="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] mb-10">Comptabilité des maisons</p>
             <div class="space-y-4">
                 <input type="text" id="login-username" placeholder="prenom.nom" class="w-full p-5 bg-slate-50 rounded-2xl outline-none ring-1 ring-slate-100">
                 <input type="password" id="login-pass" placeholder="••••••••" class="w-full p-5 bg-slate-50 rounded-2xl outline-none ring-1 ring-slate-100">
@@ -105,14 +117,13 @@
                         </div>
                         <button onclick="updatePersonalProfile()" class="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-xs uppercase">Enregistrer les infos</button>
                     </div>
-
                     <div class="bg-white p-8 rounded-[3rem] border shadow-sm space-y-4">
                         <h3 class="font-black text-xs uppercase text-slate-400 border-b pb-4">Sécurité</h3>
                         <div>
                             <label class="text-[10px] font-black text-slate-400 ml-2">NOUVEAU MOT DE PASSE</label>
                             <input type="password" id="new-password" placeholder="Minimum 6 caractères" class="w-full p-5 bg-slate-50 rounded-2xl font-bold border outline-none">
                         </div>
-                        <button onclick="updatePassword()" class="w-full bg-slate-800 text-white py-5 rounded-2xl font-black text-xs uppercase">Modifier le mot de passe</button>
+                        <button onclick="updatePassword()" class="w-full bg-slate-800 text-white py-5 rounded-2xl font-black text-xs uppercase">Changer le mot de passe</button>
                     </div>
                 </div>
             </div>
@@ -155,6 +166,7 @@
     </div>
 
     <script>
+        // CONFIGURATION SUPABASE
         const SUPABASE_URL = "https://xccnnckuphxloxfrqtkf.supabase.co";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjY25uY2t1cGh4bG94ZnJxdGtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODA3NjEsImV4cCI6MjA4Mjc1Njc2MX0.1mIEhKfS5OSsaw78f1_Iatni39y8CoIurAd5IXP6n6g";
         const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -162,6 +174,7 @@
         let userProfile = null, selectedType = 'depense', selectedMainMoyen = 'CB Maison', selectedSubMoyen = '', selectedMotif = '';
         const MOTIFS_DEPENSE = ['Apostolat', 'Alimentaire', 'Déplacement', 'Essence', 'Autre'];
 
+        // FONCTION NETTOYAGE IDENTIFIANTS
         function slugify(text) {
             return text.toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '').replace(/[^\w-]+/g, '');
         }
@@ -209,15 +222,10 @@
 
         async function updatePassword() {
             const newPass = document.getElementById('new-password').value;
-            if (newPass.length < 6) return alert("Le mot de passe doit faire au moins 6 caractères.");
-            
+            if (newPass.length < 6) return alert("Minimum 6 caractères.");
             const { error } = await client.auth.updateUser({ password: newPass });
-            if (error) {
-                alert("Erreur : " + error.message);
-            } else {
-                alert("Mot de passe mis à jour avec succès !");
-                document.getElementById('new-password').value = '';
-            }
+            if (error) alert(error.message);
+            else { alert("Mot de passe mis à jour !"); document.getElementById('new-password').value = ''; }
         }
 
         async function refreshHouseData() {
@@ -235,7 +243,7 @@
             if(document.getElementById('liste-membres-chef')) {
                 document.getElementById('liste-membres-chef').innerHTML = (members || []).map(m => `
                 <div class="bg-white p-5 rounded-2xl border shadow-sm flex justify-between items-center">
-                    <div><p class="text-xs font-black uppercase">${m.prenom} ${m.nom_complet}</p><p class="text-[9px] font-mono text-blue-500">${m.iban || 'AUCUN IBAN'}</p></div>
+                    <div><p class="text-xs font-black uppercase">${m.prenom} ${m.nom_complet}</p><p class="text-[9px] font-mono text-blue-500">${m.iban || 'SANS IBAN'}</p></div>
                     <div class="bg-slate-50 px-3 py-1 rounded-lg text-[10px] font-black">${m.allocation}€/m</div>
                 </div>`).join('');
             }
@@ -258,7 +266,7 @@
             const id = document.getElementById('edit-user-id').value;
             const p = document.getElementById('adm-prenom').value.trim();
             const n = document.getElementById('adm-nom').value.trim();
-            if(!p || !n) return alert("Nom/Prénom requis");
+            if(!p || !n) return alert("Champs obligatoires.");
             
             const data = {
                 prenom: p, nom_complet: n, maison_id: document.getElementById('adm-maison').value,
@@ -269,11 +277,11 @@
 
             if(id) {
                 await client.from('profiles').update(data).eq('id', id);
-                alert("Mis à jour !");
+                alert("Utilisateur modifié !");
             } else {
                 const email = `${slugify(p)}.${slugify(n)}@smmd.fr`;
                 const { data: auth, error: authErr } = await client.auth.signUp({ email, password: 'password123' });
-                if(authErr) return alert("Erreur: " + authErr.message);
+                if(authErr) return alert("Erreur : " + authErr.message);
                 await client.from('profiles').upsert([{ id: auth.user.id, ...data }]);
                 alert("Compte créé : " + email);
             }
@@ -286,7 +294,7 @@
             document.getElementById('adm-maison').innerHTML = (m || []).map(x => `<option value="${x.id}">${x.nom}</option>`).join('');
             document.getElementById('admin-liste-users').innerHTML = (u || []).map(x => `
                 <div class="bg-white p-4 rounded-2xl border flex justify-between items-center shadow-sm">
-                    <div class="text-xs"><b>${x.prenom} ${x.nom_complet}</b><br><span class="opacity-50 uppercase text-[9px]">${x.role} • ${x.maisons?.nom || 'Sans Maison'}</span></div>
+                    <div class="text-xs"><b>${x.prenom} ${x.nom_complet}</b><br><span class="opacity-50 uppercase text-[9px]">${x.role} • ${x.maisons?.nom || 'Administration'}</span></div>
                     <div class="flex gap-2"><button onclick="adminEditUser('${x.id}')" class="p-2 text-blue-600"><i class="fas fa-edit"></i></button><button onclick="adminSupprUser('${x.id}')" class="p-2 text-red-400"><i class="fas fa-trash"></i></button></div>
                 </div>`).join('');
             document.getElementById('admin-liste-maisons').innerHTML = (m || []).map(x => `
@@ -294,18 +302,23 @@
         }
 
         async function adminSupprUser(id) {
-            if(!confirm("Supprimer l'utilisateur et ses données ?")) return;
+            if(!confirm("Supprimer l'utilisateur ?")) return;
             await client.from('transactions').delete().eq('user_id', id);
-            const { error } = await client.from('profiles').delete().eq('id', id);
-            if(error) alert(error.message); else refreshAdminData();
+            await client.from('profiles').delete().eq('id', id);
+            refreshAdminData();
         }
 
         async function ajouterEcriture() {
             const date = document.getElementById('compta-date').value || new Date().toISOString().split('T')[0];
             const montant = parseFloat(document.getElementById('compta-montant').value);
-            if(!selectedMotif || isNaN(montant)) return alert("Vérifiez motif et montant");
+            if(!selectedMotif || isNaN(montant)) return alert("Vérifiez motif et montant.");
             const moyen = (selectedType === 'depense' && selectedMainMoyen === 'Perso') ? `Perso (${selectedSubMoyen || '?'})` : (selectedType === 'recette' ? 'Virement' : selectedMainMoyen);
-            await client.from('transactions').insert([{ maison_id: userProfile.maison_id, user_id: userProfile.id, motif: selectedMotif + " " + document.getElementById('compta-precision').value, montant, type: selectedType, moyen_paiement: moyen, is_rembourse: (selectedType === 'recette' || selectedMainMoyen === 'CB Maison'), created_at: date }]);
+            await client.from('transactions').insert([{ 
+                maison_id: userProfile.maison_id, user_id: userProfile.id, motif: selectedMotif + " " + document.getElementById('compta-precision').value, 
+                montant, type: selectedType, moyen_paiement: moyen, 
+                is_rembourse: (selectedType === 'recette' || selectedMainMoyen === 'CB Maison'), 
+                created_at: date 
+            }]);
             document.getElementById('compta-montant').value = ''; refreshHouseData();
         }
 
@@ -313,7 +326,7 @@
             const iban = document.getElementById('my-iban').value.trim().toUpperCase();
             const alloc = parseFloat(document.getElementById('my-alloc').value || 0);
             await client.from('profiles').update({ iban, allocation: alloc }).eq('id', userProfile.id);
-            alert("Profil mis à jour"); refreshHouseData();
+            alert("Profil mis à jour !"); refreshHouseData();
         }
 
         function adminEditUser(id) {
@@ -328,20 +341,39 @@
                 document.getElementById('btn-adm-cancel').classList.remove('hidden');
             });
         }
+
         function adminResetForm() { document.getElementById('edit-user-id').value = ''; document.querySelectorAll('#tab-admin-users input').forEach(i => i.value = ''); document.getElementById('btn-adm-cancel').classList.add('hidden'); }
         async function adminCreerMaison() { const n = document.getElementById('new-maison-nom').value; if(n) { await client.from('maisons').insert([{nom: n}]); document.getElementById('new-maison-nom').value=''; refreshAdminData(); } }
         async function adminSupprMaison(id) { if(confirm("Supprimer Maison ?")) { await client.from('profiles').update({maison_id: null}).eq('maison_id', id); await client.from('maisons').delete().eq('id', id); refreshAdminData(); } }
         async function validerRemb(id) { await client.from('transactions').update({is_rembourse:true}).eq('id', id); refreshHouseData(); }
         async function supprTrans(id) { if(confirm("Supprimer ?")) { await client.from('transactions').delete().eq('id', id); refreshHouseData(); } }
-        function setTransType(t) { selectedType = t; document.getElementById('motif-container').classList.toggle('hidden', t==='recette'); if(t==='depense') { document.getElementById('grid-motifs').innerHTML = MOTIFS_DEPENSE.map(m => `<button onclick="setMotif('${m}')" class="motif-btn" id="motif-${m}">${m}</button>`).join(''); renderMoyenDepense(); } else { selectedMotif = 'Recette'; document.getElementById('container-moyen-paiement').innerHTML = ''; } document.getElementById('type-depense').classList.toggle('active-depense', t==='depense'); document.getElementById('type-recette').classList.toggle('active-recette', t==='recette'); }
-        function renderMoyenDepense() { document.getElementById('container-moyen-paiement').innerHTML = `<div class="flex gap-2"><button onclick="setMainMoyen('CB Maison')" id="main-m-cb" class="moyen-btn active flex-1 py-4 uppercase">CB Maison</button><button onclick="setMainMoyen('Perso')" id="main-m-perso" class="moyen-btn flex-1 py-4 uppercase">Perso</button></div><div id="sub-moyen-perso" class="hidden grid grid-cols-4 gap-1 pt-2">${['CB','Esp','Chq','Vir'].map(s => `<button onclick="setSubMoyen('${s}')" id="sub-${s}" class="sub-m-btn p-3 bg-slate-50 rounded-xl font-bold text-[8px] uppercase">${s}</button>`).join('')}</div>`; setMainMoyen('CB Maison'); }
+        
+        function setTransType(t) { 
+            selectedType = t; 
+            document.getElementById('motif-container').classList.toggle('hidden', t==='recette'); 
+            if(t==='depense') { 
+                document.getElementById('grid-motifs').innerHTML = MOTIFS_DEPENSE.map(m => `<button onclick="setMotif('${m}')" class="motif-btn" id="motif-${m}">${m}</button>`).join(''); 
+                renderMoyenDepense(); 
+            } else { 
+                selectedMotif = 'Recette'; 
+                document.getElementById('container-moyen-paiement').innerHTML = ''; 
+            } 
+            document.getElementById('type-depense').classList.toggle('active-depense', t==='depense'); 
+            document.getElementById('type-recette').classList.toggle('active-recette', t==='recette'); 
+        }
+
+        function renderMoyenDepense() { 
+            document.getElementById('container-moyen-paiement').innerHTML = `<div class="flex gap-2"><button onclick="setMainMoyen('CB Maison')" id="main-m-cb" class="moyen-btn active flex-1 py-4 uppercase">CB Maison</button><button onclick="setMainMoyen('Perso')" id="main-m-perso" class="moyen-btn flex-1 py-4 uppercase">Perso</button></div><div id="sub-moyen-perso" class="hidden grid grid-cols-4 gap-1 pt-2">${['CB','Esp','Chq','Vir'].map(s => `<button onclick="setSubMoyen('${s}')" id="sub-${s}" class="sub-m-btn p-3 bg-slate-50 rounded-xl font-bold text-[8px] uppercase">${s}</button>`).join('')}</div>`; 
+            setMainMoyen('CB Maison'); 
+        }
+
         function setMotif(m) { selectedMotif = m; document.querySelectorAll('.motif-btn').forEach(b => b.classList.remove('active')); document.getElementById(`motif-${m}`)?.classList.add('active'); }
         function setMainMoyen(m) { selectedMainMoyen = m; document.getElementById('main-m-cb')?.classList.toggle('active', m === 'CB Maison'); document.getElementById('main-m-perso')?.classList.toggle('active', m === 'Perso'); document.getElementById('sub-moyen-perso')?.classList.toggle('hidden', m !== 'Perso'); }
         function setSubMoyen(s) { selectedSubMoyen = s; document.querySelectorAll('.sub-m-btn').forEach(b => b.classList.remove('bg-blue-600', 'text-white')); document.getElementById(`sub-${s}`)?.classList.add('bg-blue-600', 'text-white'); }
         function showView(v) { document.querySelectorAll('.view').forEach(x => x.classList.remove('active')); document.getElementById(v).classList.add('active'); }
         function switchTab(t) { document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); document.getElementById(t).classList.add('active'); document.getElementById('btn-'+t).classList.add('active'); }
         async function logout() { await client.auth.signOut(); location.reload(); }
-        async function handleLogin() { const u = document.getElementById('login-username').value.toLowerCase(); const p = document.getElementById('login-pass').value; const { error } = await client.auth.signInWithPassword({ email: `${u}@smmd.fr`, password: p }); if (error) alert("Accès refusé"); else checkSession(); }
+        async function handleLogin() { const u = document.getElementById('login-username').value.toLowerCase(); const p = document.getElementById('login-pass').value; const { error } = await client.auth.signInWithPassword({ email: `${u}@smmd.fr`, password: p }); if (error) alert("Identifiants incorrects."); else checkSession(); }
         async function exportCSV() { const { data: trans } = await client.from('transactions').select('*').eq('maison_id', userProfile.maison_id); let csv = "Date;Motif;Montant;Moyen;Rembourse\n"; trans.forEach(t => { csv += `${t.created_at};${t.motif};${t.montant};${t.moyen_paiement};${t.is_rembourse?'OUI':'NON'}\n`; }); const blob = new Blob([csv], { type: 'text/csv' }); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'Compta_SMMD.csv'; a.click(); }
         
         checkSession();
