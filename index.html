@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SMMD - Système de Gestion</title>
+    <title>SMMD - Système Complet</title>
     <meta name="mobile-web-app-capable" content="yes">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
@@ -15,7 +15,7 @@
         .tab-content.active { display: block; }
         .loading-overlay { display: none; position: fixed; inset: 0; background: rgba(255,255,255,0.8); z-index: 100; justify-content: center; align-items: center; }
         input, select { border: none !important; outline: none !important; }
-        .admin-only { display: none; }
+        .admin-view, .user-view { display: none; }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-900">
@@ -29,7 +29,7 @@
             <div class="space-y-4">
                 <input type="text" id="login-user" placeholder="Identifiant (ex: florent.molin)" class="w-full p-5 bg-slate-50 rounded-2xl font-bold focus:ring-2 ring-blue-500">
                 <input type="password" id="login-pass" placeholder="Mot de passe" class="w-full p-5 bg-slate-50 rounded-2xl font-bold focus:ring-2 ring-blue-500">
-                <button onclick="handleLogin()" class="w-full bg-blue-600 text-white p-5 rounded-2xl font-black text-lg shadow-lg hover:bg-blue-700 active:scale-95 transition-all">SE CONNECTER</button>
+                <button onclick="handleLogin()" class="w-full bg-blue-600 text-white p-5 rounded-2xl font-black text-lg shadow-lg hover:bg-blue-700 active:scale-95 transition-all">ACCÉDER</button>
                 <p id="login-error" class="text-red-500 text-center font-bold text-sm hidden">Identifiants incorrects</p>
             </div>
         </div>
@@ -40,7 +40,7 @@
             <div class="max-w-5xl mx-auto flex justify-between items-center">
                 <div>
                     <h2 id="user-display" class="text-2xl font-black tracking-tighter italic text-blue-600">SMMD.</h2>
-                    <p id="user-role" class="text-[10px] font-black text-slate-400 uppercase tracking-widest italic italic">Chargement...</p>
+                    <p id="user-role-label" class="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Chargement...</p>
                 </div>
                 <button onclick="handleLogout()" class="p-3 bg-slate-50 rounded-xl font-black text-xs text-slate-400 uppercase">Quitter</button>
             </div>
@@ -48,27 +48,27 @@
 
         <main class="max-w-5xl mx-auto p-4 mt-4">
             
-            <div id="tab-user-saisie" class="tab-content active space-y-4">
+            <div id="tab-saisie" class="tab-content user-view space-y-4">
                 <div class="bg-white p-6 rounded-[2rem] shadow-sm">
                     <div class="flex justify-between items-end mb-6">
                         <div>
-                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Solde restant</p>
-                            <h3 id="current-balance" class="text-4xl font-black">0.00€</h3>
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Solde du mois</p>
+                            <h3 id="user-balance" class="text-4xl font-black text-slate-900">0.00€</h3>
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-3 mb-4">
                         <button onclick="setType('Achat')" id="btn-achat" class="type-btn p-4 rounded-xl font-black border-2 bg-slate-900 text-white">ACHAT</button>
                         <button onclick="setType('Retrait')" id="btn-retrait" class="type-btn p-4 rounded-xl font-black border-2 border-slate-100 text-slate-400">RETRAIT</button>
                     </div>
-                    <input type="number" id="trans-amount" placeholder="0.00€" class="w-full p-6 text-4xl font-black text-center bg-slate-50 rounded-3xl mb-4 outline-none">
-                    <input type="text" id="trans-note" placeholder="Motif de la dépense..." class="w-full p-5 bg-slate-50 rounded-2xl font-bold mb-6">
+                    <input type="number" id="trans-amount" placeholder="Montant 0.00€" class="w-full p-6 text-4xl font-black text-center bg-slate-50 rounded-3xl mb-4">
+                    <input type="text" id="trans-note" placeholder="Détails (ex: Courses Carrefour)" class="w-full p-5 bg-slate-50 rounded-2xl font-bold mb-6">
                     <button onclick="saveTransaction()" class="w-full bg-blue-600 text-white p-6 rounded-3xl font-black text-xl shadow-xl active:scale-95 transition-all">ENREGISTRER</button>
                 </div>
             </div>
 
-            <div id="tab-admin-users" class="tab-content space-y-6">
+            <div id="tab-admin-users" class="tab-content admin-view space-y-6">
                 <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
-                    <h3 class="font-black text-xl mb-4 italic">Nouveau Membre</h3>
+                    <h3 class="font-black text-xl mb-4 italic">Créer un profil</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <input type="text" id="adm-prenom" placeholder="Prénom" class="p-4 bg-slate-50 rounded-xl font-bold">
                         <input type="text" id="adm-nom" placeholder="Nom" class="p-4 bg-slate-50 rounded-xl font-bold">
@@ -77,18 +77,18 @@
                             <option value="user">Utilisateur Simple</option>
                             <option value="chef">Chef de Maison</option>
                         </select>
-                        <input type="number" id="adm-alloc" placeholder="Allocation Mensuelle" class="p-4 bg-slate-50 rounded-xl font-bold">
-                        <input type="text" id="adm-iban" placeholder="IBAN" class="p-4 bg-slate-50 rounded-xl font-bold uppercase">
+                        <input type="number" id="adm-alloc" placeholder="Allocation Mensuelle (€)" class="p-4 bg-slate-50 rounded-xl font-bold">
+                        <input type="text" id="adm-iban" placeholder="IBAN du membre" class="p-4 bg-slate-50 rounded-xl font-bold uppercase">
                         <input type="text" id="adm-pass" placeholder="Mot de passe provisoire" class="p-4 bg-slate-50 rounded-xl font-bold">
-                        <button onclick="createNewUser()" class="bg-blue-600 text-white p-4 rounded-xl font-black md:col-span-2">CRÉER LE COMPTE</button>
+                        <button onclick="createNewUser()" class="bg-blue-600 text-white p-4 rounded-xl font-black md:col-span-2">VALIDER LA CRÉATION</button>
                     </div>
                 </div>
                 <div id="admin-user-list" class="space-y-3"></div>
             </div>
 
-            <div id="tab-admin-houses" class="tab-content space-y-6">
-                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
-                    <h3 class="font-black text-xl mb-4 italic">Gestion Maisons</h3>
+            <div id="tab-admin-houses" class="tab-content admin-view space-y-6">
+                <div class="bg-white p-6 rounded-[2rem] shadow-sm">
+                    <h3 class="font-black text-xl mb-4 italic text-slate-800">Nouvelle Maison</h3>
                     <div class="flex gap-2">
                         <input type="text" id="new-house-name" placeholder="Nom de la maison" class="flex-1 p-4 bg-slate-50 rounded-xl font-bold">
                         <button onclick="addHouse()" class="bg-slate-900 text-white px-8 rounded-xl font-black">AJOUTER</button>
@@ -97,27 +97,28 @@
                 <div id="admin-house-list" class="space-y-3"></div>
             </div>
 
-            <div id="tab-history" class="tab-content space-y-4">
-                <h3 class="font-black text-sm uppercase text-slate-400 ml-4 tracking-widest">Dernières opérations</h3>
+            <div id="tab-history" class="tab-content space-y-4 active">
                 <div id="history-list" class="space-y-3"></div>
             </div>
+
+            <div id="tab-profile" class="tab-content space-y-4">
+                <div class="bg-white p-8 rounded-[2rem] shadow-sm space-y-6">
+                    <div>
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Mon IBAN enregistré</p>
+                        <p id="profile-iban" class="p-5 bg-slate-50 rounded-2xl font-black text-xl text-blue-600 break-all">---</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Allocation mensuelle</p>
+                        <p id="profile-alloc" class="p-5 bg-slate-50 rounded-2xl font-black text-xl">0.00€</p>
+                    </div>
+                </div>
+            </div>
+
         </main>
 
         <nav class="fixed bottom-6 inset-x-4 max-w-lg mx-auto bg-white/90 backdrop-blur-xl border border-white shadow-2xl rounded-[2.5rem] p-2 z-50">
-            <div class="flex justify-around items-center" id="nav-container">
-                <button onclick="switchTab('tab-user-saisie')" class="nav-btn p-4 text-blue-600 flex flex-col items-center">
-                    <span class="text-[9px] font-black uppercase">Saisie</span>
-                </button>
-                <button onclick="switchTab('tab-history')" class="nav-btn p-4 text-slate-400 flex flex-col items-center">
-                    <span class="text-[9px] font-black uppercase">Historique</span>
-                </button>
-                <button onclick="switchTab('tab-admin-users')" class="admin-only nav-btn p-4 text-slate-400 flex flex-col items-center">
-                    <span class="text-[9px] font-black uppercase">Membres</span>
-                </button>
-                <button onclick="switchTab('tab-admin-houses')" class="admin-only nav-btn p-4 text-slate-400 flex flex-col items-center">
-                    <span class="text-[9px] font-black uppercase">Maisons</span>
-                </button>
-            </div>
+            <div class="flex justify-around items-center" id="nav-bar">
+                </div>
         </nav>
     </div>
 
@@ -141,7 +142,6 @@
                 await checkSession();
             } catch (err) {
                 document.getElementById('login-error').classList.remove('hidden');
-                console.error(err);
             } finally { showLoading(false); }
         }
 
@@ -149,12 +149,9 @@
             const { data: { session } } = await client.auth.getSession();
             if (session) {
                 const { data: profile } = await client.from('profiles').select('*, maisons(*)').eq('id', session.user.id).single();
-                if (session.user.email === 'admin@smmd.fr') {
-                    userProfile = profile || { prenom: 'Admin', role: 'admin' };
-                    userProfile.role = 'admin';
-                } else {
-                    userProfile = profile;
-                }
+                userProfile = profile;
+                if(session.user.email === 'admin@smmd.fr') userProfile.role = 'admin';
+                
                 document.getElementById('auth-screen').classList.add('hidden');
                 document.getElementById('app-screen').classList.remove('hidden');
                 setupUI();
@@ -163,30 +160,44 @@
 
         function setupUI() {
             document.getElementById('user-display').innerText = `${userProfile.prenom}.`;
-            const roleTxt = userProfile.role === 'admin' ? 'Super-Administrateur' : (userProfile.role === 'chef' ? `Chef : ${userProfile.maisons?.nom}` : `Utilisateur : ${userProfile.maisons?.nom}`);
-            document.getElementById('user-role').innerText = roleTxt;
-
+            const label = userProfile.role === 'admin' ? 'Super-Admin' : `${userProfile.role === 'chef' ? 'Chef' : 'Membre'} : ${userProfile.maisons?.nom || 'Sans Maison'}`;
+            document.getElementById('user-role-label').innerText = label;
+            
+            const nav = document.getElementById('nav-bar');
             if (userProfile.role === 'admin') {
-                document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'flex');
+                nav.innerHTML = `
+                    <button onclick="switchTab('tab-admin-users')" class="nav-btn p-4 text-blue-600 flex flex-col items-center"><span class="text-[9px] font-black uppercase">Membres</span></button>
+                    <button onclick="switchTab('tab-admin-houses')" class="nav-btn p-4 text-slate-400 flex flex-col items-center"><span class="text-[9px] font-black uppercase">Maisons</span></button>
+                    <button onclick="switchTab('tab-history')" class="nav-btn p-4 text-slate-400 flex flex-col items-center"><span class="text-[9px] font-black uppercase">Compta</span></button>
+                `;
+                document.querySelectorAll('.admin-view').forEach(el => el.classList.add('active'));
                 refreshAdminData();
+                switchTab('tab-admin-users');
             } else {
-                switchTab('tab-user-saisie');
+                nav.innerHTML = `
+                    <button onclick="switchTab('tab-saisie')" class="nav-btn p-4 text-blue-600 flex flex-col items-center"><span class="text-[9px] font-black uppercase">Saisie</span></button>
+                    <button onclick="switchTab('tab-history')" class="nav-btn p-4 text-slate-400 flex flex-col items-center"><span class="text-[9px] font-black uppercase">Frais</span></button>
+                    <button onclick="switchTab('tab-profile')" class="nav-btn p-4 text-slate-400 flex flex-col items-center"><span class="text-[9px] font-black uppercase">IBAN</span></button>
+                `;
+                document.getElementById('profile-iban').innerText = userProfile.iban || 'Non renseigné';
+                document.getElementById('profile-alloc').innerText = `${userProfile.allocation || 0}€`;
                 updateBalance();
+                switchTab('tab-saisie');
             }
             refreshHistory();
         }
 
         async function updateBalance() {
             const { data } = await client.from('transactions').select('montant').eq('profile_id', userProfile.id);
-            const spent = data.reduce((acc, t) => acc + t.montant, 0);
+            const spent = (data || []).reduce((acc, t) => acc + t.montant, 0);
             const remain = (userProfile.allocation || 0) - spent;
-            document.getElementById('current-balance').innerText = `${remain.toFixed(2)}€`;
+            document.getElementById('user-balance').innerText = `${remain.toFixed(2)}€`;
         }
 
         async function saveTransaction() {
             const amount = document.getElementById('trans-amount').value;
             const note = document.getElementById('trans-note').value;
-            if (!amount) return;
+            if (!amount) return alert("Indiquez un montant");
             showLoading(true);
             await client.from('transactions').insert({
                 profile_id: userProfile.id,
@@ -200,45 +211,46 @@
             updateBalance();
             refreshHistory();
             showLoading(false);
-            alert("Enregistré !");
+            alert("Opération enregistrée !");
         }
 
         async function refreshAdminData() {
             const { data: houses } = await client.from('maisons').select('*').order('nom');
             const { data: users } = await client.from('profiles').select('*, maisons(nom)').order('prenom');
             
-            document.getElementById('adm-maison').innerHTML = houses.map(h => `<option value="${h.id}">${h.nom}</option>`).join('');
+            document.getElementById('adm-maison').innerHTML = (houses || []).map(h => `<option value="${h.id}">${h.nom}</option>`).join('');
             
-            document.getElementById('admin-house-list').innerHTML = houses.map(h => `
+            document.getElementById('admin-house-list').innerHTML = (houses || []).map(h => `
                 <div class="bg-white p-5 rounded-2xl flex justify-between items-center shadow-sm">
-                    <span class="font-bold">${h.nom}</span>
+                    <span class="font-bold text-slate-700">${h.nom}</span>
                     <div class="flex gap-2">
-                        <button onclick="exportMaison('${h.id}', '${h.nom}')" class="bg-green-100 text-green-700 px-3 py-1 rounded-lg text-xs font-black">XLSX</button>
-                        <button onclick="deleteItem('maisons', '${h.id}')" class="bg-red-50 text-red-500 px-3 py-1 rounded-lg text-xs font-black">SUPPR</button>
+                        <button onclick="exportMaison('${h.id}', '${h.nom}')" class="bg-green-600 text-white px-3 py-1 rounded-lg text-[10px] font-black">EXCEL</button>
+                        <button onclick="deleteItem('maisons', '${h.id}')" class="bg-red-50 text-red-500 px-3 py-1 rounded-lg text-[10px] font-black">SUPPR</button>
                     </div>
                 </div>
             `).join('');
 
-            document.getElementById('admin-user-list').innerHTML = users.map(u => `
+            document.getElementById('admin-user-list').innerHTML = (users || []).map(u => `
                 <div class="bg-white p-5 rounded-2xl flex justify-between items-center shadow-sm">
                     <div>
                         <p class="font-black">${u.prenom} ${u.nom_complet || ''}</p>
-                        <p class="text-[10px] font-bold text-slate-400 uppercase">${u.role} • ${u.maisons?.nom || 'N/A'}</p>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase">${u.role} • ${u.maisons?.nom || 'Aucune'}</p>
                     </div>
-                    <button onclick="deleteItem('profiles', '${u.id}')" class="text-red-400 font-bold text-xs uppercase">Supprimer</button>
+                    <button onclick="deleteItem('profiles', '${u.id}')" class="text-red-400 font-bold text-[10px] uppercase border border-red-50 px-2 py-1 rounded-md">Supprimer</button>
                 </div>
             `).join('');
         }
 
         async function createNewUser() {
-            const prenom = document.getElementById('adm-prenom').value;
-            const nom = document.getElementById('adm-nom').value;
+            const prenom = document.getElementById('adm-prenom').value.trim();
+            const nom = document.getElementById('adm-nom').value.trim();
             const role = document.getElementById('adm-role').value;
             const maisonId = document.getElementById('adm-maison').value;
             const alloc = document.getElementById('adm-alloc').value;
+            const iban = document.getElementById('adm-iban').value;
             const pass = document.getElementById('adm-pass').value;
 
-            if(!prenom || !nom || !pass) return alert("Remplir les champs");
+            if(!prenom || !nom || !pass) return alert("Champs Prénom, Nom et Pass obligatoires");
             showLoading(true);
             const email = `${prenom.toLowerCase()}.${nom.toLowerCase()}@smmd.fr`.replace(/\s/g, '');
             const { data, error } = await client.auth.signUp({ email, password: pass });
@@ -250,18 +262,20 @@
                     nom_complet: nom,
                     role,
                     maison_id: maisonId,
-                    allocation: parseFloat(alloc) || 0
+                    allocation: parseFloat(alloc) || 0,
+                    iban: iban
                 });
-                alert(`Compte OK : ${email}`);
+                alert(`Compte créé avec succès !\nEmail : ${email}`);
                 refreshAdminData();
-            } else { alert(error.message); }
+            } else { alert("Erreur Auth : " + error.message); }
             showLoading(false);
         }
 
         async function deleteItem(table, id) {
-            if(!confirm("Supprimer définitivement ?")) return;
+            if(!confirm("Supprimer définitivement cet élément ?")) return;
             showLoading(true);
-            await client.from(table).delete().eq('id', id);
+            const { error } = await client.from(table).delete().eq('id', id);
+            if(error) alert("Erreur lors de la suppression. Vérifiez que l'élément n'est pas lié à d'autres données.");
             refreshAdminData();
             showLoading(false);
         }
@@ -281,24 +295,30 @@
             document.getElementById('history-list').innerHTML = (data || []).map(t => `
                 <div class="bg-white p-4 rounded-2xl flex justify-between items-center border border-slate-50">
                     <div>
-                        <p class="font-bold">${t.note || t.type}</p>
-                        <p class="text-[9px] font-bold text-blue-500 uppercase">${t.maisons?.nom || ''} • ${t.profiles?.prenom}</p>
+                        <p class="font-bold text-slate-800">${t.note || t.type}</p>
+                        <p class="text-[9px] font-black text-blue-500 uppercase">${t.maisons?.nom || 'SMMD'} • ${t.profiles?.prenom}</p>
                     </div>
-                    <p class="font-black">${t.montant}€</p>
+                    <div class="text-right">
+                        <p class="font-black ${t.type === 'Retrait' ? 'text-red-500' : 'text-slate-900'}">${t.montant.toFixed(2)}€</p>
+                        <p class="text-[8px] text-slate-300 font-bold">${new Date(t.created_at).toLocaleDateString()}</p>
+                    </div>
                 </div>
             `).join('');
         }
 
         async function exportMaison(houseId, houseName) {
             const { data } = await client.from('transactions').select('*, profiles(prenom, nom_complet)').eq('maison_id', houseId);
-            const ws = XLSX.utils.json_to_sheet(data.map(t => ({
+            const ws = XLSX.utils.json_to_sheet((data || []).map(t => ({
                 Date: new Date(t.created_at).toLocaleDateString(),
-                Nom: t.profiles?.nom_complet, Prenom: t.profiles?.prenom,
-                Montant: t.montant, Note: t.note
+                Nom: t.profiles?.nom_complet,
+                Prenom: t.profiles?.prenom,
+                Type: t.type,
+                Montant: t.montant,
+                Note: t.note
             })));
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Compta");
-            XLSX.writeFile(wb, `SMMD_${houseName}.xlsx`);
+            XLSX.utils.book_append_sheet(wb, ws, "Comptabilité");
+            XLSX.writeFile(wb, `SMMD_Rapport_${houseName}.xlsx`);
         }
 
         function setType(t) {
@@ -314,7 +334,10 @@
         function switchTab(id) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.getElementById(id).classList.add('active');
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.replace('text-blue-600', 'text-slate-400'));
+            document.querySelectorAll('.nav-btn').forEach(b => {
+                b.classList.remove('text-blue-600');
+                b.classList.add('text-slate-400');
+            });
             event.currentTarget.classList.replace('text-slate-400', 'text-blue-600');
         }
 
