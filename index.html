@@ -8,11 +8,12 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { -webkit-tap-highlight-color: transparent; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body class="bg-slate-50 flex items-center justify-center min-h-screen p-6">
 
-    <div id="login-card" class="bg-white p-8 rounded-[40px] shadow-xl w-full max-w-sm border border-gray-100 transition-all">
+    <div id="login-card" class="bg-white p-8 rounded-[40px] shadow-xl w-full max-sm:max-w-full max-w-sm border border-gray-100 transition-all">
         <h1 class="text-4xl font-black italic mb-8 text-center text-blue-900 tracking-tighter">SMMD.</h1>
         
         <div class="space-y-4">
@@ -39,7 +40,7 @@
 
     <div id="loading-screen" class="hidden text-center">
         <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-900 mx-auto mb-4"></div>
-        <p class="font-black italic text-blue-900 uppercase tracking-widest text-xs">Vérification du profil...</p>
+        <p class="font-black italic text-blue-900 uppercase tracking-widest text-[10px]">Vérification du rôle...</p>
     </div>
 
     <script>
@@ -52,11 +53,13 @@
         async function checkSession() {
             const { data: { user } } = await sb.auth.getUser();
             if (user) {
+                document.getElementById('login-card').classList.add('hidden');
+                document.getElementById('loading-screen').classList.remove('hidden');
                 redirectUser(user.id);
             }
         }
 
-        // 2. FONCTION DE CONNEXION ET AIGUILLAGE
+        // 2. FONCTION DE CONNEXION
         async function handleLogin() {
             const btn = document.getElementById('btn-login');
             const err = document.getElementById('error-msg');
@@ -67,40 +70,37 @@
             const password = document.getElementById('login-pass').value;
 
             if(!identifier || !password) {
-                alert("Veuillez remplir tous les champs.");
+                err.innerText = "Champs requis";
+                err.classList.remove('hidden');
                 return;
             }
 
-            // Ajout automatique du domaine si l'utilisateur ne le tape pas
+            // Ajout automatique du domaine si absent
             if(!identifier.includes('@')) identifier += "@smmd.fr";
 
             btn.disabled = true;
-            btn.innerText = "CONNEXION...";
+            btn.innerText = "PATIENTEZ...";
             err.classList.add('hidden');
 
-            // --- AUTHENTIFICATION ---
             const { data, error: authError } = await sb.auth.signInWithPassword({
                 email: identifier,
                 password: password
             });
 
             if (authError) {
-                err.innerText = "Identifiants incorrects";
+                err.innerText = "Accès refusé";
                 err.classList.remove('hidden');
                 btn.disabled = false;
                 btn.innerText = "Se connecter";
                 return;
             }
 
-            // Si login OK, on masque la carte et on montre le chargement
             card.classList.add('hidden');
             load.classList.remove('hidden');
-
-            // --- REDIRECTION ---
             redirectUser(data.user.id);
         }
 
-        // 3. LOGIQUE D'AIGUILLAGE PAR RÔLE
+        // 3. LOGIQUE D'AIGUILLAGE PAR RÔLE (MODIFIÉE)
         async function redirectUser(userId) {
             const { data: profile, error: profError } = await sb
                 .from('profiles')
@@ -109,23 +109,31 @@
                 .single();
 
             if (profError) {
-                // Si erreur ici, c'est probablement un problème de RLS sur Supabase
                 console.error(profError);
-                alert("Erreur de profil (RLS) : " + profError.message);
+                alert("Erreur de profil : " + profError.message);
                 await sb.auth.signOut();
                 location.reload();
                 return;
             }
 
-            // On envoie vers le fichier correspondant au rôle
+            // Redirection selon le rôle précis dans la base
             if (profile.role === 'admin') {
                 window.location.href = "admin.html";
-            } else {
+            } 
+            else if (profile.role === 'chef') {
+                window.location.href = "chef.html";
+            } 
+            else if (profile.role === 'user') {
                 window.location.href = "user.html";
+            } 
+            else {
+                // Si le rôle est inconnu ou mal orthographié
+                alert("Rôle non reconnu. Contactez l'administrateur.");
+                await sb.auth.signOut();
+                location.reload();
             }
         }
 
-        // Lancement au chargement de la page
         checkSession();
     </script>
 </body>
