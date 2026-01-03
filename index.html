@@ -27,13 +27,13 @@
             <button onclick="logout()" class="text-[10px] font-bold text-red-500 border border-red-200 px-3 py-1 rounded-lg uppercase">Déconnexion</button>
         </header>
         
-        <main class="p-6 max-w-2xl mx-auto space-y-10">
+        <main class="p-6 max-w-2xl mx-auto space-y-10 pb-20">
             
             <section>
                 <h2 class="text-xs font-black uppercase text-gray-400 mb-4 tracking-widest">1. Gestion des Maisons</h2>
                 <div class="bg-white p-6 rounded-3xl border shadow-sm mb-4">
                     <div class="flex gap-2">
-                        <input type="text" id="new-house-name" placeholder="Nom de la maison (ex: PARIS)" class="flex-1 p-3 bg-gray-50 border rounded-xl font-bold text-sm">
+                        <input type="text" id="new-house-name" placeholder="Nom (ex: LILLE)" class="flex-1 p-3 bg-gray-50 border rounded-xl font-bold text-sm">
                         <button onclick="addHouse()" class="bg-blue-900 text-white px-6 rounded-xl font-black">CRÉER</button>
                     </div>
                 </div>
@@ -41,21 +41,29 @@
             </section>
 
             <section>
-                <h2 class="text-xs font-black uppercase text-gray-400 mb-4 tracking-widest">2. Motifs de dépenses</h2>
-                <div class="bg-white p-6 rounded-3xl border shadow-sm mb-4">
-                    <div class="flex gap-2">
-                        <input type="text" id="new-motif-name" placeholder="Nouveau motif" class="flex-1 p-3 bg-gray-50 border rounded-xl font-bold text-sm">
-                        <button onclick="addMotif()" class="bg-blue-900 text-white px-6 rounded-xl font-black">+</button>
+                <h2 class="text-xs font-black uppercase text-gray-400 mb-4 tracking-widest">2. Gestion des Membres</h2>
+                <div class="bg-white p-6 rounded-3xl border shadow-sm mb-6">
+                    <div class="grid grid-cols-1 gap-4">
+                        <input type="text" id="new-user-id" placeholder="ID Supabase (copié depuis Auth)" class="p-3 bg-gray-50 border rounded-xl font-bold text-sm">
+                        <input type="text" id="new-user-name" placeholder="Prénom" class="p-3 bg-gray-50 border rounded-xl font-bold text-sm">
+                        <select id="new-user-role" class="p-3 bg-gray-50 border rounded-xl font-bold text-sm">
+                            <option value="user">Utilisateur simple</option>
+                            <option value="chef">Chef de maison</option>
+                        </select>
+                        <select id="new-user-house" class="p-3 bg-gray-50 border rounded-xl font-bold text-sm">
+                            </select>
+                        <button onclick="addUserProfile()" class="bg-blue-900 text-white py-4 rounded-xl font-black uppercase text-xs">Enregistrer le membre</button>
                     </div>
                 </div>
-                <div id="motifs-list" class="flex flex-wrap gap-2"></div>
+                <div id="users-list" class="space-y-3"></div>
             </section>
 
             <section>
-                <h2 class="text-xs font-black uppercase text-gray-400 mb-4 tracking-widest">3. Export Comptable</h2>
-                <div class="bg-white p-6 rounded-3xl border shadow-sm">
-                    <select id="export-house" class="w-full p-3 bg-gray-50 border rounded-xl font-bold text-sm mb-4"></select>
-                    <button onclick="exportData()" class="w-full bg-slate-800 text-white py-4 rounded-xl font-black uppercase text-xs">Générer l'export (CSV)</button>
+                <h2 class="text-xs font-black uppercase text-gray-400 mb-4 tracking-widest">3. Motifs</h2>
+                <div id="motifs-list" class="flex flex-wrap gap-2 mb-4"></div>
+                <div class="flex gap-2">
+                    <input type="text" id="new-motif-name" placeholder="Nouveau motif" class="flex-1 p-3 bg-white border rounded-xl font-bold text-sm">
+                    <button onclick="addMotif()" class="bg-blue-900 text-white px-6 rounded-xl font-black">+</button>
                 </div>
             </section>
 
@@ -76,7 +84,7 @@
                     document.getElementById('view-main').classList.remove('hidden');
                     refreshAll();
                 } else {
-                    alert("Accès réservé aux administrateurs.");
+                    alert("Accès refusé");
                     logout();
                 }
             }
@@ -85,15 +93,14 @@
         function refreshAll() {
             loadHouses();
             loadMotifs();
+            loadUsers();
         }
 
-        // --- GESTION MAISONS ---
         async function loadHouses() {
             const { data } = await sb.from('maisons').select('*').order('nom');
             const list = document.getElementById('houses-list');
-            const select = document.getElementById('export-house');
+            const select = document.getElementById('new-user-house');
             list.innerHTML = ""; select.innerHTML = "";
-            
             data.forEach(h => {
                 list.innerHTML += `<div class="bg-white p-4 rounded-2xl border flex justify-between items-center shadow-sm">
                     <span class="font-black text-sm uppercase">${h.nom}</span>
@@ -103,26 +110,52 @@
             });
         }
 
-        async function addHouse() {
-            const nom = document.getElementById('new-house-name').value.toUpperCase().trim();
-            if(!nom) return;
-            await sb.from('maisons').insert([{ nom }]);
-            document.getElementById('new-house-name').value = "";
-            loadHouses();
+        async function loadUsers() {
+            const { data } = await sb.from('profiles').select('*, maisons(nom)').neq('role', 'admin').order('prenom');
+            const list = document.getElementById('users-list');
+            list.innerHTML = "";
+            data.forEach(u => {
+                list.innerHTML += `<div class="bg-white p-4 rounded-2xl border flex justify-between items-center shadow-sm">
+                    <div>
+                        <div class="font-black text-sm">${u.prenom}</div>
+                        <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">${u.role} - ${u.maisons?.nom || 'Sans maison'}</div>
+                    </div>
+                    <button onclick="deleteUser('${u.id}')" class="text-red-400 text-[10px] font-bold font-black">VIRER</button>
+                </div>`;
+            });
         }
 
-       async function deleteHouse(id) {
-    if (confirm("Attention : Supprimer cette maison peut affecter les membres qui y sont liés. Continuer ?")) {
-        const { error } = await sb.from('maisons').delete().eq('id', id);
-        if (error) {
-            alert("Erreur de suppression : " + error.message);
-        } else {
-            loadHouses();
-        }
-    }
-}
+        async function addUserProfile() {
+            const id = document.getElementById('new-user-id').value.trim();
+            const prenom = document.getElementById('new-user-name').value.trim();
+            const role = document.getElementById('new-user-role').value;
+            const maison_id = document.getElementById('new-user-house').value;
 
-        // --- GESTION MOTIFS ---
+            if(!id || !prenom) return alert("Remplir l'ID et le Prénom");
+
+            const { error } = await sb.from('profiles').insert([{ id, prenom, role, maison_id, allocation: 0 }]);
+            
+            if(error) alert("Erreur : " + error.message);
+            else {
+                alert("Membre ajouté !");
+                refreshAll();
+            }
+        }
+
+        async function deleteHouse(id) {
+            if(confirm("Supprimer cette maison ?")) {
+                await sb.from('maisons').delete().eq('id', id);
+                refreshAll();
+            }
+        }
+
+        async function deleteUser(id) {
+            if(confirm("Supprimer ce profil membre ?")) {
+                await sb.from('profiles').delete().eq('id', id);
+                refreshAll();
+            }
+        }
+
         async function loadMotifs() {
             const { data } = await sb.from('motifs').select('*').order('nom');
             const list = document.getElementById('motifs-list');
@@ -143,23 +176,12 @@
         }
 
         async function deleteMotif(id) {
-    if (confirm("Supprimer ce motif ?")) {
-        const { error } = await sb.from('motifs').delete().eq('id', id);
-        if (error) {
-            alert("Erreur de suppression : " + error.message);
-        } else {
-            loadMotifs();
-        }
-    }
-}
-
-        // --- EXPORT (DÉBUT) ---
-        async function exportData() {
-            const houseId = document.getElementById('export-house').value;
-            alert("Fonction d'exportation en cours de développement pour l'étape suivante.");
+            if(confirm("Supprimer ?")) {
+                await sb.from('motifs').delete().eq('id', id);
+                loadMotifs();
+            }
         }
 
-        // --- AUTH ---
         async function handleLogin() {
             let u = document.getElementById('login-user').value.trim();
             const p = document.getElementById('login-pass').value;
@@ -168,9 +190,7 @@
             if(error) alert(error.message); else location.reload();
         }
         async function logout() { await sb.auth.signOut(); location.reload(); }
-        
         init();
     </script>
 </body>
 </html>
-
