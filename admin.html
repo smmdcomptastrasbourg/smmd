@@ -3,242 +3,210 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SMMD - Super Console Admin</title>
+    <title>SMMD - Console Administration</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="bg-slate-50 text-slate-900 font-sans">
 
-    <div id="view-login" class="flex flex-col items-center justify-center min-h-screen p-6">
-        <h1 class="text-4xl font-black italic mb-8 tracking-tighter text-blue-900">SMMD.</h1>
-        <div class="bg-white p-8 rounded-[40px] shadow-2xl w-full max-w-sm border border-gray-100">
-            <h2 class="text-center text-[10px] font-black uppercase tracking-[0.3em] mb-6 text-gray-400">Accès Administrateur</h2>
-            <input type="text" id="login-user" placeholder="Email Admin" class="w-full mb-4 p-4 bg-gray-100 rounded-2xl border-none font-bold">
-            <input type="password" id="login-pass" placeholder="Mot de passe" class="w-full mb-6 p-4 bg-gray-100 rounded-2xl border-none font-bold">
-            <button onclick="handleLogin()" class="w-full bg-blue-900 text-white font-black py-5 rounded-2xl uppercase tracking-widest hover:bg-blue-800 transition-all">Entrer dans la console</button>
+    <nav class="bg-white border-b p-6 flex justify-between items-center sticky top-0 z-50">
+        <div class="flex items-center gap-4">
+            <h1 class="text-2xl font-black italic tracking-tighter text-blue-900">SMMD. <span class="text-xs opacity-30 not-italic font-bold uppercase tracking-widest ml-2">Admin</span></h1>
         </div>
-    </div>
+        <button onclick="logout()" class="bg-red-50 text-red-600 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-100 transition-all">
+            Déconnexion
+        </button>
+    </nav>
 
-    <div id="view-main" class="hidden">
-        <header class="bg-white p-4 border-b flex justify-between items-center sticky top-0 z-50 shadow-sm">
-            <div class="flex items-center">
-                <span class="font-black italic text-2xl tracking-tighter">SMMD.</span>
-                <span class="text-[9px] bg-red-100 text-red-600 px-2 py-1 rounded-full ml-3 font-black uppercase tracking-widest">Super Admin</span>
-            </div>
-            <button onclick="logout()" class="text-[10px] font-black text-gray-400 border border-gray-200 px-4 py-2 rounded-xl uppercase hover:bg-red-50 hover:text-red-500 transition-all">Quitter</button>
-        </header>
+    <main class="p-6 max-w-5xl mx-auto space-y-8">
         
-        <main class="p-6 max-w-3xl mx-auto space-y-12 pb-32">
-            
-            <section class="bg-white p-8 rounded-[40px] shadow-sm border border-blue-100">
-                <h2 class="text-[11px] font-black uppercase text-blue-600 mb-6 tracking-[0.3em]">🚀 Création d'un nouveau membre</h2>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <input type="text" id="new-prenom" placeholder="Prénom" class="p-4 bg-gray-50 rounded-2xl font-bold border-none focus:ring-2 focus:ring-blue-500">
-                    <input type="text" id="new-nom" placeholder="NOM DE FAMILLE" class="p-4 bg-gray-50 rounded-2xl font-bold border-none uppercase focus:ring-2 focus:ring-blue-500">
-                    <input type="email" id="new-email" placeholder="Email (ex: pierre@smmd.fr)" class="sm:col-span-2 p-4 bg-gray-50 rounded-2xl font-bold border-none focus:ring-2 focus:ring-blue-500">
-                    <input type="text" id="new-password" placeholder="Mot de passe provisoire" class="sm:col-span-2 p-4 bg-gray-50 rounded-2xl font-bold border-none focus:ring-2 focus:ring-blue-500">
-                    
-                    <div>
-                        <label class="text-[9px] font-black uppercase text-gray-400 ml-2 mb-1 block">Rôle</label>
-                        <select id="new-role" class="w-full p-4 bg-gray-50 rounded-2xl font-bold border-none">
-                            <option value="user">👤 Utilisateur Simple</option>
-                            <option value="chef">🔑 Chef de Maison</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="text-[9px] font-black uppercase text-gray-400 ml-2 mb-1 block">Affectation</label>
-                        <select id="new-house" class="w-full p-4 bg-gray-50 rounded-2xl font-bold border-none"></select>
-                    </div>
-                </div>
-                <button onclick="createFullUser()" id="btn-create" class="w-full mt-8 bg-blue-900 text-white py-5 rounded-3xl font-black uppercase tracking-widest shadow-xl shadow-blue-100 active:scale-95 transition-all">
-                    Créer le compte et le profil
+        <section class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
+            <h2 class="text-[10px] font-black uppercase tracking-[0.3em] mb-6 text-blue-500">Ajouter un nouveau membre</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input type="text" id="new-nom" placeholder="NOM" class="p-4 bg-gray-50 rounded-2xl border-none font-bold uppercase">
+                <input type="text" id="new-prenom" placeholder="Prénom" class="p-4 bg-gray-50 rounded-2xl border-none font-bold">
+                <input type="text" id="new-user" placeholder="Identifiant (ex: guillaume.legall)" class="p-4 bg-gray-50 rounded-2xl border-none font-bold">
+                <input type="password" id="new-pass" placeholder="Mot de passe" class="p-4 bg-gray-50 rounded-2xl border-none font-bold">
+                <select id="new-maison" class="p-4 bg-gray-50 rounded-2xl border-none font-bold text-gray-500"></select>
+                <button onclick="createUser()" id="btn-create" class="bg-blue-900 text-white font-black py-4 rounded-2xl uppercase tracking-widest hover:bg-blue-800 transition-all">
+                    Créer le compte
                 </button>
-            </section>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <section>
-                    <h2 class="text-[10px] font-black uppercase text-gray-400 mb-4 tracking-[0.2em]">🏠 Maisons</h2>
-                    <div class="bg-white p-6 rounded-3xl border shadow-sm mb-4">
-                        <div class="flex gap-2">
-                            <input type="text" id="new-house-name" placeholder="NOM (ex: PARIS)" class="flex-1 p-3 bg-gray-50 border-none rounded-xl font-bold text-sm uppercase">
-                            <button onclick="addHouse()" class="bg-slate-800 text-white px-4 rounded-xl font-black">+</button>
-                        </div>
-                    </div>
-                    <div id="houses-list" class="space-y-2"></div>
-                </section>
-
-                <section>
-                    <h2 class="text-[10px] font-black uppercase text-gray-400 mb-4 tracking-[0.2em]">🏷️ Motifs</h2>
-                    <div class="bg-white p-6 rounded-3xl border shadow-sm mb-4">
-                        <div class="flex gap-2">
-                            <input type="text" id="new-motif-name" placeholder="Ex: Essence" class="flex-1 p-3 bg-gray-50 border-none rounded-xl font-bold text-sm">
-                            <button onclick="addMotif()" class="bg-slate-800 text-white px-4 rounded-xl font-black">+</button>
-                        </div>
-                    </div>
-                    <div id="motifs-list" class="flex flex-wrap gap-2"></div>
-                </section>
             </div>
+        </section>
 
-            <section>
-                <h2 class="text-[10px] font-black uppercase text-gray-400 mb-4 tracking-[0.2em]">👥 Membres & Exports</h2>
-                <div class="bg-slate-900 p-6 rounded-[30px] mb-6 flex flex-col sm:flex-row gap-4 items-center justify-between">
-                    <div class="text-white text-sm font-bold">Exporter la compta de :</div>
-                    <select id="export-house-select" class="bg-slate-800 text-white p-3 rounded-xl border-none font-bold text-sm w-full sm:w-auto"></select>
-                    <button onclick="exportData()" class="bg-white text-slate-900 px-6 py-3 rounded-xl font-black text-[10px] uppercase w-full sm:w-auto">Télécharger CSV</button>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <section class="bg-white p-6 rounded-[35px] border border-gray-100">
+                <h3 class="text-[10px] font-black uppercase tracking-[0.3em] mb-4 text-gray-400">Maisons</h3>
+                <div class="flex gap-2 mb-4">
+                    <input type="text" id="add-maison-nom" placeholder="Nom de la maison" class="flex-1 p-3 bg-gray-50 rounded-xl border-none font-bold text-sm">
+                    <button onclick="addMaison()" class="bg-blue-100 text-blue-900 px-4 rounded-xl font-black">+</button>
                 </div>
-                <div id="users-list" class="space-y-3"></div>
+                <div id="list-maisons" class="space-y-2 max-h-48 overflow-y-auto"></div>
             </section>
 
-        </main>
-    </div>
+            <section class="bg-white p-6 rounded-[35px] border border-gray-100">
+                <h3 class="text-[10px] font-black uppercase tracking-[0.3em] mb-4 text-gray-400">Motifs de dépense</h3>
+                <div class="flex gap-2 mb-4">
+                    <input type="text" id="add-motif-nom" placeholder="Nouveau motif" class="flex-1 p-3 bg-gray-50 rounded-xl border-none font-bold text-sm">
+                    <button onclick="addMotif()" class="bg-blue-100 text-blue-900 px-4 rounded-xl font-black">+</button>
+                </div>
+                <div id="list-motifs" class="space-y-2 max-h-48 overflow-y-auto"></div>
+            </section>
+        </div>
+
+        <section class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500">Comptes actifs</h2>
+                <button onclick="exportData()" class="text-[9px] font-black uppercase bg-emerald-50 text-emerald-600 px-4 py-2 rounded-lg hover:bg-emerald-100">
+                    Exporter CSV (Comptabilité)
+                </button>
+            </div>
+            <div id="list-users" class="space-y-3">
+                </div>
+        </section>
+
+    </main>
 
     <script>
         const SUPABASE_URL = "https://xccnnckuphxloxfrqtkf.supabase.co";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjY25uY2t1cGh4bG94ZnJxdGtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODA3NjEsImV4cCI6MjA4Mjc1Njc2MX0.1mIEhKfS5OSsaw78f1_Iatni39y8CoIurAd5IXP6n6g";
         const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        async function init() {
+        // VÉRIFICATION SÉCURITÉ : Admin seulement
+        async function checkAdmin() {
             const { data: { user } } = await sb.auth.getUser();
-            if (user) {
-                const { data: p } = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
-                if (p && p.role === 'admin') {
-                    document.getElementById('view-login').classList.add('hidden');
-                    document.getElementById('view-main').classList.remove('hidden');
-                    refreshAll();
-                } else { logout(); }
+            if (!user) { window.location.href = "index.html"; return; }
+            
+            const { data: profile } = await sb.from('profiles').select('role').eq('id', user.id).single();
+            if (!profile || profile.role !== 'admin') {
+                window.location.href = "index.html";
+            } else {
+                init();
             }
         }
 
-        function refreshAll() { loadHouses(); loadMotifs(); loadUsers(); }
+        async function init() {
+            loadMaisons();
+            loadMotifs();
+            loadUsers();
+        }
 
-        // --- CRÉATION UTILISATEUR VIA RPC (FONCTION SQL) ---
-        async function createFullUser() {
+        // --- GESTION UTILISATEURS ---
+        async function createUser() {
+            const email = document.getElementById('new-user').value.trim().toLowerCase() + "@smmd.fr";
+            const pass = document.getElementById('new-pass').value;
+            const nom = document.getElementById('new-nom').value.trim().toUpperCase();
+            const prenom = document.getElementById('new-prenom').value.trim();
+            const maisonId = document.getElementById('new-maison').value;
+
+            if (!email || !pass || !maisonId) return alert("Champs obligatoires manquants");
+
             const btn = document.getElementById('btn-create');
-            const params = {
-                email_input: document.getElementById('new-email').value.trim(),
-                password_input: document.getElementById('new-password').value,
-                prenom_input: document.getElementById('new-prenom').value.trim(),
-                nom_input: document.getElementById('new-nom').value.trim(),
-                role_input: document.getElementById('new-role').value,
-                maison_id_input: document.getElementById('new-house').value
-            };
-
-            if(!params.email_input || !params.password_input || !params.nom_input) return alert("Veuillez remplir tous les champs.");
-
-            btn.innerText = "CRÉATION EN COURS...";
             btn.disabled = true;
 
-            const { data, error } = await sb.rpc('create_user_admin', params);
+            // Appel de la fonction de création (Nécessite que ton Supabase soit configuré ou utilisation de signUp)
+            const { data, error } = await sb.auth.signUp({ email, password: pass });
 
-            if (error) {
-                alert("Erreur technique: " + error.message);
-            } else if (data.status === 'error') {
-                alert("Erreur base de données: " + data.message);
-            } else {
-                alert("Compte de " + params.prenom_input + " créé avec succès !");
-                refreshAll();
-                // Reset formulaire
-                document.getElementById('new-email').value = "";
-                document.getElementById('new-password').value = "";
-                document.getElementById('new-prenom').value = "";
-                document.getElementById('new-nom').value = "";
+            if (error) alert("Erreur Auth: " + error.message);
+            else {
+                await sb.from('profiles').insert([{
+                    id: data.user.id,
+                    nom, prenom,
+                    role: 'user',
+                    maison_id: maisonId,
+                    allocation: 0
+                }]);
+                alert("Compte créé avec succès pour " + prenom);
+                location.reload();
             }
             btn.disabled = false;
-            btn.innerText = "Créer le compte et le profil";
-        }
-
-        // --- GESTION DONNÉES ---
-        async function loadHouses() {
-            const { data } = await sb.from('maisons').select('*').order('nom');
-            const list = document.getElementById('houses-list');
-            const selects = [document.getElementById('new-house'), document.getElementById('export-house-select')];
-            list.innerHTML = ""; 
-            selects.forEach(s => s.innerHTML = "");
-
-            data.forEach(h => {
-                list.innerHTML += `<div class="bg-white p-4 rounded-2xl border flex justify-between items-center shadow-sm">
-                    <span class="font-black text-xs uppercase tracking-tighter">${h.nom}</span>
-                    <button onclick="deleteHouse('${h.id}')" class="text-red-400 text-[9px] font-black border border-red-50 px-2 py-1 rounded-lg">Suppr.</button>
-                </div>`;
-                selects.forEach(s => s.innerHTML += `<option value="${h.id}">${h.nom}</option>`);
-            });
         }
 
         async function loadUsers() {
             const { data } = await sb.from('profiles').select('*, maisons(nom)').neq('role', 'admin').order('nom');
-            const list = document.getElementById('users-list');
+            const list = document.getElementById('list-users');
             list.innerHTML = "";
             data.forEach(u => {
-                const icon = u.role === 'chef' ? '🔑' : '👤';
-                list.innerHTML += `<div class="bg-white p-5 rounded-3xl border flex justify-between items-center shadow-sm transition-all hover:border-blue-200">
-                    <div>
-                        <div class="font-black text-sm uppercase">${u.nom} <span class="font-bold normal-case text-gray-500">${u.prenom}</span></div>
-                        <div class="text-[9px] font-black text-blue-500 uppercase tracking-widest mt-1">${icon} ${u.role} — ${u.maisons?.nom || 'AUCUNE'}</div>
+                list.innerHTML += `
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                        <div>
+                            <p class="font-black text-sm uppercase">${u.nom} ${u.prenom}</p>
+                            <p class="text-[9px] font-bold text-blue-500 uppercase tracking-widest">${u.maisons.nom}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-black text-lg">${u.allocation.toFixed(2)}€</p>
+                        </div>
                     </div>
-                    <button onclick="deleteUser('${u.id}')" class="text-red-500 font-black text-[9px] bg-red-50 px-3 py-2 rounded-xl">VIRER</button>
-                </div>`;
+                `;
             });
         }
 
-        async function loadMotifs() {
-            const { data } = await sb.from('motifs').select('*').order('nom');
-            const list = document.getElementById('motifs-list');
+        // --- GESTION MAISONS ---
+        async function loadMaisons() {
+            const { data } = await sb.from('maisons').select('*').order('nom');
+            const select = document.getElementById('new-maison');
+            const list = document.getElementById('list-maisons');
+            select.innerHTML = '<option value="">Choisir une maison</option>';
             list.innerHTML = "";
             data.forEach(m => {
-                list.innerHTML += `<span class="bg-white px-3 py-2 rounded-xl border text-[10px] font-black uppercase flex items-center gap-2 shadow-sm">
-                    ${m.nom} <button onclick="deleteMotif('${m.id}')" class="text-red-500 text-lg">&times;</button>
-                </span>`;
+                select.innerHTML += `<option value="${m.id}">${m.nom}</option>`;
+                list.innerHTML += `<div class="p-3 bg-gray-50 rounded-xl font-bold text-xs border border-gray-100 flex justify-between"><span>${m.nom}</span></div>`;
             });
+        }
+
+        async function addMaison() {
+            const nom = document.getElementById('add-maison-nom').value.trim();
+            if (nom) {
+                await sb.from('maisons').insert([{ nom }]);
+                location.reload();
+            }
+        }
+
+        // --- GESTION MOTIFS ---
+        async function loadMotifs() {
+            const { data } = await sb.from('motifs').select('*').order('nom');
+            const list = document.getElementById('list-motifs');
+            list.innerHTML = "";
+            data.forEach(m => {
+                list.innerHTML += `<div class="p-3 bg-gray-50 rounded-xl font-bold text-xs border border-gray-100 flex justify-between"><span>${m.nom}</span></div>`;
+            });
+        }
+
+        async function addMotif() {
+            const nom = document.getElementById('add-motif-nom').value.trim();
+            if (nom) {
+                await sb.from('motifs').insert([{ nom }]);
+                location.reload();
+            }
         }
 
         // --- EXPORT CSV ---
         async function exportData() {
-            const houseId = document.getElementById('export-house-select').value;
-            const houseName = document.getElementById('export-house-select').options[document.getElementById('export-house-select').selectedIndex].text;
-            const { data: trans } = await sb.from('transactions').select('*, profiles(nom, prenom)').eq('maison_id', houseId);
-            
-            if(!trans || trans.length === 0) return alert("Aucune dépense enregistrée pour cette maison.");
-
-            let csv = "Date;Membre;Motif;Type;Montant\n";
-            trans.forEach(t => {
-                csv += `${new Date(t.created_at).toLocaleDateString()};${t.profiles.nom} ${t.profiles.prenom};${t.motif};${t.type};${t.montant.toFixed(2)}€\n`;
+            const { data } = await sb.from('transactions').select('*, profiles(nom, prenom), maisons(nom)');
+            let csv = "Date;Membre;Maison;Motif;Montant;Type\n";
+            data.forEach(t => {
+                const d = new Date(t.created_at).toLocaleDateString();
+                csv += `${d};${t.profiles.nom} ${t.profiles.prenom};${t.maisons.nom};${t.motif};${t.montant};${t.type}\n`;
             });
-
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const blob = new Blob([csv], { type: 'text/csv' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url;
-            a.download = `COMPTA_${houseName}_2026.csv`;
+            a.setAttribute('hidden', '');
+            a.setAttribute('href', url);
+            a.setAttribute('download', 'compta_smmd.csv');
+            document.body.appendChild(a);
             a.click();
+            document.body.removeChild(a);
         }
 
-        // --- ACTIONS BASIQUES ---
-        async function addHouse() {
-            const nom = document.getElementById('new-house-name').value.toUpperCase().trim();
-            if(nom) { await sb.from('maisons').insert([{ nom }]); document.getElementById('new-house-name').value = ""; refreshAll(); }
-        }
-        async function addMotif() {
-            const nom = document.getElementById('new-motif-name').value.trim();
-            if(nom) { await sb.from('motifs').insert([{ nom }]); document.getElementById('new-motif-name').value = ""; refreshAll(); }
-        }
-        async function deleteHouse(id) { if(confirm("Supprimer cette maison ?")) { await sb.from('maisons').delete().eq('id', id); refreshAll(); } }
-        async function deleteUser(id) { if(confirm("Supprimer ce membre définitivement ?")) { await sb.from('profiles').delete().eq('id', id); refreshAll(); } }
-        async function deleteMotif(id) { if(confirm("Supprimer ?")) { await sb.from('motifs').delete().eq('id', id); refreshAll(); } }
-        
-        async function handleLogin() {
-            let u = document.getElementById('login-user').value.trim();
-            const p = document.getElementById('login-pass').value;
-            if(!u.includes('@')) u += "@smmd.fr";
-            const { error } = await sb.auth.signInWithPassword({ email: u, password: p });
-            if(error) alert("Erreur d'identifiant admin."); else location.reload();
-        }
+        // --- DÉCONNEXION ---
         function logout() {
-    sb.auth.signOut().then(() => {
-        // Force le retour vers la page d'accueil (index.html)
-        window.location.href = "index.html"; 
-    });
-}
+            sb.auth.signOut().then(() => {
+                window.location.href = "index.html"; 
+            });
+        }
+
+        checkAdmin();
     </script>
 </body>
 </html>
-
