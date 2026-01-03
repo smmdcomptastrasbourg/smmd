@@ -21,14 +21,14 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <input type="text" id="new-nom" placeholder="NOM" class="p-4 bg-gray-50 rounded-2xl border-none font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500">
                 <input type="text" id="new-prenom" placeholder="Prénom" class="p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500">
-                <input type="text" id="new-user" placeholder="Identifiant" class="p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="text" id="new-user" placeholder="Identifiant (ex: g.legall)" class="p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500">
                 <input type="password" id="new-pass" placeholder="Mot de passe" class="p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500">
-                <select id="new-maison" class="p-4 bg-gray-50 rounded-2xl border-none font-bold text-gray-500"></select>
-                <select id="new-role" class="p-4 bg-gray-50 rounded-2xl border-none font-bold text-gray-500">
+                <select id="new-maison" class="p-4 bg-gray-50 rounded-2xl border-none font-bold text-gray-500 outline-none"></select>
+                <select id="new-role" class="p-4 bg-gray-50 rounded-2xl border-none font-bold text-gray-500 outline-none">
                     <option value="user">Membre (User)</option>
                     <option value="chef">Chef de Maison</option>
                 </select>
-                <button onclick="createUser()" class="md:col-span-3 bg-blue-900 text-white font-black py-4 rounded-2xl uppercase tracking-widest hover:bg-blue-800 shadow-lg">Créer le compte</button>
+                <button onclick="createUser()" class="md:col-span-3 bg-blue-900 text-white font-black py-4 rounded-2xl uppercase tracking-widest hover:bg-blue-800 shadow-lg transition-all">Créer le compte et le profil</button>
             </div>
         </section>
 
@@ -37,28 +37,28 @@
                 <h3 class="text-[10px] font-black uppercase tracking-[0.3em] mb-4 text-gray-400">Maisons</h3>
                 <div class="flex gap-2 mb-4">
                     <input type="text" id="add-maison-nom" placeholder="Nom maison" class="flex-1 p-3 bg-gray-50 rounded-xl border-none font-bold text-sm">
-                    <button onclick="addMaison()" class="bg-blue-100 text-blue-900 px-4 rounded-xl font-black">+</button>
+                    <button onclick="addMaison()" class="bg-blue-100 text-blue-900 px-4 rounded-xl font-black hover:bg-blue-200">+</button>
                 </div>
-                <div id="list-maisons" class="space-y-2"></div>
+                <div id="list-maisons" class="space-y-2 max-h-60 overflow-y-auto"></div>
             </div>
             <div class="bg-white p-6 rounded-[35px] border border-gray-100">
-                <h3 class="text-[10px] font-black uppercase tracking-[0.3em] mb-4 text-gray-400">Motifs</h3>
+                <h3 class="text-[10px] font-black uppercase tracking-[0.3em] mb-4 text-gray-400">Motifs de Dépenses</h3>
                 <div class="flex gap-2 mb-4">
                     <input type="text" id="add-motif-nom" placeholder="Nom motif" class="flex-1 p-3 bg-gray-50 rounded-xl border-none font-bold text-sm">
-                    <button onclick="addMotif()" class="bg-blue-100 text-blue-900 px-4 rounded-xl font-black">+</button>
+                    <button onclick="addMotif()" class="bg-blue-100 text-blue-900 px-4 rounded-xl font-black hover:bg-blue-200">+</button>
                 </div>
-                <div id="list-motifs" class="space-y-2"></div>
+                <div id="list-motifs" class="space-y-2 max-h-60 overflow-y-auto"></div>
             </div>
         </div>
 
         <section class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-            <h2 class="text-[10px] font-black uppercase tracking-[0.3em] mb-6 text-blue-500">Membres Actifs</h2>
+            <h2 class="text-[10px] font-black uppercase tracking-[0.3em] mb-6 text-blue-500">Gestion des Membres</h2>
             <div class="overflow-x-auto">
                 <table class="w-full text-left">
                     <thead>
                         <tr class="text-[9px] font-black text-gray-300 uppercase tracking-widest border-b">
                             <th class="pb-4">Membre</th>
-                            <th class="pb-4">Maison</th>
+                            <th class="pb-4">Maison Actuelle</th>
                             <th class="pb-4 text-right">Actions</th>
                         </tr>
                     </thead>
@@ -67,17 +67,17 @@
             </div>
         </section>
 
-        <section class="bg-white p-8 rounded-[40px] shadow-sm border-t-4 border-t-emerald-500">
+        <section class="bg-white p-8 rounded-[40px] shadow-xl border-t-4 border-t-emerald-500">
             <h2 class="text-[10px] font-black uppercase tracking-[0.3em] mb-6 text-emerald-600">Export Comptable</h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <select id="export-maison" class="p-4 bg-gray-50 rounded-2xl border-none font-bold text-gray-500"></select>
-                <select id="export-month" class="p-4 bg-gray-50 rounded-2xl border-none font-bold text-gray-500">
+                <select id="export-maison" class="p-4 bg-gray-50 rounded-2xl border-none font-bold text-gray-500 outline-none"></select>
+                <select id="export-month" class="p-4 bg-gray-50 rounded-2xl border-none font-bold text-gray-500 outline-none">
                     <option value="01">Janvier</option><option value="02">Février</option><option value="03">Mars</option>
                     <option value="04">Avril</option><option value="05">Mai</option><option value="06">Juin</option>
                     <option value="07">Juillet</option><option value="08">Août</option><option value="09">Septembre</option>
                     <option value="10">Octobre</option><option value="11">Novembre</option><option value="12">Décembre</option>
                 </select>
-                <button onclick="exportData()" class="bg-emerald-500 text-white font-black py-4 rounded-2xl uppercase tracking-widest shadow-md">Générer CSV</button>
+                <button onclick="exportData()" class="bg-emerald-500 text-white font-black py-4 rounded-2xl uppercase tracking-widest hover:bg-emerald-600 shadow-md transition-all">Télécharger CSV</button>
             </div>
         </section>
     </main>
@@ -90,7 +90,7 @@
         let maisonsGlobal = [];
 
         async function init() {
-            await loadMaisons();
+            await loadMaisons(); // Important : charger les maisons avant les users
             loadMotifs();
             loadUsers();
             document.getElementById('export-month').value = String(new Date().getMonth() + 1).padStart(2, '0');
@@ -106,10 +106,17 @@
             const maisonId = document.getElementById('new-maison').value;
             const role = document.getElementById('new-role').value;
 
+            if(!maisonId) return alert("Veuillez sélectionner une maison.");
+
             const { data, error } = await sb.auth.signUp({ email, password: pass });
             if (error) return alert(error.message);
-            await sb.from('profiles').insert([{ id: data.user.id, nom, prenom, role, maison_id: maisonId, allocation: 0, allocation_mensuelle: 0 }]);
-            location.reload();
+
+            const { error: profError } = await sb.from('profiles').insert([{ 
+                id: data.user.id, nom, prenom, role, maison_id: maisonId, allocation: 0, allocation_mensuelle: 0 
+            }]);
+
+            if (profError) alert("Auth OK mais Profil erreur: " + profError.message);
+            else { alert("Membre créé avec succès !"); location.reload(); }
         }
 
         async function loadUsers() {
@@ -117,27 +124,37 @@
             const tbody = document.getElementById('list-users-table');
             tbody.innerHTML = data.map(u => `
                 <tr class="text-sm">
-                    <td class="py-4">
-                        <span class="font-black uppercase text-xs">${u.nom} ${u.prenom}</span><br>
-                        <span class="text-[8px] font-bold text-blue-500 uppercase tracking-widest">${u.role}</span>
-                    </td>
+                    <td class="py-4 font-black uppercase text-xs">${u.nom} ${u.prenom} <br><span class="text-[8px] text-blue-500 font-bold tracking-widest">${u.role}</span></td>
                     <td class="py-4 font-bold text-gray-400 text-[10px] uppercase">${u.maisons ? u.maisons.nom : 'Admin'}</td>
-                    <td class="py-4 text-right space-x-3">
-                        <button onclick="editMember('${u.id}', '${u.nom}', '${u.prenom}', '${u.role}', '${u.maison_id}')" class="text-blue-500 font-bold text-[10px] uppercase hover:underline">Modifier</button>
-                        <button onclick="alert('Utilisez le SQL Editor pour supprimer l Auth')" class="text-red-300 font-bold text-[10px] uppercase">Suppr.</button>
+                    <td class="py-4 text-right">
+                        <button onclick="editMember('${u.id}', '${u.nom}', '${u.prenom}', '${u.role}', '${u.maison_id}')" class="bg-blue-50 text-blue-600 px-3 py-1 rounded-lg font-bold text-[9px] uppercase hover:bg-blue-100">Modifier</button>
                     </td>
                 </tr>
             `).join('');
         }
 
-        async function editMember(id, nom, prenom, role, maisonId) {
-            const newNom = prompt("Nouveau NOM :", nom);
-            const newPrenom = prompt("Nouveau Prénom :", prenom);
-            const newRole = prompt("Nouveau Rôle (user ou chef) :", role);
-            if(newNom && newPrenom) {
-                await sb.from('profiles').update({ nom: newNom.toUpperCase(), prenom: newPrenom, role: newRole }).eq('id', id);
-                loadUsers();
+        async function editMember(id, oldNom, oldPrenom, oldRole, oldMaisonId) {
+            const newNom = prompt("Modifier le NOM (actuel: " + oldNom + ") :", oldNom);
+            const newPrenom = prompt("Modifier le Prénom :", oldPrenom);
+            const newRole = prompt("Modifier le Rôle (user ou chef) :", oldRole);
+            
+            // Proposer le choix de maison
+            const listM = maisonsGlobal.map((m, i) => `${i+1}. ${m.nom}`).join('\n');
+            const choice = prompt("Choisir une nouvelle maison (tapez le chiffre) :\n" + listM);
+            
+            let updateData = { 
+                nom: (newNom || oldNom).toUpperCase(), 
+                prenom: newPrenom || oldPrenom, 
+                role: newRole || oldRole 
+            };
+
+            if (choice && !isNaN(choice)) {
+                const idx = parseInt(choice) - 1;
+                if(maisonsGlobal[idx]) updateData.maison_id = maisonsGlobal[idx].id;
             }
+
+            const { error } = await sb.from('profiles').update(updateData).eq('id', id);
+            if (error) alert(error.message); else loadUsers();
         }
 
         // --- CRUD MAISONS ---
@@ -148,20 +165,23 @@
                 <div class="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
                     <span class="font-bold text-xs uppercase">${m.nom}</span>
                     <div class="space-x-2">
-                        <button onclick="updateMaison('${m.id}', '${m.nom}')" class="text-blue-400 text-[10px] font-bold">ÉDITER</button>
+                        <button onclick="updateMaison('${m.id}', '${m.nom}')" class="text-blue-500 text-[9px] font-black uppercase">Éditer</button>
                         <button onclick="deleteMaison('${m.id}')" class="text-red-300 font-black">×</button>
                     </div>
                 </div>`).join('');
-            document.getElementById('new-maison').innerHTML = data.map(m => `<option value="${m.id}">${m.nom}</option>`).join('');
-            document.getElementById('export-maison').innerHTML = '<option value="all">Toutes Maisons</option>' + data.map(m => `<option value="${m.id}">${m.nom}</option>`).join('');
+            
+            const options = data.map(m => `<option value="${m.id}">${m.nom}</option>`).join('');
+            document.getElementById('new-maison').innerHTML = '<option value="">Choisir Maison</option>' + options;
+            document.getElementById('export-maison').innerHTML = '<option value="all">Toutes les maisons</option>' + options;
         }
-        async function updateMaison(id, ancienNom) {
-            const nouveau = prompt("Nouveau nom de la maison :", ancienNom);
-            if(nouveau) { await sb.from('maisons').update({ nom: nouveau }).eq('id', id); loadMaisons(); }
+
+        async function updateMaison(id, old) {
+            const n = prompt("Renommer la maison :", old);
+            if(n) { await sb.from('maisons').update({ nom: n }).eq('id', id); loadMaisons(); }
         }
         async function addMaison() {
-            const nom = document.getElementById('add-maison-nom').value.trim();
-            if(nom) { await sb.from('maisons').insert([{nom}]); loadMaisons(); }
+            const n = document.getElementById('add-maison-nom').value.trim();
+            if(n) { await sb.from('maisons').insert([{ nom: n }]); loadMaisons(); }
         }
         async function deleteMaison(id) {
             if(confirm("Supprimer cette maison ?")) { await sb.from('maisons').delete().eq('id', id); loadMaisons(); }
@@ -174,37 +194,50 @@
                 <div class="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
                     <span class="font-bold text-xs uppercase">${m.nom}</span>
                     <div class="space-x-2">
-                        <button onclick="updateMotif('${m.id}', '${m.nom}')" class="text-blue-400 text-[10px] font-bold">ÉDITER</button>
+                        <button onclick="updateMotif('${m.id}', '${m.nom}')" class="text-blue-500 text-[9px] font-black uppercase">Éditer</button>
                         <button onclick="deleteMotif('${m.id}')" class="text-red-300 font-black">×</button>
                     </div>
                 </div>`).join('');
         }
-        async function updateMotif(id, ancienNom) {
-            const nouveau = prompt("Nouveau nom du motif :", ancienNom);
-            if(nouveau) { await sb.from('motifs').update({ nom: nouveau }).eq('id', id); loadMotifs(); }
+        async function updateMotif(id, old) {
+            const n = prompt("Renommer le motif :", old);
+            if(n) { await sb.from('motifs').update({ nom: n }).eq('id', id); loadMotifs(); }
         }
         async function addMotif() {
-            const nom = document.getElementById('add-motif-nom').value.trim();
-            if(nom) { await sb.from('motifs').insert([{nom}]); loadMotifs(); }
+            const n = document.getElementById('add-motif-nom').value.trim();
+            if(n) { await sb.from('motifs').insert([{ nom: n }]); loadMotifs(); }
         }
         async function deleteMotif(id) {
             if(confirm("Supprimer ce motif ?")) { await sb.from('motifs').delete().eq('id', id); loadMotifs(); }
         }
 
-        // --- EXPORT ---
+        // --- EXPORT COMPTABLE ---
         async function exportData() {
-            const m = document.getElementById('export-month').value;
-            const h = document.getElementById('export-maison').value;
+            const month = document.getElementById('export-month').value;
+            const maison = document.getElementById('export-maison').value;
+            
             let query = sb.from('transactions').select('*, profiles(nom, prenom), maisons(nom)');
-            if(h !== 'all') query = query.eq('maison_id', h);
-            const { data } = await query;
-            const filtered = data.filter(t => String(new Date(t.created_at).getMonth() + 1).padStart(2, '0') === m);
-            if(filtered.length === 0) return alert("Rien à exporter.");
-            let csv = "Date;Membre;Maison;Motif;Montant\n";
-            filtered.forEach(t => { csv += `${new Date(t.created_at).toLocaleDateString()};${t.profiles.nom} ${t.profiles.prenom};${t.maisons.nom};${t.motif};${t.montant}\n`; });
-            const blob = new Blob([csv], { type: 'text/csv' });
+            if(maison !== 'all') query = query.eq('maison_id', maison);
+
+            const { data, error } = await query;
+            if(error) return alert("Erreur export.");
+
+            const filtered = data.filter(t => String(new Date(t.created_at).getMonth() + 1).padStart(2, '0') === month);
+            if(filtered.length === 0) return alert("Aucune donnée pour ce mois.");
+
+            let csv = "Date;Membre;Maison;Motif;Montant;Type\n";
+            filtered.forEach(t => {
+                const d = new Date(t.created_at).toLocaleDateString();
+                const m = t.profiles ? `${t.profiles.nom} ${t.profiles.prenom}` : "Inconnu";
+                csv += `${d};${m};${t.maisons ? t.maisons.nom : '-'};${t.motif};${t.montant};${t.type}\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = `SMMD_Export_${m}.csv`; a.click();
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `SMMD_Export_${month}.csv`;
+            a.click();
         }
 
         function logout() { sb.auth.signOut().then(() => location.href="index.html"); }
