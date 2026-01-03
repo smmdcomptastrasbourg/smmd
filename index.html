@@ -128,19 +128,46 @@
         let uProfile = null, tType = 'depense', tMoyen = 'CB Maison', tSub = '', tMotif = '';
 
         async function init() {
-            const { data: { user } } = await sb.auth.getUser();
-            if(!user) { showV('view-login'); hideL(); return; }
-            const { data: p } = await sb.from('profiles').select('*, maisons(*)').eq('id', user.id).single();
-            uProfile = p;
-            setupUI();
-            hideL();
-        }
-
-        function setupUI() {
-    if (!uProfile) {
-        alert("Erreur : Profil introuvable. Vérifiez la table profiles.");
+    const { data: { user }, error: authError } = await sb.auth.getUser();
+    
+    if (authError || !user) {
+        showV('view-login');
+        hideL();
         return;
     }
+
+    // Récupération simplifiée pour éviter l'erreur 400
+    // On essaie de récupérer le profil ET la maison
+    const { data: p, error: profileError } = await sb
+        .from('profiles')
+        .select(`
+            *,
+            maisons!inner (
+                id,
+                nom
+            )
+        `)
+        .eq('id', user.id)
+        .maybeSingle();
+
+    if (profileError || !p) {
+        console.error("Erreur Profil ou Relation:", profileError);
+        // Tentative de secours sans la jointure si la jointure échoue
+        const { data: simpleP } = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
+        
+        if (!simpleP) {
+            alert("Profil introuvable. Exécutez le script SQL de création de profil.");
+            hideL();
+            return;
+        }
+        uProfile = simpleP;
+    } else {
+        uProfile = p;
+    }
+
+    setupUI();
+    hideL();
+}
     
     showV('view-main');
     document.getElementById('global-header').classList.remove('hidden');
@@ -276,4 +303,5 @@
     </script>
 </body>
 </html>
+
 
