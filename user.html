@@ -201,8 +201,12 @@
             else location.reload();
         }
 
-        function logout() { sb.auth.signOut(); location.reload(); }
-        init();
+        function logout() {
+    sb.auth.signOut().then(() => {
+        // Force le retour vers la page d'accueil (index.html)
+        window.location.href = "index.html"; 
+    });
+}
     </script>
 </body>
 </html>
