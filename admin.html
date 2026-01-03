@@ -3,86 +3,83 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SMMD - Console Administration</title>
+    <title>SMMD - Master Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body class="bg-slate-50 text-slate-900 font-sans">
+<body class="bg-slate-50 text-slate-900 font-sans pb-20">
 
     <nav class="bg-white border-b p-6 flex justify-between items-center sticky top-0 z-50">
-        <h1 class="text-2xl font-black italic tracking-tighter text-blue-900">SMMD. <span class="text-xs opacity-30 not-italic font-bold uppercase tracking-widest ml-2">Admin</span></h1>
-        <button onclick="logout()" class="bg-red-50 text-red-600 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-100 transition-all">
-            Déconnexion
-        </button>
+        <h1 class="text-2xl font-black italic tracking-tighter text-blue-900">SMMD. <span class="text-xs opacity-30 not-italic font-bold uppercase tracking-widest ml-2">Console Master</span></h1>
+        <button onclick="logout()" class="bg-red-50 text-red-600 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-100 transition-all">Déconnexion</button>
     </nav>
 
-    <main class="p-6 max-w-6xl mx-auto space-y-8">
+    <main class="p-6 max-w-6xl mx-auto space-y-10">
         
         <section class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-            <h2 class="text-[10px] font-black uppercase tracking-[0.3em] mb-6 text-blue-500">Nouveau Membre</h2>
+            <h2 class="text-[10px] font-black uppercase tracking-[0.3em] mb-6 text-blue-500">Ajouter un Membre</h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <input type="text" id="new-nom" placeholder="NOM" class="p-4 bg-gray-50 rounded-2xl border-none font-bold uppercase">
-                <input type="text" id="new-prenom" placeholder="Prénom" class="p-4 bg-gray-50 rounded-2xl border-none font-bold">
-                <input type="text" id="new-user" placeholder="Identifiant (ex: g.legall)" class="p-4 bg-gray-50 rounded-2xl border-none font-bold">
-                <input type="password" id="new-pass" placeholder="Mot de passe" class="p-4 bg-gray-50 rounded-2xl border-none font-bold">
-                
-                <select id="new-maison" class="p-4 bg-gray-50 rounded-2xl border-none font-bold text-gray-500 outline-none"></select>
-                
-                <select id="new-role" class="p-4 bg-gray-50 rounded-2xl border-none font-bold text-gray-500 outline-none">
+                <input type="text" id="new-nom" placeholder="NOM" class="p-4 bg-gray-50 rounded-2xl border-none font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="text" id="new-prenom" placeholder="Prénom" class="p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="text" id="new-user" placeholder="Identifiant" class="p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="password" id="new-pass" placeholder="Mot de passe" class="p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500">
+                <select id="new-maison" class="p-4 bg-gray-50 rounded-2xl border-none font-bold text-gray-500"></select>
+                <select id="new-role" class="p-4 bg-gray-50 rounded-2xl border-none font-bold text-gray-500">
                     <option value="user">Membre (User)</option>
                     <option value="chef">Chef de Maison</option>
                 </select>
-
-                <div class="md:col-span-3">
-                    <button onclick="createUser()" id="btn-create" class="w-full bg-blue-900 text-white font-black py-4 rounded-2xl uppercase tracking-widest hover:bg-blue-800 transition-all shadow-lg">
-                        Créer le compte et le profil
-                    </button>
-                </div>
+                <button onclick="createUser()" class="md:col-span-3 bg-blue-900 text-white font-black py-4 rounded-2xl uppercase tracking-widest hover:bg-blue-800 shadow-lg">Créer le compte</button>
             </div>
         </section>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <section class="bg-white p-6 rounded-[35px] border border-gray-100">
+            <div class="bg-white p-6 rounded-[35px] border border-gray-100">
                 <h3 class="text-[10px] font-black uppercase tracking-[0.3em] mb-4 text-gray-400">Maisons</h3>
                 <div class="flex gap-2 mb-4">
-                    <input type="text" id="add-maison-nom" placeholder="Nom de la maison" class="flex-1 p-3 bg-gray-50 rounded-xl border-none font-bold text-sm">
-                    <button onclick="addMaison()" class="bg-blue-100 text-blue-900 px-4 rounded-xl font-black hover:bg-blue-200">+</button>
+                    <input type="text" id="add-maison-nom" placeholder="Nom maison" class="flex-1 p-3 bg-gray-50 rounded-xl border-none font-bold text-sm">
+                    <button onclick="addMaison()" class="bg-blue-100 text-blue-900 px-4 rounded-xl font-black">+</button>
                 </div>
                 <div id="list-maisons" class="space-y-2"></div>
-            </section>
-
-            <section class="bg-white p-6 rounded-[35px] border border-gray-100">
-                <h3 class="text-[10px] font-black uppercase tracking-[0.3em] mb-4 text-gray-400">Motifs de Dépenses</h3>
+            </div>
+            <div class="bg-white p-6 rounded-[35px] border border-gray-100">
+                <h3 class="text-[10px] font-black uppercase tracking-[0.3em] mb-4 text-gray-400">Motifs</h3>
                 <div class="flex gap-2 mb-4">
-                    <input type="text" id="add-motif-nom" placeholder="Nouveau motif" class="flex-1 p-3 bg-gray-50 rounded-xl border-none font-bold text-sm">
-                    <button onclick="addMotif()" class="bg-blue-100 text-blue-900 px-4 rounded-xl font-black hover:bg-blue-200">+</button>
+                    <input type="text" id="add-motif-nom" placeholder="Nom motif" class="flex-1 p-3 bg-gray-50 rounded-xl border-none font-bold text-sm">
+                    <button onclick="addMotif()" class="bg-blue-100 text-blue-900 px-4 rounded-xl font-black">+</button>
                 </div>
                 <div id="list-motifs" class="space-y-2"></div>
-            </section>
+            </div>
         </div>
 
         <section class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
-                <div>
-                    <h2 class="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500">Export Comptable</h2>
-                    <p class="text-[9px] text-gray-400 font-bold uppercase mt-1">Télécharger les transactions par mois</p>
-                </div>
-                <div class="flex gap-2 w-full md:w-auto">
-                    <select id="export-month" class="p-3 bg-gray-50 rounded-xl border-none font-bold text-xs outline-none">
-                        <option value="01">Janvier</option><option value="02">Février</option>
-                        <option value="03">Mars</option><option value="04">Avril</option>
-                        <option value="05">Mai</option><option value="06">Juin</option>
-                        <option value="07">Juillet</option><option value="08">Août</option>
-                        <option value="09">Septembre</option><option value="10">Octobre</option>
-                        <option value="11">Novembre</option><option value="12">Décembre</option>
-                    </select>
-                    <button onclick="exportData()" class="flex-1 bg-emerald-500 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-md">
-                        Exporter CSV
-                    </button>
-                </div>
+            <h2 class="text-[10px] font-black uppercase tracking-[0.3em] mb-6 text-blue-500">Membres Actifs</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="text-[9px] font-black text-gray-300 uppercase tracking-widest border-b">
+                            <th class="pb-4">Membre</th>
+                            <th class="pb-4">Maison</th>
+                            <th class="pb-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="list-users-table" class="divide-y divide-gray-50"></tbody>
+                </table>
             </div>
         </section>
 
+        <section class="bg-white p-8 rounded-[40px] shadow-sm border-t-4 border-t-emerald-500">
+            <h2 class="text-[10px] font-black uppercase tracking-[0.3em] mb-6 text-emerald-600">Export Comptable</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <select id="export-maison" class="p-4 bg-gray-50 rounded-2xl border-none font-bold text-gray-500"></select>
+                <select id="export-month" class="p-4 bg-gray-50 rounded-2xl border-none font-bold text-gray-500">
+                    <option value="01">Janvier</option><option value="02">Février</option><option value="03">Mars</option>
+                    <option value="04">Avril</option><option value="05">Mai</option><option value="06">Juin</option>
+                    <option value="07">Juillet</option><option value="08">Août</option><option value="09">Septembre</option>
+                    <option value="10">Octobre</option><option value="11">Novembre</option><option value="12">Décembre</option>
+                </select>
+                <button onclick="exportData()" class="bg-emerald-500 text-white font-black py-4 rounded-2xl uppercase tracking-widest shadow-md">Générer CSV</button>
+            </div>
+        </section>
     </main>
 
     <script>
@@ -90,109 +87,128 @@
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjY25uY2t1cGh4bG94ZnJxdGtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODA3NjEsImV4cCI6MjA4Mjc1Njc2MX0.1mIEhKfS5OSsaw78f1_Iatni39y8CoIurAd5IXP6n6g";
         const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // Sécurité Admin
-        async function checkAdmin() {
-            const { data: { user } } = await sb.auth.getUser();
-            if (!user) { window.location.href = "index.html"; return; }
-            const { data: p } = await sb.from('profiles').select('role').eq('id', user.id).single();
-            if (!p || p.role !== 'admin') { window.location.href = "index.html"; } else { init(); }
-        }
+        let maisonsGlobal = [];
 
-        function init() {
-            loadMaisons();
+        async function init() {
+            await loadMaisons();
             loadMotifs();
-            // Par défaut sur le mois actuel pour l'export
+            loadUsers();
             document.getElementById('export-month').value = String(new Date().getMonth() + 1).padStart(2, '0');
         }
 
-        // --- CRÉATION COMPTE ET PROFIL ---
+        // --- GESTION MEMBRES ---
         async function createUser() {
-            const identifiant = document.getElementById('new-user').value.trim().toLowerCase();
-            const email = identifiant.includes('@') ? identifiant : identifiant + "@smmd.fr";
+            const idInput = document.getElementById('new-user').value.trim().toLowerCase();
+            const email = idInput.includes('@') ? idInput : idInput + "@smmd.fr";
             const pass = document.getElementById('new-pass').value;
             const nom = document.getElementById('new-nom').value.trim().toUpperCase();
             const prenom = document.getElementById('new-prenom').value.trim();
             const maisonId = document.getElementById('new-maison').value;
             const role = document.getElementById('new-role').value;
 
-            if (!identifiant || !pass || !maisonId) return alert("Veuillez remplir les champs obligatoires.");
-
             const { data, error } = await sb.auth.signUp({ email, password: pass });
-            if (error) return alert("Erreur d'authentification : " + error.message);
-
-            const { error: profError } = await sb.from('profiles').insert([{
-                id: data.user.id, nom, prenom, role, maison_id: maisonId, allocation: 0, allocation_mensuelle: 0
-            }]);
-
-            if (profError) alert("Compte Auth créé mais erreur Profil : " + profError.message);
-            else { alert("Utilisateur créé avec succès !"); location.reload(); }
+            if (error) return alert(error.message);
+            await sb.from('profiles').insert([{ id: data.user.id, nom, prenom, role, maison_id: maisonId, allocation: 0, allocation_mensuelle: 0 }]);
+            location.reload();
         }
 
-        // --- GESTION MAISONS ---
+        async function loadUsers() {
+            const { data } = await sb.from('profiles').select('*, maisons(nom)').order('nom');
+            const tbody = document.getElementById('list-users-table');
+            tbody.innerHTML = data.map(u => `
+                <tr class="text-sm">
+                    <td class="py-4">
+                        <span class="font-black uppercase text-xs">${u.nom} ${u.prenom}</span><br>
+                        <span class="text-[8px] font-bold text-blue-500 uppercase tracking-widest">${u.role}</span>
+                    </td>
+                    <td class="py-4 font-bold text-gray-400 text-[10px] uppercase">${u.maisons ? u.maisons.nom : 'Admin'}</td>
+                    <td class="py-4 text-right space-x-3">
+                        <button onclick="editMember('${u.id}', '${u.nom}', '${u.prenom}', '${u.role}', '${u.maison_id}')" class="text-blue-500 font-bold text-[10px] uppercase hover:underline">Modifier</button>
+                        <button onclick="alert('Utilisez le SQL Editor pour supprimer l Auth')" class="text-red-300 font-bold text-[10px] uppercase">Suppr.</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function editMember(id, nom, prenom, role, maisonId) {
+            const newNom = prompt("Nouveau NOM :", nom);
+            const newPrenom = prompt("Nouveau Prénom :", prenom);
+            const newRole = prompt("Nouveau Rôle (user ou chef) :", role);
+            if(newNom && newPrenom) {
+                await sb.from('profiles').update({ nom: newNom.toUpperCase(), prenom: newPrenom, role: newRole }).eq('id', id);
+                loadUsers();
+            }
+        }
+
+        // --- CRUD MAISONS ---
         async function loadMaisons() {
             const { data } = await sb.from('maisons').select('*').order('nom');
-            document.getElementById('new-maison').innerHTML = '<option value="">Choisir une maison</option>' + 
-                data.map(m => `<option value="${m.id}">${m.nom}</option>`).join('');
+            maisonsGlobal = data;
             document.getElementById('list-maisons').innerHTML = data.map(m => `
-                <div class="p-3 bg-gray-50 rounded-xl font-bold text-xs border flex justify-between uppercase tracking-tighter">
-                    <span>${m.nom}</span>
+                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <span class="font-bold text-xs uppercase">${m.nom}</span>
+                    <div class="space-x-2">
+                        <button onclick="updateMaison('${m.id}', '${m.nom}')" class="text-blue-400 text-[10px] font-bold">ÉDITER</button>
+                        <button onclick="deleteMaison('${m.id}')" class="text-red-300 font-black">×</button>
+                    </div>
                 </div>`).join('');
+            document.getElementById('new-maison').innerHTML = data.map(m => `<option value="${m.id}">${m.nom}</option>`).join('');
+            document.getElementById('export-maison').innerHTML = '<option value="all">Toutes Maisons</option>' + data.map(m => `<option value="${m.id}">${m.nom}</option>`).join('');
+        }
+        async function updateMaison(id, ancienNom) {
+            const nouveau = prompt("Nouveau nom de la maison :", ancienNom);
+            if(nouveau) { await sb.from('maisons').update({ nom: nouveau }).eq('id', id); loadMaisons(); }
         }
         async function addMaison() {
             const nom = document.getElementById('add-maison-nom').value.trim();
-            if (nom) { await sb.from('maisons').insert([{ nom }]); location.reload(); }
+            if(nom) { await sb.from('maisons').insert([{nom}]); loadMaisons(); }
+        }
+        async function deleteMaison(id) {
+            if(confirm("Supprimer cette maison ?")) { await sb.from('maisons').delete().eq('id', id); loadMaisons(); }
         }
 
-        // --- GESTION MOTIFS ---
+        // --- CRUD MOTIFS ---
         async function loadMotifs() {
             const { data } = await sb.from('motifs').select('*').order('nom');
             document.getElementById('list-motifs').innerHTML = data.map(m => `
-                <div class="p-3 bg-gray-50 rounded-xl font-bold text-xs border flex justify-between uppercase tracking-tighter">
-                    <span>${m.nom}</span>
+                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <span class="font-bold text-xs uppercase">${m.nom}</span>
+                    <div class="space-x-2">
+                        <button onclick="updateMotif('${m.id}', '${m.nom}')" class="text-blue-400 text-[10px] font-bold">ÉDITER</button>
+                        <button onclick="deleteMotif('${m.id}')" class="text-red-300 font-black">×</button>
+                    </div>
                 </div>`).join('');
+        }
+        async function updateMotif(id, ancienNom) {
+            const nouveau = prompt("Nouveau nom du motif :", ancienNom);
+            if(nouveau) { await sb.from('motifs').update({ nom: nouveau }).eq('id', id); loadMotifs(); }
         }
         async function addMotif() {
             const nom = document.getElementById('add-motif-nom').value.trim();
-            if (nom) { await sb.from('motifs').insert([{ nom }]); location.reload(); }
+            if(nom) { await sb.from('motifs').insert([{nom}]); loadMotifs(); }
+        }
+        async function deleteMotif(id) {
+            if(confirm("Supprimer ce motif ?")) { await sb.from('motifs').delete().eq('id', id); loadMotifs(); }
         }
 
-        // --- EXPORT CSV AVEC FILTRE MOIS ---
+        // --- EXPORT ---
         async function exportData() {
-            const month = document.getElementById('export-month').value;
-            const year = new Date().getFullYear();
-            
-            // On récupère toutes les transactions du mois sélectionné
-            const { data, error } = await sb.from('transactions')
-                .select('*, profiles(nom, prenom), maisons(nom)')
-                .order('created_at', { ascending: false });
-
-            // Filtrage manuel par mois/année (plus simple que RLS complexe)
-            const filteredData = data.filter(t => {
-                const d = new Date(t.created_at);
-                return (String(d.getMonth() + 1).padStart(2, '0') === month);
-            });
-
-            if (filteredData.length === 0) return alert("Aucune transaction trouvée pour ce mois.");
-
-            let csv = "Date;Membre;Maison;Motif;Montant;Type\n";
-            filteredData.forEach(t => {
-                const dateStr = new Date(t.created_at).toLocaleDateString();
-                const membre = t.profiles ? `${t.profiles.nom} ${t.profiles.prenom}` : "Inconnu";
-                const maison = t.maisons ? t.maisons.nom : "-";
-                csv += `${dateStr};${membre};${maison};${t.motif};${t.montant};${t.type}\n`;
-            });
-
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const m = document.getElementById('export-month').value;
+            const h = document.getElementById('export-maison').value;
+            let query = sb.from('transactions').select('*, profiles(nom, prenom), maisons(nom)');
+            if(h !== 'all') query = query.eq('maison_id', h);
+            const { data } = await query;
+            const filtered = data.filter(t => String(new Date(t.created_at).getMonth() + 1).padStart(2, '0') === m);
+            if(filtered.length === 0) return alert("Rien à exporter.");
+            let csv = "Date;Membre;Maison;Motif;Montant\n";
+            filtered.forEach(t => { csv += `${new Date(t.created_at).toLocaleDateString()};${t.profiles.nom} ${t.profiles.prenom};${t.maisons.nom};${t.motif};${t.montant}\n`; });
+            const blob = new Blob([csv], { type: 'text/csv' });
             const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `SMMD_Compta_${month}_${year}.csv`;
-            a.click();
+            const a = document.createElement('a'); a.href = url; a.download = `SMMD_Export_${m}.csv`; a.click();
         }
 
-        function logout() { sb.auth.signOut().then(() => { window.location.href = "index.html"; }); }
-
-        checkAdmin();
+        function logout() { sb.auth.signOut().then(() => location.href="index.html"); }
+        init();
     </script>
 </body>
 </html>
