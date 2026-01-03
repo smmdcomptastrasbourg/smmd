@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SMMD - Console Chef de Maison</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .tab-active { background-color: #1e3a8a !important; color: white !important; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 pb-20">
+
+    <nav class="bg-blue-900 text-white p-6 rounded-b-[40px] shadow-lg sticky top-0 z-50">
+        <div class="flex justify-between items-start mb-6">
+            <div>
+                <h1 id="user-name" class="text-xl font-black italic tracking-tighter">Chef de Maison</h1>
+                <p id="maison-name" class="text-[10px] uppercase tracking-[0.2em] opacity-60 font-bold italic italic">Chargement...</p>
+            </div>
+            <button onclick="logout()" class="bg-red-500/20 text-red-100 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase">Sortir</button>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-3 mb-6">
+            <div class="bg-blue-800/40 p-4 rounded-2xl border border-blue-700/30">
+                <p class="text-[7px] font-black uppercase tracking-widest mb-1 opacity-50">Mon Solde Perso</p>
+                <p id="solde-perso" class="text-xl font-black">-- €</p>
+            </div>
+            <div class="bg-emerald-500/20 p-4 rounded-2xl border border-emerald-500/20">
+                <p class="text-[7px] font-black uppercase tracking-widest mb-1 opacity-50">Trésorerie Maison</p>
+                <p id="solde-maison" class="text-xl font-black">-- €</p>
+            </div>
+        </div>
+
+        <div class="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+            <a href="#section-perso" class="bg-white/10 px-4 py-2 rounded-lg text-[9px] font-black uppercase whitespace-nowrap">Mes Dépenses</a>
+            <a href="#section-membres" class="bg-white/10 px-4 py-2 rounded-lg text-[9px] font-black uppercase whitespace-nowrap">Membres & IBAN</a>
+            <a href="#section-audit" class="bg-white/10 px-4 py-2 rounded-lg text-[9px] font-black uppercase whitespace-nowrap">Audit Global</a>
+        </div>
+    </nav>
+
+    <main class="p-6 space-y-8">
+
+        <section id="section-perso" class="space-y-4">
+            <h2 class="text-[10px] font-black uppercase text-gray-400 tracking-widest px-2">Ma Gestion Personnelle</h2>
+            
+            <div class="bg-white p-6 rounded-[35px] shadow-sm border border-gray-100">
+                <div class="flex gap-4 mb-6">
+                    <button onclick="setTxType('depense')" id="tab-depense" class="flex-1 py-3 rounded-xl font-black text-[10px] uppercase bg-blue-900 text-white tab-active">Dépense</button>
+                    <button onclick="setTxType('recette')" id="tab-recette" class="flex-1 py-3 rounded-xl font-black text-[10px] uppercase bg-gray-100 text-gray-400">Recette</button>
+                </div>
+
+                <div class="space-y-4">
+                    <input type="number" id="tx-amount" step="0.01" placeholder="Montant (€)" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-black text-xl outline-none focus:ring-2 focus:ring-blue-500">
+                    <div id="container-motif">
+                        <select id="tx-motif" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none"></select>
+                    </div>
+                    <div id="container-paiement">
+                        <select id="tx-method" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none">
+                            <option value="cb_maison">CB MAISON</option>
+                            <option value="perso_cb">PERSO - CB</option>
+                            <option value="perso_liq">PERSO - Liquide</option>
+                        </select>
+                    </div>
+                    <input type="text" id="tx-note" placeholder="Commentaire..." class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none text-sm">
+                    <button onclick="submitTransaction()" class="w-full bg-blue-900 text-white font-black py-5 rounded-2xl uppercase tracking-widest shadow-lg">Enregistrer</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="section-validation" class="bg-orange-50 p-6 rounded-[35px] border border-orange-100">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-[10px] font-black uppercase text-orange-600 tracking-widest">Avances en attente</h2>
+                <div id="total-dettes" class="bg-orange-600 text-white px-3 py-1 rounded-full text-[10px] font-black">Total : 0€</div>
+            </div>
+            <div id="list-avances-attente" class="space-y-4">
+                </div>
+        </section>
+
+        <section id="section-membres" class="space-y-4">
+            <h2 class="text-[10px] font-black uppercase text-gray-400 tracking-widest px-2">Annuaire & IBAN</h2>
+            <div id="list-membres" class="space-y-3">
+                </div>
+        </section>
+
+        <section id="section-audit" class="space-y-4">
+            <h2 class="text-[10px] font-black uppercase text-gray-400 tracking-widest px-2">Journal de Bord Maison</h2>
+            <div id="audit-history" class="bg-white rounded-[35px] overflow-hidden border border-gray-100">
+                </div>
+        </section>
+
+    </main>
+
+    <script>
+        const SUPABASE_URL = "https://xccnnckuphxloxfrqtkf.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjY25uY2t1cGh4bG94ZnJxdGtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODA3NjEsImV4cCI6MjA4Mjc1Njc2MX0.1mIEhKfS5OSsaw78f1_Iatni39y8CoIurAd5IXP6n6g";
+        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let userProfile = null;
+        let currentType = 'depense';
+
+        async function checkAuth() {
+            const { data: { user } } = await sb.auth.getUser();
+            if (!user) { window.location.href = "index.html"; return; }
+            
+            const { data: profile } = await sb.from('profiles').select('*, maisons(*)').eq('id', user.id).single();
+            if (profile.role !== 'chef') { window.location.href = "user.html"; return; }
+            
+            userProfile = profile;
+            document.getElementById('user-name').innerText = `${profile.prenom} ${profile.nom}`;
+            document.getElementById('maison-name').innerText = `Maison ${profile.maisons.nom}`;
+            
+            loadMotifs();
+            refreshAll();
+        }
+
+        async function refreshAll() {
+            refreshSoldes();
+            loadAvancesChef();
+            loadMembres();
+            loadAuditGlobal();
+        }
+
+        async function refreshSoldes() {
+            const { data: soldes } = await sb.from('soldes_calculables').select('*').eq('maison_id', userProfile.maison_id);
+            let totalMaison = 0;
+            let monPerso = 0;
+            if(soldes) {
+                soldes.forEach(s => {
+                    const solde = parseFloat(s.total_allocations) + parseFloat(s.total_transactions);
+                    totalMaison += solde;
+                    if(s.user_id === userProfile.id) monPerso = solde;
+                });
+            }
+            document.getElementById('solde-maison').innerText = totalMaison.toFixed(2) + " €";
+            document.getElementById('solde-perso').innerText = monPerso.toFixed(2) + " €";
+        }
+
+        async function loadAvancesChef() {
+            const { data } = await sb.from('transactions').select('*, profiles(*)').eq('maison_id', userProfile.maison_id).eq('statut', 'attente');
+            let dettesSum = 0;
+            const groups = {};
+            if(data) {
+                data.forEach(t => {
+                    dettesSum += t.montant;
+                    if(!groups[t.user_id]) groups[t.user_id] = { name: `${t.profiles.prenom} ${t.profiles.nom}`, iban: t.profiles.iban, txs: [] };
+                    groups[t.user_id].txs.push(t);
+                });
+            }
+            document.getElementById('total-dettes').innerText = `Dettes : ${dettesSum.toFixed(2)}€`;
+            document.getElementById('list-avances-attente').innerHTML = Object.keys(groups).map(uid => `
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-orange-200">
+                    <div class="flex justify-between items-start mb-2">
+                        <p class="font-black text-[10px] text-orange-600 uppercase">${groups[uid].name}</p>
+                        <button onclick="validerTout('${uid}')" class="bg-orange-600 text-white px-2 py-1 rounded-lg text-[8px] font-black">VALIDER LE VIREMENT</button>
+                    </div>
+                    <div class="flex items-center gap-2 mb-3">
+                        <p class="text-[8px] font-mono text-gray-500 truncate bg-gray-50 p-1 rounded flex-1">${groups[uid].iban || 'IBAN MANQUANT'}</p>
+                        <button onclick="copyIban('${groups[uid].iban}')" class="text-[8px] font-bold text-blue-600 uppercase">Copier</button>
+                    </div>
+                    ${groups[uid].txs.map(t => `
+                        <div class="flex justify-between text-[10px] py-1 border-t border-gray-50">
+                            <span class="text-gray-600">${t.motif}</span>
+                            <span class="font-bold">${t.montant}€</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `).join('');
+        }
+
+        async function loadMembres() {
+            const { data } = await sb.from('profiles').select('*').eq('maison_id', userProfile.maison_id);
+            document.getElementById('list-membres').innerHTML = data.map(m => `
+                <div class="bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm">
+                    <div>
+                        <p class="font-black text-xs uppercase">${m.prenom} ${m.nom} ${m.role === 'chef' ? '👑' : ''}</p>
+                        <p class="text-[9px] text-gray-400 font-bold uppercase">Allocation : ${m.allocation_mensuelle || 0}€/mois</p>
+                    </div>
+                    <p class="text-[10px] font-mono text-gray-400 italic">${m.iban ? 'IBAN OK' : 'IBAN MANQUANT'}</p>
+                </div>
+            `).join('');
+        }
+
+        async function loadAuditGlobal() {
+            const { data } = await sb.from('transactions').select('*, profiles(prenom)').eq('maison_id', userProfile.maison_id).order('created_at', { ascending: false }).limit(20);
+            document.getElementById('audit-history').innerHTML = data.map(t => `
+                <div class="p-4 border-b border-gray-50 flex justify-between items-center text-xs">
+                    <div>
+                        <p class="font-black uppercase text-[8px] text-gray-400">${t.profiles.prenom} • ${t.motif}</p>
+                        <p class="font-bold">${t.commentaire || '-'}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-black ${t.type === 'recette' ? 'text-emerald-500' : 'text-slate-900'}">${t.type === 'recette' ? '+' : '-'}${t.montant}€</p>
+                        <p class="text-[7px] uppercase font-bold text-gray-300">${t.statut === 'attente' ? '⏳ Attente' : '✅ Validé'}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function copyIban(iban) {
+            if(!iban) return alert("Pas d'IBAN");
+            navigator.clipboard.writeText(iban);
+            alert("IBAN copié !");
+        }
+
+        async function validerTout(uid) {
+            if(!confirm("Avez-vous bien effectué le virement ?")) return;
+            await sb.from('transactions').update({ statut: 'valide', date_validation: new Date() }).eq('user_id', uid).eq('statut', 'attente');
+            refreshAll();
+        }
+
+        // --- FONCTIONS UTILISATEUR IDENTIQUES ---
+        async function loadMotifs() {
+            const { data } = await sb.from('motifs').select('nom').order('nom');
+            document.getElementById('tx-motif').innerHTML = data.map(m => `<option value="${m.nom}">${m.nom}</option>`).join('');
+        }
+
+        async function submitTransaction() {
+            const amount = parseFloat(document.getElementById('tx-amount').value);
+            const note = document.getElementById('tx-note').value.trim();
+            const motif = document.getElementById('tx-motif').value;
+            const method = document.getElementById('tx-method').value;
+            if(!amount) return;
+            await sb.from('transactions').insert([{
+                user_id: userProfile.id, maison_id: userProfile.maison_id, montant: amount,
+                motif: currentType === 'recette' ? 'RECETTE' : motif, commentaire: note, type: currentType,
+                methode_paiement: currentType === 'recette' ? null : method,
+                statut: (currentType === 'depense' && method.startsWith('perso_')) ? 'attente' : 'valide'
+            }]);
+            document.getElementById('tx-amount').value = ''; document.getElementById('tx-note').value = '';
+            refreshAll();
+        }
+
+        function setTxType(type) {
+            currentType = type;
+            const isR = type === 'recette';
+            document.getElementById('container-motif').classList.toggle('hidden', isR);
+            document.getElementById('container-paiement').classList.toggle('hidden', isR);
+            document.getElementById('tab-depense').className = isR ? "flex-1 py-3 rounded-xl font-black text-[10px] bg-gray-100 text-gray-400" : "flex-1 py-3 rounded-xl font-black text-[10px] bg-blue-900 text-white tab-active";
+            document.getElementById('tab-recette').className = isR ? "flex-1 py-3 rounded-xl font-black text-[10px] bg-emerald-500 text-white" : "flex-1 py-3 rounded-xl font-black text-[10px] bg-gray-100 text-gray-400";
+        }
+
+        function logout() { sb.auth.signOut().then(() => location.href="index.html"); }
+        checkAuth();
+    </script>
+</body>
+</html>
