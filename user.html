@@ -8,7 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         .glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); }
-        body { -webkit-tap-highlight-color: transparent; }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 pb-10">
@@ -17,19 +17,32 @@
         <div class="flex justify-between items-start mb-6">
             <div>
                 <h1 id="user-name" class="text-xl font-black italic">Chargement...</h1>
-                <p id="maison-name" class="text-[10px] uppercase tracking-[0.2em] opacity-60 font-bold">Maison ...</p>
+                <p id="maison-name" class="text-[10px] uppercase tracking-[0.2em] opacity-60 font-bold italic">Maison ...</p>
             </div>
-            <button onclick="logout()" class="bg-blue-800 p-2 rounded-xl text-[10px] font-bold uppercase tracking-widest">Sortir</button>
+            <button onclick="logout()" class="bg-red-500/20 text-red-200 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest">Sortir</button>
         </div>
         
-        <div class="grid grid-cols-2 gap-4">
-            <div class="bg-blue-800/50 p-4 rounded-2xl border border-blue-700/50">
-                <p class="text-[8px] font-black uppercase tracking-widest mb-1 opacity-60">Mon Solde Perso</p>
+        <div class="grid grid-cols-2 gap-3 mb-6">
+            <div class="bg-blue-800/40 p-4 rounded-2xl border border-blue-700/30">
+                <p class="text-[7px] font-black uppercase tracking-widest mb-1 opacity-50">Mon Solde Perso</p>
                 <p id="solde-perso" class="text-xl font-black">-- €</p>
             </div>
             <div class="bg-white/10 p-4 rounded-2xl border border-white/10">
-                <p class="text-[8px] font-black uppercase tracking-widest mb-1 opacity-60">Solde Maison</p>
+                <p class="text-[7px] font-black uppercase tracking-widest mb-1 opacity-50">Solde Maison</p>
                 <p id="solde-maison" class="text-xl font-black">-- €</p>
+            </div>
+        </div>
+
+        <div class="bg-black/20 p-4 rounded-2xl space-y-3">
+            <div class="flex gap-2">
+                <div class="flex-1">
+                    <label class="text-[7px] font-black uppercase opacity-50">Allocation Mensuelle (€)</label>
+                    <input type="number" id="user-alloc" onchange="updateProfile()" class="w-full bg-transparent border-b border-white/20 font-bold text-sm outline-none">
+                </div>
+                <div class="flex-[2]">
+                    <label class="text-[7px] font-black uppercase opacity-50">Mon IBAN</label>
+                    <input type="text" id="user-iban" onchange="updateProfile()" placeholder="FR76..." class="w-full bg-transparent border-b border-white/20 font-bold text-sm outline-none">
+                </div>
             </div>
         </div>
     </nav>
@@ -38,8 +51,8 @@
 
         <section class="bg-white p-6 rounded-[35px] shadow-sm border border-gray-100">
             <div class="flex gap-4 mb-6">
-                <button onclick="setTxType('depense')" id="tab-depense" class="flex-1 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest bg-blue-900 text-white transition-all">Dépense</button>
-                <button onclick="setTxType('recette')" id="tab-recette" class="flex-1 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest bg-gray-100 text-gray-400 transition-all">Recette</button>
+                <button onclick="setTxType('depense')" id="tab-depense" class="flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest bg-blue-900 text-white transition-all">Dépense</button>
+                <button onclick="setTxType('recette')" id="tab-recette" class="flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest bg-gray-100 text-gray-400 transition-all">Recette</button>
             </div>
 
             <div class="space-y-4">
@@ -50,46 +63,44 @@
 
                 <div id="container-motif">
                     <label class="text-[9px] font-black uppercase ml-2 text-gray-400">Motif</label>
-                    <select id="tx-motif" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500"></select>
+                    <select id="tx-motif" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none"></select>
                 </div>
 
                 <div id="container-paiement">
-                    <label class="text-[9px] font-black uppercase ml-2 text-gray-400">Moyen de paiement</label>
-                    <select id="tx-method" onchange="toggleAvanceInfo()" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500">
+                    <label class="text-[9px] font-black uppercase ml-2 text-gray-400">Mode de paiement</label>
+                    <select id="tx-method" onchange="toggleAvanceInfo()" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none">
                         <option value="cb_maison">CB MAISON</option>
-                        <option value="perso_cb">PERSO - CB</option>
+                        <option value="perso_cb">PERSO - Carte Bancaire</option>
                         <option value="perso_liquide">PERSO - Liquide</option>
-                        <option value="perso_cheque">PERSO - Chèque</option>
                         <option value="perso_virement">PERSO - Virement</option>
                     </select>
-                    <p id="info-avance" class="hidden text-[9px] text-orange-500 font-bold uppercase mt-2 ml-2 italic">⚠️ Nécessite validation du chef</p>
+                    <p id="info-avance" class="hidden text-[8px] text-orange-500 font-black uppercase mt-2 ml-2 italic">⚠️ Avance : sera validée par le chef</p>
                 </div>
 
                 <div>
-                    <label class="text-[9px] font-black uppercase ml-2 text-gray-400">Commentaire (Optionnel)</label>
-                    <input type="text" id="tx-note" placeholder="ex: Courses Leclerc..." class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                    <label id="label-note" class="text-[9px] font-black uppercase ml-2 text-gray-400">Commentaire</label>
+                    <input type="text" id="tx-note" placeholder="..." class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none text-sm">
                 </div>
 
-                <button onclick="submitTransaction()" id="btn-submit" class="w-full bg-blue-900 text-white font-black py-5 rounded-2xl uppercase tracking-widest shadow-lg active:scale-95 transition-all">Enregistrer</button>
+                <button onclick="submitTransaction()" class="w-full bg-blue-900 text-white font-black py-5 rounded-2xl uppercase tracking-widest shadow-lg active:scale-95 transition-all">Enregistrer</button>
             </div>
         </section>
 
         <section id="chef-section" class="hidden bg-orange-50 p-6 rounded-[35px] border border-orange-100">
-            <h2 class="text-[10px] font-black uppercase tracking-widest text-orange-600 mb-4 flex justify-between">
+            <h2 class="text-[10px] font-black uppercase tracking-widest text-orange-600 mb-4 flex justify-between items-center">
                 Validation Avances
                 <span id="badge-count" class="bg-orange-600 text-white px-2 py-0.5 rounded-full text-[8px]">0</span>
             </h2>
-            <div id="list-avances-attente" class="space-y-3">
+            <div id="list-avances-attente" class="space-y-3 text-sm">
                 </div>
         </section>
 
         <section class="space-y-4">
             <div class="flex justify-between items-center px-2">
-                <h2 class="text-[10px] font-black uppercase tracking-widest text-gray-400">Mon Historique</h2>
-                <button onclick="undoLast()" class="text-[9px] font-bold uppercase text-red-500 hover:underline">Annuler dernier</button>
+                <h2 class="text-[10px] font-black uppercase tracking-widest text-gray-400">Mes Opérations</h2>
+                <button onclick="undoLast()" class="text-[9px] font-bold uppercase text-red-500">Annuler dernière</button>
             </div>
-            <div id="user-history" class="space-y-3">
-                </div>
+            <div id="user-history" class="space-y-3"></div>
         </section>
 
     </main>
@@ -106,25 +117,26 @@
             const { data: { user } } = await sb.auth.getUser();
             if (!user) { window.location.href = "index.html"; return; }
             
-            const { data: profile, error } = await sb.from('profiles').select('*, maisons(nom, id)').eq('id', user.id).single();
-            
-            if (error || !profile.maison_id) {
-                alert("Erreur profil ou maison non configurée.");
-                window.location.href = "index.html";
-                return;
-            }
-
+            const { data: profile } = await sb.from('profiles').select('*, maisons(*)').eq('id', user.id).single();
             userProfile = profile;
+
             document.getElementById('user-name').innerText = `${profile.prenom} ${profile.nom}`;
             document.getElementById('maison-name').innerText = `Maison ${profile.maisons.nom}`;
+            document.getElementById('user-alloc').value = profile.allocation_mensuelle || 0;
+            document.getElementById('user-iban').value = profile.iban || '';
             
             if (profile.role === 'chef') {
                 document.getElementById('chef-section').classList.remove('hidden');
                 loadAvancesChef();
             }
-
             loadMotifs();
             refreshDashboard();
+        }
+
+        async function updateProfile() {
+            const alloc = document.getElementById('user-alloc').value;
+            const iban = document.getElementById('user-iban').value.trim().toUpperCase();
+            await sb.from('profiles').update({ allocation_mensuelle: alloc, iban: iban }).eq('id', userProfile.id);
         }
 
         async function loadMotifs() {
@@ -134,77 +146,65 @@
 
         function setTxType(type) {
             currentType = type;
-            const btnD = document.getElementById('tab-depense');
-            const btnR = document.getElementById('tab-recette');
-            const pnlPaiement = document.getElementById('container-paiement');
-
-            if (type === 'recette') {
-                btnR.className = "flex-1 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest bg-emerald-500 text-white";
-                btnD.className = "flex-1 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest bg-gray-100 text-gray-400";
-                pnlPaiement.classList.add('hidden');
-            } else {
-                btnD.className = "flex-1 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest bg-blue-900 text-white";
-                btnR.className = "flex-1 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest bg-gray-100 text-gray-400";
-                pnlPaiement.classList.remove('hidden');
-            }
+            const isRecette = type === 'recette';
+            document.getElementById('container-motif').classList.toggle('hidden', isRecette);
+            document.getElementById('container-paiement').classList.toggle('hidden', isRecette);
+            document.getElementById('label-note').innerHTML = isRecette ? 'Commentaire (OBLIGATOIRE)' : 'Commentaire (Optionnel)';
+            
+            document.getElementById('tab-depense').className = isRecette ? "flex-1 py-3 rounded-xl font-black text-[10px] uppercase bg-gray-100 text-gray-400" : "flex-1 py-3 rounded-xl font-black text-[10px] uppercase bg-blue-900 text-white";
+            document.getElementById('tab-recette').className = isRecette ? "flex-1 py-3 rounded-xl font-black text-[10px] uppercase bg-emerald-500 text-white" : "flex-1 py-3 rounded-xl font-black text-[10px] uppercase bg-gray-100 text-gray-400";
         }
 
         function toggleAvanceInfo() {
             const method = document.getElementById('tx-method').value;
-            const info = document.getElementById('info-avance');
-            method.startsWith('perso_') ? info.classList.remove('hidden') : info.classList.add('hidden');
+            document.getElementById('info-avance').classList.toggle('hidden', !method.startsWith('perso_'));
         }
 
         async function refreshDashboard() {
-            // 1. Charger transactions maison
             const { data: txs } = await sb.from('transactions').select('*').eq('maison_id', userProfile.maison_id);
             
-            // Calcul Solde Maison (Allocation cumulée - Dépenses validées ou CB Maison)
-            // Note: Simplifié ici, l'idéal est une vue SQL pour la précision
-            let totalMaison = userProfile.maisons.allocation_totale || 0; 
             let depensesMaison = 0;
-            let soldePerso = userProfile.allocation || 0;
+            let monCumul = 0;
 
             txs.forEach(t => {
+                const amount = parseFloat(t.montant);
                 const isValide = (t.statut === 'valide' || t.methode_paiement === 'cb_maison');
-                if (t.type === 'depense' && isValide) depensesMaison += t.montant;
-                if (t.type === 'recette') depensesMaison -= t.montant;
+                
+                if (isValide) {
+                    if (t.type === 'depense') depensesMaison += amount;
+                    else depensesMaison -= amount;
+                }
 
-                // Calcul Perso
-                if (t.user_id === userProfile.id) {
-                    if (t.type === 'depense' && isValide) soldePerso -= t.montant;
-                    if (t.type === 'recette') soldePerso += t.montant;
+                if (t.user_id === userProfile.id && isValide) {
+                    if (t.type === 'depense') monCumul -= amount;
+                    else monCumul += amount;
                 }
             });
 
-            document.getElementById('solde-maison').innerText = (totalMaison - depensesMaison).toFixed(2) + " €";
-            document.getElementById('solde-perso').innerText = soldePerso.toFixed(2) + " €";
+            document.getElementById('solde-maison').innerText = ( (userProfile.maisons.solde_initial || 0) - depensesMaison).toFixed(2) + " €";
+            document.getElementById('solde-perso').innerText = ( (userProfile.allocation_initiale || 0) + monCumul).toFixed(2) + " €";
 
-            // Historique
-            const myTxs = txs.filter(t => t.user_id === userProfile.id).slice(0, 10);
+            const myTxs = txs.filter(t => t.user_id === userProfile.id).sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 8);
             document.getElementById('user-history').innerHTML = myTxs.map(t => `
                 <div class="bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm border border-gray-50">
                     <div>
-                        <p class="text-[10px] font-black uppercase text-gray-400">${t.motif} ${t.statut === 'attente' ? '⏳' : ''}</p>
-                        <p class="text-xs font-bold">${t.commentaire || 'Sans titre'}</p>
+                        <p class="text-[9px] font-black uppercase text-gray-400">${t.type === 'recette' ? 'RECETTE' : t.motif} ${t.statut === 'attente' ? '⏳' : ''}</p>
+                        <p class="text-xs font-bold text-slate-600">${t.commentaire || '-'}</p>
                     </div>
-                    <p class="font-black ${t.type === 'recette' ? 'text-emerald-500' : 'text-slate-900'}">
-                        ${t.type === 'recette' ? '+' : '-'}${t.montant.toFixed(2)}€
-                    </p>
+                    <p class="font-black ${t.type === 'recette' ? 'text-emerald-500' : 'text-slate-900'}">${t.type === 'recette' ? '+' : '-'}${t.montant}€</p>
                 </div>
             `).join('');
         }
 
         async function submitTransaction() {
             const amount = parseFloat(document.getElementById('tx-amount').value);
+            const note = document.getElementById('tx-note').value.trim();
             const motif = document.getElementById('tx-motif').value;
-            const note = document.getElementById('tx-note').value;
             const method = document.getElementById('tx-method').value;
 
-            if (!amount || amount <= 0) return alert("Montant invalide");
+            if (!amount) return alert("Indiquez un montant.");
+            if (currentType === 'recette' && !note) return alert("Le commentaire est obligatoire pour une recette.");
 
-            const isAvance = method.startsWith('perso_');
-            
             const { error } = await sb.from('transactions').insert([{
                 user_id: userProfile.id,
                 maison_id: userProfile.maison_id,
@@ -213,57 +213,67 @@
                 commentaire: note,
                 type: currentType,
                 methode_paiement: currentType === 'recette' ? null : method,
-                statut: isAvance ? 'attente' : 'valide'
+                statut: (currentType === 'depense' && method.startsWith('perso_')) ? 'attente' : 'valide'
             }]);
 
             if (error) alert(error.message);
-            else {
-                document.getElementById('tx-amount').value = '';
+            else { 
+                document.getElementById('tx-amount').value = ''; 
                 document.getElementById('tx-note').value = '';
                 refreshDashboard();
+                if(userProfile.role === 'chef') loadAvancesChef();
             }
         }
 
         async function loadAvancesChef() {
-            const { data } = await sb.from('transactions')
-                .select('*, profiles(prenom, nom)')
-                .eq('maison_id', userProfile.maison_id)
-                .eq('statut', 'attente');
-
+            const { data } = await sb.from('transactions').select('*, profiles(*)').eq('maison_id', userProfile.maison_id).eq('statut', 'attente');
             document.getElementById('badge-count').innerText = data.length;
-            document.getElementById('list-avances-attente').innerHTML = data.map(t => `
-                <div class="bg-white/60 p-3 rounded-xl flex justify-between items-center border border-orange-200">
-                    <div class="text-[10px]">
-                        <span class="font-black uppercase">${t.profiles.prenom}</span> : <b>${t.montant}€</b><br>
-                        <span class="opacity-50">${t.methode_paiement}</span>
+            
+            // Groupement par utilisateur pour validation par bloc
+            const groups = {};
+            data.forEach(t => {
+                if(!groups[t.user_id]) groups[t.user_id] = { name: `${t.profiles.prenom} ${t.profiles.nom}`, iban: t.profiles.iban, txs: [] };
+                groups[t.user_id].txs.push(t);
+            });
+
+            document.getElementById('list-avances-attente').innerHTML = Object.keys(groups).map(uid => `
+                <div class="bg-white p-4 rounded-2xl border border-orange-200 shadow-sm">
+                    <div class="flex justify-between items-start mb-2">
+                        <p class="font-black text-[10px] uppercase text-orange-600">${groups[uid].name}</p>
+                        <button onclick="validerTout('${uid}')" class="text-[8px] font-black bg-orange-600 text-white px-2 py-1 rounded-lg">TOUT VALIDER</button>
                     </div>
-                    <button onclick="validerAvance('${t.id}')" class="bg-orange-600 text-white px-3 py-1.5 rounded-lg font-black text-[8px] uppercase">Valider</button>
+                    <p class="text-[9px] font-mono text-gray-400 mb-3">IBAN: ${groups[uid].iban || 'NON RENSEIGNÉ'}</p>
+                    <div class="space-y-1">
+                        ${groups[uid].txs.map(t => `
+                            <div class="flex justify-between text-[10px] bg-orange-50/50 p-2 rounded-lg">
+                                <span>${t.motif} : ${t.montant}€</span>
+                                <button onclick="validerUnique('${t.id}')" class="font-bold text-orange-600">Valider</button>
+                            </div>
+                        `).join('')}
+                    </div>
                 </div>
             `).join('');
         }
 
-        async function validerAvance(id) {
+        async function validerUnique(id) {
             await sb.from('transactions').update({ statut: 'valide', date_validation: new Date() }).eq('id', id);
-            loadAvancesChef();
-            refreshDashboard();
+            loadAvancesChef(); refreshDashboard();
+        }
+
+        async function validerTout(uid) {
+            await sb.from('transactions').update({ statut: 'valide', date_validation: new Date() }).eq('user_id', uid).eq('statut', 'attente');
+            loadAvancesChef(); refreshDashboard();
         }
 
         async function undoLast() {
-            if (!confirm("Annuler votre dernière opération ?")) return;
-            const { data } = await sb.from('transactions')
-                .select('id')
-                .eq('user_id', userProfile.id)
-                .order('created_at', { ascending: false })
-                .limit(1);
-
-            if (data.length > 0) {
+            const { data } = await sb.from('transactions').select('id').eq('user_id', userProfile.id).order('created_at', { ascending: false }).limit(1);
+            if (data[0] && confirm("Supprimer la dernière opération ?")) {
                 await sb.from('transactions').delete().eq('id', data[0].id);
                 refreshDashboard();
             }
         }
 
-        function logout() { sb.auth.signOut().then(() => window.location.href = "index.html"); }
-
+        function logout() { sb.auth.signOut().then(() => location.href="index.html"); }
         checkAuth();
     </script>
 </body>
