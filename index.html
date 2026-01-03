@@ -111,6 +111,17 @@
             loadHouses();
         }
 
+       async function deleteHouse(id) {
+    if (confirm("Attention : Supprimer cette maison peut affecter les membres qui y sont liés. Continuer ?")) {
+        const { error } = await sb.from('maisons').delete().eq('id', id);
+        if (error) {
+            alert("Erreur de suppression : " + error.message);
+        } else {
+            loadHouses();
+        }
+    }
+}
+
         // --- GESTION MOTIFS ---
         async function loadMotifs() {
             const { data } = await sb.from('motifs').select('*').order('nom');
@@ -130,6 +141,17 @@
             document.getElementById('new-motif-name').value = "";
             loadMotifs();
         }
+
+        async function deleteMotif(id) {
+    if (confirm("Supprimer ce motif ?")) {
+        const { error } = await sb.from('motifs').delete().eq('id', id);
+        if (error) {
+            alert("Erreur de suppression : " + error.message);
+        } else {
+            loadMotifs();
+        }
+    }
+}
 
         // --- EXPORT (DÉBUT) ---
         async function exportData() {
@@ -151,3 +173,4 @@
     </script>
 </body>
 </html>
+
