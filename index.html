@@ -3,131 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>SMMD - Système Complet v2</title>
+    <title>SMMD - Interface Chef & Membre</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
-        body { background-color: #f8fafc; min-height: 100vh; color: #1e293b; -webkit-tap-highlight-color: transparent; }
+        body { background-color: #f8fafc; min-height: 100vh; color: #1e293b; }
         .view { display: none; }
         .view.active { display: block; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
         .tab-btn.active { border-bottom: 3px solid #3b82f6; color: #3b82f6; font-weight: 900; }
-        #app-loader { position: fixed; inset: 0; background: white; z-index: 9999; display: flex; align-items: center; justify-content: center; }
-        .selector-btn { border: 2px solid #e2e8f0; transition: all 0.2s; font-weight: 800; border-radius: 1rem; }
-        .active-depense { border-color: #ef4444 !important; background-color: #fef2f2; color: #ef4444; }
-        .active-recette { border-color: #22c55e !important; background-color: #f0fdf4; color: #22c55e; }
-        .moyen-btn { border: 2px solid #e2e8f0; font-size: 10px; transition: all 0.2s; border-radius: 12px; font-weight: 800; }
         .moyen-btn.active { border-color: #3b82f6; background-color: #eff6ff; color: #3b82f6; }
-        .motif-btn { border: 1px solid #e2e8f0; font-size: 9px; padding: 12px 4px; border-radius: 12px; font-weight: 800; text-transform: uppercase; color: #64748b; }
         .motif-btn.active { background-color: #1e293b; color: white; border-color: #1e293b; }
-        .sub-m-btn { border: 1px solid #e2e8f0; transition: all 0.2s; background: white; }
-        .sub-m-btn.active { background-color: #3b82f6; border-color: #3b82f6; color: white; transform: scale(0.98); }
+        #app-loader { position: fixed; inset: 0; background: white; z-index: 9999; display: flex; align-items: center; justify-content: center; }
     </style>
 </head>
 <body>
 
     <div id="app-loader"><div class="w-12 h-12 border-4 border-slate-100 border-t-blue-600 rounded-full animate-spin"></div></div>
 
-    <div id="view-login" class="view p-6 bg-slate-50">
-        <div class="w-full max-w-md mx-auto mt-20 bg-white p-10 rounded-[3.5rem] shadow-2xl text-center border">
-            <h1 class="text-6xl font-black text-blue-600 italic mb-2">SMMD.</h1>
-            <p class="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] mb-10">Gestion Comptable</p>
+    <div id="view-login" class="view p-6">
+        <div class="w-full max-w-md mx-auto mt-20 bg-white p-10 rounded-[3rem] shadow-xl border text-center">
+            <h1 class="text-5xl font-black text-blue-600 mb-8">SMMD.</h1>
             <div class="space-y-4">
-                <input type="text" id="login-username" placeholder="prenom.nom" class="w-full p-5 bg-slate-50 rounded-2xl outline-none ring-1 ring-slate-100 font-bold">
-                <input type="password" id="login-pass" placeholder="••••••••" class="w-full p-5 bg-slate-50 rounded-2xl outline-none ring-1 ring-slate-100 font-bold">
-                <button onclick="handleLogin()" class="w-full bg-blue-600 text-white font-black py-6 rounded-2xl shadow-xl uppercase mt-4 active:scale-95 transition-all">Accéder</button>
+                <input type="text" id="login-username" placeholder="prenom.nom" class="w-full p-4 bg-slate-50 rounded-2xl border outline-none font-bold">
+                <input type="password" id="login-pass" placeholder="••••••••" class="w-full p-4 bg-slate-50 rounded-2xl border outline-none font-bold">
+                <button onclick="handleLogin()" class="w-full bg-blue-600 text-white font-black py-5 rounded-2xl uppercase shadow-lg">Connexion</button>
             </div>
         </div>
     </div>
 
     <div id="view-main" class="view max-w-4xl mx-auto px-4 pb-24">
-        <header class="py-8 flex justify-between items-start">
+        <header class="py-8 flex justify-between items-center">
             <div>
                 <div class="flex items-center gap-2">
-                    <h1 class="text-3xl font-black italic text-slate-800">SMMD.</h1>
-                    <span id="role-label" class="uppercase text-[9px] font-black px-2 py-1 rounded-md"></span>
+                    <h1 class="text-2xl font-black italic">SMMD.</h1>
+                    <span id="role-label" class="text-[9px] font-black px-2 py-1 rounded uppercase"></span>
                 </div>
-                <p id="user-display-name" class="text-xs font-bold text-slate-600 mt-1"></p>
-                <p id="house-display-name" class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Chargement...</p>
+                <p id="house-display-name" class="text-[10px] font-black text-slate-400 uppercase tracking-widest"></p>
             </div>
-            <button onclick="logout()" class="bg-white text-red-500 p-4 rounded-2xl border shadow-sm"><i class="fas fa-power-off text-xl"></i></button>
+            <button onclick="logout()" class="text-red-500 p-4"><i class="fas fa-power-off text-xl"></i></button>
         </header>
 
-        <div id="house-dashboard" class="hidden">
-            <div class="bg-slate-900 rounded-[3rem] p-10 text-white mb-8 shadow-2xl relative overflow-hidden text-center">
-                <p class="text-[11px] font-black uppercase opacity-40 tracking-widest">Solde Maison</p>
-                <h2 id="global-balance" class="text-5xl font-black mt-2 tracking-tighter">0.00 €</h2>
-            </div>
+        <div class="bg-slate-900 rounded-[2.5rem] p-8 text-white mb-6 text-center shadow-2xl">
+            <p class="text-[10px] font-black uppercase opacity-50">Solde Actuel Maison</p>
+            <h2 id="global-balance" class="text-4xl font-black mt-1">0.00 €</h2>
         </div>
 
-        <nav id="nav-tabs" class="flex border-b border-slate-200 mb-8 sticky top-0 bg-white/90 backdrop-blur-md z-20"></nav>
+        <nav id="nav-tabs" class="flex border-b mb-6 sticky top-0 bg-white/80 backdrop-blur-md z-10"></nav>
 
         <main>
-            <div id="tab-compta" class="tab-content">
-                <div class="bg-white p-6 rounded-[2.5rem] border mb-8 shadow-sm">
-                    <div class="flex justify-between items-center mb-6 px-2">
-                        <h3 class="text-xs font-black uppercase text-slate-400">Opération</h3>
-                        <button id="btn-export" onclick="exportCSV()" class="hidden text-[10px] font-black text-blue-600 border border-blue-100 px-3 py-2 rounded-xl bg-blue-50">EXPORT .CSV</button>
+            <div id="tab-compta" class="tab-content active">
+                <div class="bg-white p-6 rounded-[2rem] border shadow-sm mb-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-[10px] font-black uppercase text-slate-400">Nouvelle Saisie</h3>
+                        <button id="btn-export" onclick="exportCSV()" class="hidden text-[10px] font-black text-blue-600 underline">EXPORT CSV</button>
                     </div>
-                    <div class="flex gap-2 mb-6">
-                        <button onclick="setTransType('depense')" id="type-depense" class="selector-btn active-depense flex-1 py-4 text-[10px] uppercase">Dépense</button>
-                        <button onclick="setTransType('recette')" id="type-recette" class="selector-btn flex-1 py-4 text-[10px] uppercase text-slate-400">Recette</button>
-                    </div>
+                    
                     <div class="space-y-4">
-                        <input type="date" id="compta-date" class="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none border border-slate-100">
-                        <div id="motif-container">
-                            <div class="grid grid-cols-3 gap-2" id="grid-motifs"></div>
+                        <div class="flex gap-2">
+                            <button onclick="setTransType('depense')" id="type-depense" class="flex-1 py-3 rounded-xl border-2 font-black text-[10px] uppercase border-red-500 text-red-500 bg-red-50">Dépense</button>
+                            <button onclick="setTransType('recette')" id="type-recette" class="flex-1 py-3 rounded-xl border-2 font-black text-[10px] uppercase border-slate-100 text-slate-400">Recette</button>
                         </div>
-                        <input type="text" id="compta-precision" placeholder="Note (ex: Carrefour...)" class="w-full p-4 bg-slate-50 rounded-xl text-sm outline-none border border-slate-100">
-                        <input type="number" id="compta-montant" placeholder="0.00" class="w-full p-5 bg-slate-50 rounded-2xl font-black text-3xl outline-none text-center border-2 border-slate-100 focus:border-blue-500">
-                        <div id="container-moyen-paiement" class="space-y-3 pt-2"></div>
+                        
+                        <div id="motif-grid" class="grid grid-cols-3 gap-2"></div>
+                        <input type="text" id="compta-precision" placeholder="Précision (ex: Courses, Essence...)" class="w-full p-4 bg-slate-50 rounded-xl border text-sm font-bold">
+                        <input type="number" id="compta-montant" placeholder="0.00" class="w-full p-4 bg-slate-50 rounded-xl border text-2xl font-black text-center">
+                        
+                        <div id="moyen-selector" class="flex gap-2">
+                            <button onclick="setMoyen('CB Maison')" id="moyen-cb" class="moyen-btn active flex-1 py-3 border-2 rounded-xl text-[10px] font-black">CB MAISON</button>
+                            <button onclick="setMoyen('Perso')" id="moyen-perso" class="moyen-btn flex-1 py-3 border-2 rounded-xl text-[10px] font-black">PERSO (AVANCE)</button>
+                        </div>
                     </div>
-                    <button onclick="ajouterEcriture()" class="w-full bg-slate-900 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-widest mt-8 shadow-xl">Enregistrer</button>
+                    <button onclick="saveTransaction()" class="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase text-xs mt-6">Enregistrer</button>
                 </div>
-                <div id="historique-compta" class="space-y-2"></div>
+                
+                <h3 class="text-[10px] font-black uppercase text-slate-400 mb-3 ml-2">Historique récent</h3>
+                <div id="historique-list" class="space-y-2"></div>
             </div>
 
             <div id="tab-equipe" class="tab-content">
-                <h3 class="text-xs font-black uppercase text-slate-400 mb-4 ml-2 italic">Membres de la maison</h3>
-                <div id="liste-membres-maison" class="space-y-3"></div>
+                <div id="equipe-list" class="space-y-3"></div>
             </div>
 
             <div id="tab-profil" class="tab-content">
-                <div class="bg-white p-8 rounded-[3rem] border shadow-sm space-y-6">
+                <div class="bg-white p-8 rounded-[2rem] border space-y-6">
                     <div>
-                        <label class="text-[10px] font-black text-slate-400 ml-2 uppercase">Allocation Mensuelle (€)</label>
-                        <input type="number" id="my-alloc" class="w-full p-5 bg-slate-50 rounded-2xl font-black text-xl border-2 border-slate-100 outline-none" readonly>
+                        <label class="text-[10px] font-black uppercase text-slate-400">Mon Allocation Mensuelle</label>
+                        <p id="display-alloc" class="text-2xl font-black text-slate-800">0.00 €</p>
                     </div>
                     <div>
-                        <label class="text-[10px] font-black text-slate-400 ml-2 uppercase tracking-widest">Mon IBAN</label>
-                        <input type="text" id="my-iban" class="w-full p-5 bg-slate-50 rounded-2xl font-black text-blue-600 border-2 border-slate-100 outline-none uppercase">
+                        <label class="text-[10px] font-black uppercase text-slate-400">Mon IBAN de remboursement</label>
+                        <input type="text" id="my-iban" class="w-full p-4 bg-slate-50 rounded-xl border font-black text-blue-600 uppercase">
                     </div>
-                    <button onclick="updatePersonalIban()" class="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-xs uppercase shadow-lg">Sauvegarder</button>
+                    <button onclick="updateIban()" class="w-full bg-blue-600 text-white py-4 rounded-xl font-black uppercase text-xs">Mettre à jour</button>
                 </div>
-            </div>
-
-            <div id="tab-admin-users" class="tab-content">
-                <div id="admin-form" class="bg-white p-6 rounded-3xl border mb-6 space-y-4">
-                    <div class="grid grid-cols-2 gap-4">
-                        <input type="text" id="adm-prenom" placeholder="Prénom" class="p-4 bg-slate-50 rounded-xl border font-bold">
-                        <input type="text" id="adm-nom" placeholder="Nom" class="p-4 bg-slate-50 rounded-xl border font-bold">
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <select id="adm-maison" class="p-4 bg-slate-50 rounded-xl border font-bold"></select>
-                        <select id="adm-role" class="p-4 bg-slate-50 rounded-xl border font-bold">
-                            <option value="user">Membre</option>
-                            <option value="chef">Chef</option>
-                        </select>
-                    </div>
-                    <input type="number" id="adm-alloc" placeholder="Allocation (€)" class="w-full p-4 bg-slate-50 rounded-xl border font-bold">
-                    <input type="password" id="adm-pass" placeholder="Mot de passe" class="w-full p-4 bg-slate-50 rounded-xl border font-bold">
-                    <button onclick="adminCreerUser()" class="w-full bg-blue-600 text-white py-4 rounded-xl font-black uppercase text-[10px]">Créer Profil</button>
-                </div>
-                <div id="admin-liste-users" class="space-y-2"></div>
             </div>
         </main>
     </div>
@@ -137,173 +110,152 @@
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjY25uY2t1cGh4bG94ZnJxdGtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODA3NjEsImV4cCI6MjA4Mjc1Njc2MX0.1mIEhKfS5OSsaw78f1_Iatni39y8CoIurAd5IXP6n6g";
         const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        let userProfile = null, selectedType = 'depense', selectedMainMoyen = 'CB Maison', selectedSubMoyen = 'CB', selectedMotif = 'Achat';
-        const MOTIFS = ['Apostolat', 'Alimentaire', 'Maison', 'Transport', 'Santé', 'Autre'];
+        let userProfile = null, selectedType = 'depense', selectedMoyen = 'CB Maison', selectedMotif = 'Achat';
+        const MOTIFS = ['Alimentaire', 'Apostolat', 'Maison', 'Transport', 'Santé', 'Autre'];
 
         async function checkSession() {
             const { data: { user } } = await client.auth.getUser();
             if (!user) { showView('view-login'); hideLoader(); return; }
+            
             const { data: profile } = await client.from('profiles').select('*, maisons(*)').eq('id', user.id).single();
-            if(!profile) return logout();
             userProfile = profile;
-            setupUI();
+            
+            renderUI();
             hideLoader();
         }
 
-        function setupUI() {
+        function renderUI() {
             showView('view-main');
-            const nav = document.getElementById('nav-tabs');
-            document.getElementById('user-display-name').innerText = userProfile.prenom + " " + (userProfile.nom_complet || '');
-            document.getElementById('house-display-name').innerText = userProfile.maisons?.nom || 'Admin';
-            document.getElementById('my-alloc').value = userProfile.allocation || 0;
-            document.getElementById('my-iban').value = userProfile.iban || '';
+            document.getElementById('house-display-name').innerText = userProfile.maisons?.nom || "SMMD Admin";
+            document.getElementById('display-alloc').innerText = (userProfile.allocation || 0) + " €";
+            document.getElementById('my-iban').value = userProfile.iban || "";
+            
+            const roleEl = document.getElementById('role-label');
+            roleEl.innerText = userProfile.role;
+            roleEl.className = `text-[9px] font-black px-2 py-1 rounded uppercase ${userProfile.role === 'chef' ? 'bg-orange-500 text-white' : 'bg-blue-600 text-white'}`;
 
-            if (userProfile.role === 'admin') {
-                document.getElementById('role-label').innerText = "Admin";
-                document.getElementById('role-label').className = "bg-purple-600 text-white px-2 py-1 rounded text-[9px] font-black uppercase";
-                nav.innerHTML = `<button onclick="switchTab('tab-admin-users')" id="btn-tab-admin-users" class="tab-btn active flex-1 py-5 font-black text-[10px] uppercase">Utilisateurs</button>`;
-                refreshAdminData();
-                switchTab('tab-admin-users');
-            } else {
-                document.getElementById('house-dashboard').classList.remove('hidden');
-                document.getElementById('role-label').innerText = userProfile.role.toUpperCase();
-                document.getElementById('role-label').className = userProfile.role === 'chef' ? "bg-orange-500 text-white px-2 py-1 rounded text-[9px] font-black uppercase" : "bg-blue-600 text-white px-2 py-1 rounded text-[9px] font-black uppercase";
-                
-                let tabs = `<button onclick="switchTab('tab-compta')" id="btn-tab-compta" class="tab-btn active flex-1 py-5 font-black text-[10px] uppercase">Compta</button>`;
-                if(userProfile.role === 'chef') {
-                    tabs += `<button onclick="switchTab('tab-equipe')" id="btn-tab-equipe" class="tab-btn flex-1 py-5 font-black text-[10px] uppercase">Équipe</button>`;
-                    document.getElementById('btn-export').classList.remove('hidden');
-                    refreshEquipe();
-                }
-                tabs += `<button onclick="switchTab('tab-profil')" id="btn-tab-profil" class="tab-btn flex-1 py-5 font-black text-[10px] uppercase">Profil</button>`;
-                nav.innerHTML = tabs;
-                
-                setTransType('depense');
-                refreshHouseData();
-                switchTab('tab-compta');
+            // Navigation
+            let navHtml = `<button onclick="switchTab('tab-compta')" id="btn-tab-compta" class="tab-btn active flex-1 py-4 text-[10px] font-black uppercase">Compta</button>`;
+            if(userProfile.role === 'chef') {
+                navHtml += `<button onclick="switchTab('tab-equipe')" id="btn-tab-equipe" class="tab-btn flex-1 py-4 text-[10px] font-black uppercase">Équipe</button>`;
+                document.getElementById('btn-export').classList.remove('hidden');
+                loadEquipe();
             }
-        }
+            navHtml += `<button onclick="switchTab('tab-profil')" id="btn-tab-profil" class="tab-btn flex-1 py-4 text-[10px] font-black uppercase">Profil</button>`;
+            document.getElementById('nav-tabs').innerHTML = navHtml;
 
-        async function refreshEquipe() {
-            const { data: membres } = await client.from('profiles').select('*').eq('maison_id', userProfile.maison_id);
-            document.getElementById('liste-membres-maison').innerHTML = (membres || []).map(m => `
-                <div class="bg-white p-5 rounded-2xl border shadow-sm flex justify-between items-center">
-                    <div>
-                        <p class="text-xs font-black uppercase">${m.prenom} ${m.nom_complet || ''}</p>
-                        <p class="text-[9px] font-mono text-blue-500">${m.iban || 'SANS IBAN'}</p>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-[10px] font-black">${m.allocation || 0}€/mois</p>
-                        <p class="text-[8px] font-bold text-slate-400 uppercase">${m.role}</p>
-                    </div>
-                </div>
+            // Motifs
+            document.getElementById('motif-grid').innerHTML = MOTIFS.map(m => `
+                <button onclick="setMotif('${m}')" id="m-${m}" class="motif-btn border py-2 rounded-lg text-[9px] font-bold uppercase ${m==='Achat'?'active':''}">${m}</button>
             `).join('');
+            
+            loadData();
         }
 
-        async function refreshHouseData() {
+        async function loadData() {
             const { data: trans } = await client.from('transactions').select('*, profiles(prenom)').eq('maison_id', userProfile.maison_id).order('created_at', {ascending: false});
+            
             let solde = 0;
-            if(trans) {
-                trans.forEach(t => {
-                    if(t.type === 'recette') solde += t.montant;
-                    else if(t.is_rembourse) solde -= t.montant;
-                });
-            }
-            document.getElementById('global-balance').innerText = solde.toFixed(2) + " €";
+            const listHtml = (trans || []).map(t => {
+                if(t.type === 'recette') solde += t.montant;
+                else if(t.is_rembourse) solde -= t.montant;
 
-            document.getElementById('historique-compta').innerHTML = (trans || []).map(t => {
-                const isWait = t.type === 'depense' && !t.is_rembourse;
+                const isPersoNonRemb = t.moyen_paiement.includes('Perso') && !t.is_rembourse;
+
                 return `
-                <div class="bg-white p-4 rounded-2xl border flex justify-between items-center mb-2 shadow-sm ${isWait ? 'border-orange-200 bg-orange-50/50' : ''}">
-                    <div class="flex gap-3 items-center">
-                        <button onclick="supprTrans('${t.id}')" class="text-slate-200 hover:text-red-500"><i class="fas fa-trash-alt text-xs"></i></button>
+                    <div class="bg-white p-4 rounded-2xl border flex justify-between items-center shadow-sm ${isPersoNonRemb ? 'border-orange-300 bg-orange-50' : ''}">
                         <div>
                             <p class="text-[10px] font-black uppercase">${t.motif}</p>
-                            <p class="text-[8px] opacity-40 font-bold uppercase">${t.moyen_paiement} • Par ${t.profiles?.prenom || '??'}</p>
+                            <p class="text-[8px] font-bold text-slate-400 uppercase">${t.profiles?.prenom} • ${t.moyen_paiement}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-black ${t.type==='recette'?'text-green-600':'text-red-500'}">${t.type==='recette'?'+':'-'}${t.montant.toFixed(2)}€</p>
+                            ${isPersoNonRemb && userProfile.role === 'chef' ? 
+                                `<button onclick="rembourser('${t.id}')" class="text-[8px] bg-blue-600 text-white px-2 py-1 rounded-lg font-black mt-1">VALIDER REMB.</button>` : 
+                                `<span class="text-[8px] font-bold uppercase ${t.is_rembourse?'text-green-500':'text-orange-500'}">${t.is_rembourse?'Réglé':'Attente'}</span>`
+                            }
                         </div>
                     </div>
-                    <div class="text-right">
-                        <p class="text-sm font-black ${t.type==='recette'?'text-green-600':'text-red-500'}">${t.montant.toFixed(2)}€</p>
-                        ${isWait && userProfile.role === 'chef' ? `<button onclick="validerRemb('${t.id}')" class="text-[7px] bg-blue-600 text-white px-2 py-1 rounded uppercase font-black">Rembourser</button>` : `<span class="text-[7px] uppercase font-bold ${isWait?'text-orange-500':'text-green-500'}">${isWait?'En attente':'Réglé'}</span>`}
-                    </div>
-                </div>`;
+                `;
             }).join('');
+
+            document.getElementById('global-balance').innerText = solde.toFixed(2) + " €";
+            document.getElementById('historique-list').innerHTML = listHtml;
         }
 
-        async function ajouterEcriture() {
-            const mnt = parseFloat(document.getElementById('compta-montant').value);
-            if(!mnt) return;
-            const moyen = (selectedType === 'depense' && selectedMainMoyen === 'Perso') ? `Perso (${selectedSubMoyen})` : (selectedType === 'recette' ? 'Virement' : 'CB Maison');
-            const autoValid = (selectedType === 'recette' || selectedMainMoyen === 'CB Maison');
-
-            await client.from('transactions').insert([{
-                maison_id: userProfile.maison_id, user_id: userProfile.id,
-                motif: selectedType === 'recette' ? 'Apport Recette' : `${selectedMotif}: ${document.getElementById('compta-precision').value}`,
-                montant: mnt, type: selectedType, moyen_paiement: moyen,
-                is_rembourse: autoValid, created_at: document.getElementById('compta-date').value || new Date()
-            }]);
-            document.getElementById('compta-montant').value = '';
-            refreshHouseData();
-        }
-
-        async function refreshAdminData() {
-            const { data: houses } = await client.from('maisons').select('*');
-            const { data: users } = await client.from('profiles').select('*, maisons(nom)');
-            document.getElementById('adm-maison').innerHTML = houses.map(h => `<option value="${h.id}">${h.nom}</option>`).join('');
-            document.getElementById('admin-liste-users').innerHTML = users.map(u => `
-                <div class="bg-white p-4 rounded-xl border flex justify-between items-center text-xs">
-                    <span><b>${u.prenom}</b> (${u.maisons?.nom}) - ${u.role}</span>
-                    <button onclick="adminSupprUser('${u.id}')" class="text-red-500"><i class="fas fa-times"></i></button>
+        async function loadEquipe() {
+            const { data: membres } = await client.from('profiles').select('*').eq('maison_id', userProfile.maison_id);
+            document.getElementById('equipe-list').innerHTML = (membres || []).map(m => `
+                <div class="bg-white p-5 rounded-2xl border flex justify-between items-center">
+                    <div>
+                        <p class="text-xs font-black uppercase">${m.prenom} ${m.nom_complet || ''}</p>
+                        <p class="text-[9px] font-mono text-slate-400">${m.iban || 'AUCUN IBAN'}</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="text-right">
+                            <input type="number" onchange="updateMemberAlloc('${m.id}', this.value)" value="${m.allocation || 0}" class="w-16 text-right font-black border-b border-dashed outline-none">
+                            <span class="text-[10px] font-black text-slate-400">€/m</span>
+                        </div>
+                    </div>
                 </div>
             `).join('');
         }
 
-        async function validerRemb(id) { await client.from('transactions').update({is_rembourse: true}).eq('id', id); refreshHouseData(); }
-        async function supprTrans(id) { if(confirm("Supprimer ?")) { await client.from('transactions').delete().eq('id', id); refreshHouseData(); } }
+        async function saveTransaction() {
+            const mnt = parseFloat(document.getElementById('compta-montant').value);
+            if(!mnt) return alert("Montant requis");
+
+            const isAutoRemb = (selectedType === 'recette' || selectedMoyen === 'CB Maison');
+            
+            await client.from('transactions').insert({
+                user_id: userProfile.id,
+                maison_id: userProfile.maison_id,
+                type: selectedType,
+                montant: mnt,
+                motif: `${selectedMotif}: ${document.getElementById('compta-precision').value}`,
+                moyen_paiement: selectedMoyen,
+                is_rembourse: isAutoRemb
+            });
+
+            document.getElementById('compta-montant').value = '';
+            document.getElementById('compta-precision').value = '';
+            loadData();
+        }
+
+        async function rembourser(id) {
+            if(confirm("Confirmez-vous avoir remboursé ce membre ?")) {
+                await client.from('transactions').update({ is_rembourse: true }).eq('id', id);
+                loadData();
+            }
+        }
+
+        async function updateMemberAlloc(uid, val) {
+            await client.from('profiles').update({ allocation: parseFloat(val) }).eq('id', uid);
+        }
+
+        async function updateIban() {
+            await client.from('profiles').update({ iban: document.getElementById('my-iban').value.toUpperCase() }).eq('id', userProfile.id);
+            alert("Enregistré");
+        }
+
         function setTransType(t) {
             selectedType = t;
-            document.getElementById('motif-container').classList.toggle('hidden', t === 'recette');
-            if(t === 'depense') {
-                document.getElementById('grid-motifs').innerHTML = MOTIFS.map(m => `<button onclick="setMotif('${m}')" class="motif-btn" id="motif-${m}">${m}</button>`).join('');
-                renderMoyens();
-                setMotif('Achat');
-            } else { document.getElementById('container-moyen-paiement').innerHTML = ''; }
-            document.getElementById('type-depense').classList.toggle('active-depense', t === 'depense');
-            document.getElementById('type-recette').classList.toggle('active-recette', t === 'recette');
+            document.getElementById('type-depense').className = t === 'depense' ? 'flex-1 py-3 rounded-xl border-2 font-black text-[10px] uppercase border-red-500 text-red-500 bg-red-50' : 'flex-1 py-3 rounded-xl border-2 font-black text-[10px] uppercase border-slate-100 text-slate-400';
+            document.getElementById('type-recette').className = t === 'recette' ? 'flex-1 py-3 rounded-xl border-2 font-black text-[10px] uppercase border-green-500 text-green-500 bg-green-50' : 'flex-1 py-3 rounded-xl border-2 font-black text-[10px] uppercase border-slate-100 text-slate-400';
         }
 
-        function renderMoyens() {
-            document.getElementById('container-moyen-paiement').innerHTML = `
-                <div class="flex gap-2">
-                    <button onclick="setMainMoyen('CB Maison')" id="main-m-cb" class="moyen-btn active flex-1 py-4 uppercase">CB Maison</button>
-                    <button onclick="setMainMoyen('Perso')" id="main-m-perso" class="moyen-btn flex-1 py-4 uppercase">Perso (Remboursement)</button>
-                </div>
-                <div id="sub-moyen-perso" class="hidden grid grid-cols-2 gap-2 pt-2">
-                    <button onclick="setSubMoyen('CB')" id="sub-CB" class="sub-m-btn p-4 rounded-2xl flex flex-col items-center gap-1 active"><i class="fas fa-credit-card text-xs"></i><span class="text-[8px] font-black">CARTE</span></button>
-                    <button onclick="setSubMoyen('Esp')" id="sub-Esp" class="sub-m-btn p-4 rounded-2xl flex flex-col items-center gap-1"><i class="fas fa-coins text-xs"></i><span class="text-[8px] font-black">ESPÈCES</span></button>
-                </div>
-            `;
-        }
-
-        function setMotif(m) { selectedMotif = m; document.querySelectorAll('.motif-btn').forEach(b => b.classList.remove('active')); document.getElementById(`motif-${m}`)?.classList.add('active'); }
-        function setMainMoyen(m) { 
-            selectedMainMoyen = m; 
-            document.getElementById('main-m-cb').classList.toggle('active', m === 'CB Maison'); 
-            document.getElementById('main-m-perso').classList.toggle('active', m === 'Perso'); 
-            document.getElementById('sub-moyen-perso').classList.toggle('hidden', m !== 'Perso'); 
-        }
-        function setSubMoyen(s) { selectedSubMoyen = s; document.querySelectorAll('.sub-m-btn').forEach(b => b.classList.remove('active')); document.getElementById(`sub-${s}`).classList.add('active'); }
-        function showView(v) { document.querySelectorAll('.view').forEach(x => x.classList.remove('active')); document.getElementById(v).classList.add('active'); }
+        function setMotif(m) { selectedMotif = m; document.querySelectorAll('.motif-btn').forEach(b => b.classList.remove('active')); document.getElementById('m-'+m).classList.add('active'); }
+        function setMoyen(m) { selectedMoyen = m; document.getElementById('moyen-cb').classList.toggle('active', m==='CB Maison'); document.getElementById('moyen-perso').classList.toggle('active', m==='Perso'); }
         function switchTab(t) { document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); document.getElementById(t).classList.add('active'); document.getElementById('btn-'+t).classList.add('active'); }
+        function showView(v) { document.querySelectorAll('.view').forEach(x => x.classList.remove('active')); document.getElementById(v).classList.add('active'); }
         function hideLoader() { document.getElementById('app-loader').style.display = 'none'; }
         async function logout() { await client.auth.signOut(); location.reload(); }
-        async function handleLogin() { 
-            const u = document.getElementById('login-username').value.toLowerCase().trim();
+        async function handleLogin() {
+            const u = document.getElementById('login-username').value.trim();
             const p = document.getElementById('login-pass').value;
-            const { error } = await client.auth.signInWithPassword({ email: u.includes('@') ? u : `${u}@smmd.fr`, password: p });
-            if (error) alert("Accès refusé"); else checkSession();
+            const { error } = await client.auth.signInWithPassword({ email: `${u}@smmd.fr`, password: p });
+            if(error) alert("Erreur de connexion"); else checkSession();
         }
-        async function updatePersonalIban() { await client.from('profiles').update({iban: document.getElementById('my-iban').value.toUpperCase()}).eq('id', userProfile.id); alert("IBAN mis à jour"); }
 
         checkSession();
     </script>
