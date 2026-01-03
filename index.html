@@ -102,37 +102,33 @@
 
         // 3. LOGIQUE D'AIGUILLAGE PAR RÔLE (MODIFIÉE)
         async function redirectUser(userId) {
-            const { data: profile, error: profError } = await sb
-                .from('profiles')
-                .select('role')
-                .eq('id', userId)
-                .single();
+    const { data: profile, error: profError } = await sb
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .maybeSingle(); // Utilise maybeSingle au lieu de single
 
-            if (profError) {
-                console.error(profError);
-                alert("Erreur de profil : " + profError.message);
-                await sb.auth.signOut();
-                location.reload();
-                return;
-            }
+    if (profError) {
+        console.error("Erreur:", profError.message);
+        return;
+    }
 
-            // Redirection selon le rôle précis dans la base
-            if (profile.role === 'admin') {
-                window.location.href = "admin.html";
-            } 
-            else if (profile.role === 'chef') {
-                window.location.href = "chef.html";
-            } 
-            else if (profile.role === 'user') {
-                window.location.href = "user.html";
-            } 
-            else {
-                // Si le rôle est inconnu ou mal orthographié
-                alert("Rôle non reconnu. Contactez l'administrateur.");
-                await sb.auth.signOut();
-                location.reload();
-            }
-        }
+    if (!profile) {
+        document.getElementById('error-msg').innerText = "Profil introuvable en base.";
+        document.getElementById('error-msg').classList.remove('hidden');
+        await sb.auth.signOut();
+        return;
+    }
+
+    // Redirection selon le rôle
+    if (profile.role === 'chef') {
+        window.location.href = "chef.html";
+    } else if (profile.role === 'admin') {
+        window.location.href = "admin.html";
+    } else {
+        window.location.href = "user.html";
+    }
+}
 
         checkSession();
     </script>
