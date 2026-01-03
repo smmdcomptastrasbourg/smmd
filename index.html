@@ -36,8 +36,7 @@
 
         async function handleLogin() {
     const btn = document.getElementById('btn-connexion');
-    const err = document.getElementById('error-msg');
-    let identifier = document.getElementById('user-input').value.trim().toLowerCase(); // On force les minuscules
+    let identifier = document.getElementById('user-input').value.trim().toLowerCase();
     const password = document.getElementById('pass-input').value;
 
     if(!identifier.includes('@')) identifier += "@smmd.fr";
@@ -45,22 +44,45 @@
     btn.disabled = true;
     btn.innerText = "VÉRIFICATION...";
 
+    // 1. Connexion (Auth)
     const { data, error: authError } = await sb.auth.signInWithPassword({
         email: identifier,
         password: password
     });
 
     if (authError) {
-        // Affiche l'erreur réelle (ex: Email not confirmed, Invalid credentials, etc.)
-        alert("Détail de l'erreur : " + authError.message);
-        err.innerText = "Identifiants incorrects";
-        err.classList.remove('hidden');
+        alert("Erreur de connexion : " + authError.message);
         btn.disabled = false;
         btn.innerText = "Se connecter";
+        return;
+    }
+
+    // 2. Lecture du profil (C'est ici que l'erreur de schéma se produisait)
+    const { data: profile, error: profError } = await sb
+        .from('profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .maybeSingle(); // Utilisation de maybeSingle pour éviter les crashs si vide
+
+    if (profError) {
+        console.error(profError);
+        alert("Erreur de lecture du profil : " + profError.message + "\n\nAssurez-vous que les RLS sont activées sur la table profiles.");
+        btn.disabled = false;
+        btn.innerText = "Se connecter";
+        return;
+    }
+
+    if (!profile) {
+        alert("Compte trouvé, mais aucun profil créé. Contactez l'admin.");
+        btn.disabled = false;
+        return;
+    }
+
+    // 3. Redirection
+    if (profile.role === 'admin') {
+        window.location.href = "admin.html";
     } else {
-        // Suite de la redirection...
-        const { data: profile } = await sb.from('profiles').select('role').eq('id', data.user.id).single();
-        window.location.href = (profile.role === 'admin') ? "admin.html" : "user.html";
+        window.location.href = "user.html";
     }
 }
     </script>
