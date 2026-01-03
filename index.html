@@ -2,85 +2,40 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SMMD Compta</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMMD Compta - Connexion</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body class="bg-slate-50 text-slate-900 font-sans">
+<body class="bg-slate-50 flex items-center justify-center min-h-screen p-6">
 
-    <div id="view-login" class="flex flex-col items-center justify-center min-h-screen p-6">
-        <h1 class="text-4xl font-black italic mb-8 tracking-tighter text-blue-900">SMMD.</h1>
-        <div class="bg-white p-8 rounded-[40px] shadow-xl w-full max-w-sm">
-            <h2 class="text-center text-[10px] font-black uppercase tracking-[0.3em] mb-6 text-gray-400">Authentification</h2>
-            <input type="text" id="login-user" placeholder="Identifiant" class="w-full mb-4 p-4 bg-gray-100 rounded-2xl border-none font-bold">
-            <input type="password" id="login-pass" placeholder="Mot de passe" class="w-full mb-6 p-4 bg-gray-100 rounded-2xl border-none font-bold">
-            <button onclick="handleLogin()" class="w-full bg-blue-900 text-white font-black py-5 rounded-2xl uppercase tracking-widest shadow-lg active:scale-95 transition-all">Se connecter</button>
-        </div>
-    </div>
-
-    <div id="view-loading" class="hidden flex items-center justify-center min-h-screen font-black italic text-blue-900 animate-pulse">
-        Vérification des droits...
+    <div id="login-card" class="bg-white p-8 rounded-[40px] shadow-xl w-full max-w-sm">
+        <h1 class="text-3xl font-black italic mb-8 text-center text-blue-900 italic">SMMD.</h1>
+        <input type="text" id="user" placeholder="Identifiant" class="w-full mb-4 p-4 bg-gray-100 rounded-2xl border-none font-bold">
+        <input type="password" id="pass" placeholder="Mot de passe" class="w-full mb-6 p-4 bg-gray-100 rounded-2xl border-none font-bold">
+        <button onclick="login()" id="btn" class="w-full bg-blue-900 text-white font-black py-5 rounded-2xl uppercase tracking-widest shadow-lg">Se connecter</button>
     </div>
 
     <script>
-        const SUPABASE_URL = "https://xccnnckuphxloxfrqtkf.supabase.co";
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjY25uY2t1cGh4bG94ZnJxdGtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODA3NjEsImV4cCI6MjA4Mjc1Njc2MX0.1mIEhKfS5OSsaw78f1_Iatni39y8CoIurAd5IXP6n6g";
-        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const sb = supabase.createClient("https://xccnnckuphxloxfrqtkf.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjY25uY2t1cGh4bG94ZnJxdGtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODA3NjEsImV4cCI6MjA4Mjc1Njc2MX0.1mIEhKfS5OSsaw78f1_Iatni39y8CoIurAd5IXP6n6g");
 
-        // Cette fonction s'exécute au chargement pour voir si on est déjà connecté
-        async function checkSession() {
-            const { data: { user } } = await sb.auth.getUser();
-            if (user) {
-                redirectByUserRole(user.id);
-            }
-        }
-
-        async function handleLogin() {
-            let u = document.getElementById('login-user').value.trim();
-            const p = document.getElementById('login-pass').value;
-
-            // Ajout automatique du domaine si manquant
+        async function login() {
+            let u = document.getElementById('user').value.trim();
+            const p = document.getElementById('pass').value;
             if(!u.includes('@')) u += "@smmd.fr";
 
-            document.getElementById('view-login').classList.add('hidden');
-            document.getElementById('view-loading').classList.remove('hidden');
-
             const { data, error } = await sb.auth.signInWithPassword({ email: u, password: p });
+            if(error) return alert("Identifiants incorrects");
 
-            if (error) {
-                alert("Erreur : " + error.message);
-                document.getElementById('view-login').classList.remove('hidden');
-                document.getElementById('view-loading').classList.add('hidden');
+            // Aiguillage selon le rôle
+            const { data: prof } = await sb.from('profiles').select('role').eq('id', data.user.id).single();
+            
+            if(prof.role === 'admin') {
+                window.location.href = "admin.html";
             } else {
-                redirectByUserRole(data.user.id);
+                window.location.href = "user.html";
             }
         }
-
-        async function redirectByUserRole(userId) {
-            // On va chercher le rôle dans la table profiles
-            const { data: profile, error } = await sb
-                .from('profiles')
-                .select('role')
-                .eq('id', userId)
-                .single();
-
-            if (error || !profile) {
-                alert("Profil introuvable.");
-                await sb.auth.signOut();
-                location.reload();
-                return;
-            }
-
-            // REDIRECTION SELON LE RÔLE
-            if (profile.role === 'admin') {
-                window.location.href = "admin.html"; // Ta console admin actuelle
-            } else {
-                window.location.href = "user.html";  // Ton interface utilisateur
-            }
-        }
-
-        checkSession();
     </script>
 </body>
 </html>
