@@ -3,88 +3,130 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SMMD Compta - Accueil</title>
+    <title>SMMD Compta - Connexion</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { -webkit-tap-highlight-color: transparent; }
+    </style>
 </head>
 <body class="bg-slate-50 flex items-center justify-center min-h-screen p-6">
 
-    <div id="login-card" class="bg-white p-8 rounded-[40px] shadow-xl w-full max-w-sm border border-gray-100">
+    <div id="login-card" class="bg-white p-8 rounded-[40px] shadow-xl w-full max-w-sm border border-gray-100 transition-all">
         <h1 class="text-4xl font-black italic mb-8 text-center text-blue-900 tracking-tighter">SMMD.</h1>
         
         <div class="space-y-4">
-            <input type="text" id="user-input" placeholder="Identifiant" 
-                class="w-full p-4 bg-gray-100 rounded-2xl border-none font-bold focus:ring-2 focus:ring-blue-500 outline-none">
+            <div>
+                <label class="text-[10px] font-black uppercase ml-2 mb-1 block text-gray-400 tracking-widest">Identifiant</label>
+                <input type="text" id="login-user" placeholder="ex: guillaume.legall" 
+                    class="w-full p-4 bg-gray-100 rounded-2xl border-none font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+            </div>
             
-            <input type="password" id="pass-input" placeholder="Mot de passe" 
-                class="w-full p-4 bg-gray-100 rounded-2xl border-none font-bold focus:ring-2 focus:ring-blue-500 outline-none">
+            <div>
+                <label class="text-[10px] font-black uppercase ml-2 mb-1 block text-gray-400 tracking-widest">Mot de passe</label>
+                <input type="password" id="login-pass" placeholder="••••••••" 
+                    class="w-full p-4 bg-gray-100 rounded-2xl border-none font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+            </div>
             
-            <button onclick="handleLogin()" id="btn-connexion" 
-                class="w-full bg-blue-900 text-white font-black py-5 rounded-2xl uppercase tracking-widest shadow-lg active:scale-95 transition-all">
+            <button onclick="handleLogin()" id="btn-login" 
+                class="w-full bg-blue-900 text-white font-black py-5 rounded-2xl uppercase tracking-widest shadow-lg active:scale-95 transition-all mt-4">
                 Se connecter
             </button>
         </div>
         
-        <p id="error-msg" class="text-red-500 text-[10px] font-bold uppercase text-center mt-4 hidden"></p>
+        <p id="error-msg" class="text-red-500 text-[10px] font-black uppercase text-center mt-6 hidden"></p>
+    </div>
+
+    <div id="loading-screen" class="hidden text-center">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-900 mx-auto mb-4"></div>
+        <p class="font-black italic text-blue-900 uppercase tracking-widest text-xs">Vérification du profil...</p>
     </div>
 
     <script>
-        // Configuration de ta base Supabase
+        // CONFIGURATION SUPABASE
         const SUPABASE_URL = "https://xccnnckuphxloxfrqtkf.supabase.co";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjY25uY2t1cGh4bG94ZnJxdGtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODA3NjEsImV4cCI6MjA4Mjc1Njc2MX0.1mIEhKfS5OSsaw78f1_Iatni39y8CoIurAd5IXP6n6g";
         const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+        // 1. VÉRIFICATION DE SESSION EXISTANTE
+        async function checkSession() {
+            const { data: { user } } = await sb.auth.getUser();
+            if (user) {
+                redirectUser(user.id);
+            }
+        }
+
+        // 2. FONCTION DE CONNEXION ET AIGUILLAGE
         async function handleLogin() {
-    const btn = document.getElementById('btn-connexion');
-    let identifier = document.getElementById('user-input').value.trim().toLowerCase();
-    const password = document.getElementById('pass-input').value;
+            const btn = document.getElementById('btn-login');
+            const err = document.getElementById('error-msg');
+            const card = document.getElementById('login-card');
+            const load = document.getElementById('loading-screen');
 
-    if(!identifier.includes('@')) identifier += "@smmd.fr";
+            let identifier = document.getElementById('login-user').value.trim().toLowerCase();
+            const password = document.getElementById('login-pass').value;
 
-    btn.disabled = true;
-    btn.innerText = "VÉRIFICATION...";
+            if(!identifier || !password) {
+                alert("Veuillez remplir tous les champs.");
+                return;
+            }
 
-    // 1. Connexion (Auth)
-    const { data, error: authError } = await sb.auth.signInWithPassword({
-        email: identifier,
-        password: password
-    });
+            // Ajout automatique du domaine si l'utilisateur ne le tape pas
+            if(!identifier.includes('@')) identifier += "@smmd.fr";
 
-    if (authError) {
-        alert("Erreur de connexion : " + authError.message);
-        btn.disabled = false;
-        btn.innerText = "Se connecter";
-        return;
-    }
+            btn.disabled = true;
+            btn.innerText = "CONNEXION...";
+            err.classList.add('hidden');
 
-    // 2. Lecture du profil (C'est ici que l'erreur de schéma se produisait)
-    const { data: profile, error: profError } = await sb
-        .from('profiles')
-        .select('role')
-        .eq('id', data.user.id)
-        .maybeSingle(); // Utilisation de maybeSingle pour éviter les crashs si vide
+            // --- AUTHENTIFICATION ---
+            const { data, error: authError } = await sb.auth.signInWithPassword({
+                email: identifier,
+                password: password
+            });
 
-    if (profError) {
-        console.error(profError);
-        alert("Erreur de lecture du profil : " + profError.message + "\n\nAssurez-vous que les RLS sont activées sur la table profiles.");
-        btn.disabled = false;
-        btn.innerText = "Se connecter";
-        return;
-    }
+            if (authError) {
+                err.innerText = "Identifiants incorrects";
+                err.classList.remove('hidden');
+                btn.disabled = false;
+                btn.innerText = "Se connecter";
+                return;
+            }
 
-    if (!profile) {
-        alert("Compte trouvé, mais aucun profil créé. Contactez l'admin.");
-        btn.disabled = false;
-        return;
-    }
+            // Si login OK, on masque la carte et on montre le chargement
+            card.classList.add('hidden');
+            load.classList.remove('hidden');
 
-    // 3. Redirection
-    if (profile.role === 'admin') {
-        window.location.href = "admin.html";
-    } else {
-        window.location.href = "user.html";
-    }
-}
+            // --- REDIRECTION ---
+            redirectUser(data.user.id);
+        }
+
+        // 3. LOGIQUE D'AIGUILLAGE PAR RÔLE
+        async function redirectUser(userId) {
+            const { data: profile, error: profError } = await sb
+                .from('profiles')
+                .select('role')
+                .eq('id', userId)
+                .single();
+
+            if (profError) {
+                // Si erreur ici, c'est probablement un problème de RLS sur Supabase
+                console.error(profError);
+                alert("Erreur de profil (RLS) : " + profError.message);
+                await sb.auth.signOut();
+                location.reload();
+                return;
+            }
+
+            // On envoie vers le fichier correspondant au rôle
+            if (profile.role === 'admin') {
+                window.location.href = "admin.html";
+            } else {
+                window.location.href = "user.html";
+            }
+        }
+
+        // Lancement au chargement de la page
+        checkSession();
     </script>
 </body>
 </html>
