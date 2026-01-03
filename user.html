@@ -7,8 +7,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        .glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); }
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .active-tab { background-color: #1e3a8a !important; color: white !important; }
+        .active-recette { background-color: #10b981 !important; color: white !important; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 pb-10">
@@ -16,7 +17,7 @@
     <nav class="bg-blue-900 text-white p-6 rounded-b-[40px] shadow-lg sticky top-0 z-50">
         <div class="flex justify-between items-start mb-6">
             <div>
-                <h1 id="user-name" class="text-xl font-black italic">Chargement...</h1>
+                <h1 id="user-name" class="text-xl font-black italic tracking-tighter">Chargement...</h1>
                 <p id="maison-name" class="text-[10px] uppercase tracking-[0.2em] opacity-60 font-bold italic">Maison ...</p>
             </div>
             <button onclick="logout()" class="bg-red-500/20 text-red-200 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest">Sortir</button>
@@ -33,15 +34,15 @@
             </div>
         </div>
 
-        <div class="bg-black/20 p-4 rounded-2xl space-y-3">
-            <div class="flex gap-2">
+        <div class="bg-black/20 p-4 rounded-2xl space-y-3 border border-white/5">
+            <div class="flex gap-4">
                 <div class="flex-1">
-                    <label class="text-[7px] font-black uppercase opacity-50">Allocation Mensuelle (€)</label>
-                    <input type="number" id="user-alloc" onchange="updateProfile()" class="w-full bg-transparent border-b border-white/20 font-bold text-sm outline-none">
+                    <label class="text-[7px] font-black uppercase opacity-50">Alloc. Mensuelle (€)</label>
+                    <input type="number" id="user-alloc" onchange="updateProfile()" class="w-full bg-transparent border-b border-white/20 font-bold text-sm outline-none py-1">
                 </div>
                 <div class="flex-[2]">
                     <label class="text-[7px] font-black uppercase opacity-50">Mon IBAN</label>
-                    <input type="text" id="user-iban" onchange="updateProfile()" placeholder="FR76..." class="w-full bg-transparent border-b border-white/20 font-bold text-sm outline-none">
+                    <input type="text" id="user-iban" onchange="updateProfile()" placeholder="FR76..." class="w-full bg-transparent border-b border-white/20 font-bold text-sm outline-none py-1">
                 </div>
             </div>
         </div>
@@ -51,15 +52,12 @@
 
         <section class="bg-white p-6 rounded-[35px] shadow-sm border border-gray-100">
             <div class="flex gap-4 mb-6">
-                <button onclick="setTxType('depense')" id="tab-depense" class="flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest bg-blue-900 text-white transition-all">Dépense</button>
-                <button onclick="setTxType('recette')" id="tab-recette" class="flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest bg-gray-100 text-gray-400 transition-all">Recette</button>
+                <button onclick="setTxType('depense')" id="tab-depense" class="flex-1 py-3 rounded-xl font-black text-[10px] uppercase bg-blue-900 text-white active-tab">Dépense</button>
+                <button onclick="setTxType('recette')" id="tab-recette" class="flex-1 py-3 rounded-xl font-black text-[10px] uppercase bg-gray-100 text-gray-400">Recette</button>
             </div>
 
             <div class="space-y-4">
-                <div>
-                    <label class="text-[9px] font-black uppercase ml-2 text-gray-400">Montant (€)</label>
-                    <input type="number" id="tx-amount" step="0.01" placeholder="0.00" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-black text-xl outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
+                <input type="number" id="tx-amount" step="0.01" placeholder="Montant (€)" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-black text-xl outline-none focus:ring-2 focus:ring-blue-500">
 
                 <div id="container-motif">
                     <label class="text-[9px] font-black uppercase ml-2 text-gray-400">Motif</label>
@@ -67,14 +65,14 @@
                 </div>
 
                 <div id="container-paiement">
-                    <label class="text-[9px] font-black uppercase ml-2 text-gray-400">Mode de paiement</label>
+                    <label class="text-[9px] font-black uppercase ml-2 text-gray-400">Moyen de paiement</label>
                     <select id="tx-method" onchange="toggleAvanceInfo()" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none">
                         <option value="cb_maison">CB MAISON</option>
                         <option value="perso_cb">PERSO - Carte Bancaire</option>
-                        <option value="perso_liquide">PERSO - Liquide</option>
-                        <option value="perso_virement">PERSO - Virement</option>
+                        <option value="perso_liq">PERSO - Liquide</option>
+                        <option value="perso_vir">PERSO - Virement</option>
                     </select>
-                    <p id="info-avance" class="hidden text-[8px] text-orange-500 font-black uppercase mt-2 ml-2 italic">⚠️ Avance : sera validée par le chef</p>
+                    <p id="info-avance" class="hidden text-[8px] text-orange-500 font-black uppercase mt-2 ml-2 italic">⚠️ Avance : nécessite validation du chef</p>
                 </div>
 
                 <div>
@@ -87,22 +85,20 @@
         </section>
 
         <section id="chef-section" class="hidden bg-orange-50 p-6 rounded-[35px] border border-orange-100">
-            <h2 class="text-[10px] font-black uppercase tracking-widest text-orange-600 mb-4 flex justify-between items-center">
-                Validation Avances
+            <h2 class="text-[10px] font-black uppercase text-orange-600 mb-4 flex justify-between items-center">
+                Validation Avances 
                 <span id="badge-count" class="bg-orange-600 text-white px-2 py-0.5 rounded-full text-[8px]">0</span>
             </h2>
-            <div id="list-avances-attente" class="space-y-3 text-sm">
-                </div>
+            <div id="list-avances-attente" class="space-y-3"></div>
         </section>
 
         <section class="space-y-4">
             <div class="flex justify-between items-center px-2">
-                <h2 class="text-[10px] font-black uppercase tracking-widest text-gray-400">Mes Opérations</h2>
-                <button onclick="undoLast()" class="text-[9px] font-bold uppercase text-red-500">Annuler dernière</button>
+                <h2 class="text-[10px] font-black uppercase text-gray-400 tracking-widest">Mes Opérations</h2>
+                <button onclick="undoLast()" class="text-[9px] font-bold uppercase text-red-500 hover:underline">Annuler dernier</button>
             </div>
             <div id="user-history" class="space-y-3"></div>
         </section>
-
     </main>
 
     <script>
@@ -116,10 +112,9 @@
         async function checkAuth() {
             const { data: { user } } = await sb.auth.getUser();
             if (!user) { window.location.href = "index.html"; return; }
-            
             const { data: profile } = await sb.from('profiles').select('*, maisons(*)').eq('id', user.id).single();
             userProfile = profile;
-
+            
             document.getElementById('user-name').innerText = `${profile.prenom} ${profile.nom}`;
             document.getElementById('maison-name').innerText = `Maison ${profile.maisons.nom}`;
             document.getElementById('user-alloc').value = profile.allocation_mensuelle || 0;
@@ -137,6 +132,7 @@
             const alloc = document.getElementById('user-alloc').value;
             const iban = document.getElementById('user-iban').value.trim().toUpperCase();
             await sb.from('profiles').update({ allocation_mensuelle: alloc, iban: iban }).eq('id', userProfile.id);
+            refreshDashboard();
         }
 
         async function loadMotifs() {
@@ -149,10 +145,10 @@
             const isRecette = type === 'recette';
             document.getElementById('container-motif').classList.toggle('hidden', isRecette);
             document.getElementById('container-paiement').classList.toggle('hidden', isRecette);
-            document.getElementById('label-note').innerHTML = isRecette ? 'Commentaire (OBLIGATOIRE)' : 'Commentaire (Optionnel)';
+            document.getElementById('label-note').innerHTML = isRecette ? 'Commentaire (OBLIGATOIRE)' : 'Commentaire';
             
-            document.getElementById('tab-depense').className = isRecette ? "flex-1 py-3 rounded-xl font-black text-[10px] uppercase bg-gray-100 text-gray-400" : "flex-1 py-3 rounded-xl font-black text-[10px] uppercase bg-blue-900 text-white";
-            document.getElementById('tab-recette').className = isRecette ? "flex-1 py-3 rounded-xl font-black text-[10px] uppercase bg-emerald-500 text-white" : "flex-1 py-3 rounded-xl font-black text-[10px] uppercase bg-gray-100 text-gray-400";
+            document.getElementById('tab-depense').className = isRecette ? "flex-1 py-3 rounded-xl font-black text-[10px] uppercase bg-gray-100 text-gray-400" : "flex-1 py-3 rounded-xl font-black text-[10px] uppercase bg-blue-900 text-white active-tab";
+            document.getElementById('tab-recette').className = isRecette ? "flex-1 py-3 rounded-xl font-black text-[10px] uppercase bg-emerald-500 text-white active-recette" : "flex-1 py-3 rounded-xl font-black text-[10px] uppercase bg-gray-100 text-gray-400";
         }
 
         function toggleAvanceInfo() {
@@ -161,37 +157,29 @@
         }
 
         async function refreshDashboard() {
-            const { data: txs } = await sb.from('transactions').select('*').eq('maison_id', userProfile.maison_id);
-            
-            let depensesMaison = 0;
-            let monCumul = 0;
+            const { data: soldes } = await sb.from('soldes_calculables').select('*').eq('maison_id', userProfile.maison_id);
+            let cumulMaison = 0;
+            let monSoldePerso = 0;
 
-            txs.forEach(t => {
-                const amount = parseFloat(t.montant);
-                const isValide = (t.statut === 'valide' || t.methode_paiement === 'cb_maison');
-                
-                if (isValide) {
-                    if (t.type === 'depense') depensesMaison += amount;
-                    else depensesMaison -= amount;
-                }
+            if(soldes) {
+                soldes.forEach(s => {
+                    const total = parseFloat(s.total_allocations) + parseFloat(s.total_transactions);
+                    cumulMaison += total;
+                    if (s.user_id === userProfile.id) monSoldePerso = total;
+                });
+            }
 
-                if (t.user_id === userProfile.id && isValide) {
-                    if (t.type === 'depense') monCumul -= amount;
-                    else monCumul += amount;
-                }
-            });
+            document.getElementById('solde-maison').innerText = cumulMaison.toFixed(2) + " €";
+            document.getElementById('solde-perso').innerText = monSoldePerso.toFixed(2) + " €";
 
-            document.getElementById('solde-maison').innerText = ( (userProfile.maisons.solde_initial || 0) - depensesMaison).toFixed(2) + " €";
-            document.getElementById('solde-perso').innerText = ( (userProfile.allocation_initiale || 0) + monCumul).toFixed(2) + " €";
-
-            const myTxs = txs.filter(t => t.user_id === userProfile.id).sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 8);
+            const { data: myTxs } = await sb.from('transactions').select('*').eq('user_id', userProfile.id).order('created_at', { ascending: false }).limit(8);
             document.getElementById('user-history').innerHTML = myTxs.map(t => `
-                <div class="bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm border border-gray-50">
+                <div class="bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm border border-gray-50 text-xs">
                     <div>
-                        <p class="text-[9px] font-black uppercase text-gray-400">${t.type === 'recette' ? 'RECETTE' : t.motif} ${t.statut === 'attente' ? '⏳' : ''}</p>
-                        <p class="text-xs font-bold text-slate-600">${t.commentaire || '-'}</p>
+                        <p class="font-black uppercase text-gray-400 text-[8px] tracking-widest">${t.type === 'recette' ? 'RECETTE' : t.motif} ${t.statut === 'attente' ? '⏳' : ''}</p>
+                        <p class="font-bold text-slate-700">${t.commentaire || '-'}</p>
                     </div>
-                    <p class="font-black ${t.type === 'recette' ? 'text-emerald-500' : 'text-slate-900'}">${t.type === 'recette' ? '+' : '-'}${t.montant}€</p>
+                    <p class="font-black ${t.type === 'recette' ? 'text-emerald-500' : 'text-slate-900'}">${t.type === 'recette' ? '+' : '-'}${t.montant.toFixed(2)}€</p>
                 </div>
             `).join('');
         }
@@ -202,8 +190,8 @@
             const motif = document.getElementById('tx-motif').value;
             const method = document.getElementById('tx-method').value;
 
-            if (!amount) return alert("Indiquez un montant.");
-            if (currentType === 'recette' && !note) return alert("Le commentaire est obligatoire pour une recette.");
+            if (!amount || amount <= 0) return alert("Entrez un montant valide.");
+            if (currentType === 'recette' && !note) return alert("Justifiez la recette dans le commentaire.");
 
             const { error } = await sb.from('transactions').insert([{
                 user_id: userProfile.id,
@@ -217,8 +205,8 @@
             }]);
 
             if (error) alert(error.message);
-            else { 
-                document.getElementById('tx-amount').value = ''; 
+            else {
+                document.getElementById('tx-amount').value = '';
                 document.getElementById('tx-note').value = '';
                 refreshDashboard();
                 if(userProfile.role === 'chef') loadAvancesChef();
@@ -227,53 +215,43 @@
 
         async function loadAvancesChef() {
             const { data } = await sb.from('transactions').select('*, profiles(*)').eq('maison_id', userProfile.maison_id).eq('statut', 'attente');
-            document.getElementById('badge-count').innerText = data.length;
-            
-            // Groupement par utilisateur pour validation par bloc
+            document.getElementById('badge-count').innerText = data ? data.length : 0;
             const groups = {};
-            data.forEach(t => {
-                if(!groups[t.user_id]) groups[t.user_id] = { name: `${t.profiles.prenom} ${t.profiles.nom}`, iban: t.profiles.iban, txs: [] };
-                groups[t.user_id].txs.push(t);
-            });
-
+            if(data) {
+                data.forEach(t => {
+                    if(!groups[t.user_id]) groups[t.user_id] = { name: `${t.profiles.prenom} ${t.profiles.nom}`, iban: t.profiles.iban, txs: [] };
+                    groups[t.user_id].txs.push(t);
+                });
+            }
             document.getElementById('list-avances-attente').innerHTML = Object.keys(groups).map(uid => `
                 <div class="bg-white p-4 rounded-2xl border border-orange-200 shadow-sm">
                     <div class="flex justify-between items-start mb-2">
-                        <p class="font-black text-[10px] uppercase text-orange-600">${groups[uid].name}</p>
-                        <button onclick="validerTout('${uid}')" class="text-[8px] font-black bg-orange-600 text-white px-2 py-1 rounded-lg">TOUT VALIDER</button>
+                        <p class="font-black text-[9px] uppercase text-orange-600">${groups[uid].name}</p>
+                        <button onclick="validerTout('${uid}')" class="text-[8px] font-black bg-orange-600 text-white px-2 py-1 rounded-lg">VALIDER TOUT</button>
                     </div>
-                    <p class="text-[9px] font-mono text-gray-400 mb-3">IBAN: ${groups[uid].iban || 'NON RENSEIGNÉ'}</p>
-                    <div class="space-y-1">
-                        ${groups[uid].txs.map(t => `
-                            <div class="flex justify-between text-[10px] bg-orange-50/50 p-2 rounded-lg">
-                                <span>${t.motif} : ${t.montant}€</span>
-                                <button onclick="validerUnique('${t.id}')" class="font-bold text-orange-600">Valider</button>
-                            </div>
-                        `).join('')}
-                    </div>
+                    <p class="text-[8px] font-mono text-gray-400 mb-2">IBAN: ${groups[uid].iban || 'MANQUANT'}</p>
+                    ${groups[uid].txs.map(t => `
+                        <div class="flex justify-between text-[10px] bg-orange-50 p-1.5 rounded-lg mb-1">
+                            <span>${t.montant}€ (${t.motif})</span>
+                            <button onclick="validerUnique('${t.id}')" class="font-bold text-orange-600">OK</button>
+                        </div>
+                    `).join('')}
                 </div>
             `).join('');
         }
 
-        async function validerUnique(id) {
-            await sb.from('transactions').update({ statut: 'valide', date_validation: new Date() }).eq('id', id);
-            loadAvancesChef(); refreshDashboard();
-        }
-
-        async function validerTout(uid) {
-            await sb.from('transactions').update({ statut: 'valide', date_validation: new Date() }).eq('user_id', uid).eq('statut', 'attente');
-            loadAvancesChef(); refreshDashboard();
-        }
-
+        async function validerUnique(id) { await sb.from('transactions').update({ statut: 'valide', date_validation: new Date() }).eq('id', id); loadAvancesChef(); refreshDashboard(); }
+        async function validerTout(uid) { await sb.from('transactions').update({ statut: 'valide', date_validation: new Date() }).eq('user_id', uid).eq('statut', 'attente'); loadAvancesChef(); refreshDashboard(); }
+        
         async function undoLast() {
             const { data } = await sb.from('transactions').select('id').eq('user_id', userProfile.id).order('created_at', { ascending: false }).limit(1);
-            if (data[0] && confirm("Supprimer la dernière opération ?")) {
+            if (data && data[0] && confirm("Annuler la dernière saisie ?")) {
                 await sb.from('transactions').delete().eq('id', data[0].id);
                 refreshDashboard();
             }
         }
 
-        function logout() { sb.auth.signOut().then(() => location.href="index.html"); }
+        function logout() { sb.auth.signOut().then(() => window.location.href="index.html"); }
         checkAuth();
     </script>
 </body>
