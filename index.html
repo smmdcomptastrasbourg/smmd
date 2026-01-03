@@ -3,50 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SMMD - Console Super Admin</title>
+    <title>SMMD - Super Console Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="bg-slate-50 text-slate-900 font-sans">
 
     <div id="view-login" class="flex flex-col items-center justify-center min-h-screen p-6">
-        <h1 class="text-3xl font-black italic mb-8 tracking-tighter text-blue-900">SMMD.</h1>
-        <div class="bg-white p-8 rounded-3xl shadow-xl w-full max-w-sm">
-            <input type="text" id="login-user" placeholder="Admin Email" class="w-full mb-4 p-4 bg-gray-100 rounded-2xl border-none font-bold">
+        <h1 class="text-4xl font-black italic mb-8 tracking-tighter text-blue-900">SMMD.</h1>
+        <div class="bg-white p-8 rounded-[40px] shadow-2xl w-full max-w-sm border border-gray-100">
+            <h2 class="text-center text-[10px] font-black uppercase tracking-[0.3em] mb-6 text-gray-400">Accès Administrateur</h2>
+            <input type="text" id="login-user" placeholder="Email Admin" class="w-full mb-4 p-4 bg-gray-100 rounded-2xl border-none font-bold">
             <input type="password" id="login-pass" placeholder="Mot de passe" class="w-full mb-6 p-4 bg-gray-100 rounded-2xl border-none font-bold">
-            <button onclick="handleLogin()" class="w-full bg-blue-900 text-white font-black py-4 rounded-2xl uppercase tracking-widest">Connexion Admin</button>
+            <button onclick="handleLogin()" class="w-full bg-blue-900 text-white font-black py-5 rounded-2xl uppercase tracking-widest hover:bg-blue-800 transition-all">Entrer dans la console</button>
         </div>
     </div>
 
     <div id="view-main" class="hidden">
-        <header class="bg-white p-4 border-b flex justify-between items-center sticky top-0 z-50">
-            <span class="font-black italic text-xl tracking-tighter">SMMD. <small class="text-[9px] uppercase tracking-widest text-blue-600 ml-2">Console</small></span>
-            <button onclick="logout()" class="text-[10px] font-bold text-red-500 border border-red-200 px-3 py-1 rounded-lg uppercase">Déconnexion</button>
+        <header class="bg-white p-4 border-b flex justify-between items-center sticky top-0 z-50 shadow-sm">
+            <div class="flex items-center">
+                <span class="font-black italic text-2xl tracking-tighter">SMMD.</span>
+                <span class="text-[9px] bg-red-100 text-red-600 px-2 py-1 rounded-full ml-3 font-black uppercase tracking-widest">Super Admin</span>
+            </div>
+            <button onclick="logout()" class="text-[10px] font-black text-gray-400 border border-gray-200 px-4 py-2 rounded-xl uppercase hover:bg-red-50 hover:text-red-500 transition-all">Quitter</button>
         </header>
         
-        <main class="p-6 max-w-2xl mx-auto space-y-12 pb-20">
+        <main class="p-6 max-w-3xl mx-auto space-y-12 pb-32">
             
-            <section class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-                <h2 class="text-[11px] font-black uppercase text-blue-900 mb-6 tracking-[0.3em]">Création Nouveau Compte</h2>
+            <section class="bg-white p-8 rounded-[40px] shadow-sm border border-blue-100">
+                <h2 class="text-[11px] font-black uppercase text-blue-600 mb-6 tracking-[0.3em]">🚀 Création d'un nouveau membre</h2>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <input type="text" id="new-prenom" placeholder="Prénom" class="p-4 bg-gray-50 rounded-2xl font-bold border-none">
-                    <input type="text" id="new-nom" placeholder="NOM" class="p-4 bg-gray-50 rounded-2xl font-bold border-none uppercase">
-                    <input type="email" id="new-email" placeholder="Email (ex: marc@smmd.fr)" class="sm:col-span-2 p-4 bg-gray-50 rounded-2xl font-bold border-none">
-                    <input type="text" id="new-password" placeholder="Mot de passe provisoire" class="sm:col-span-2 p-4 bg-gray-50 rounded-2xl font-bold border-none">
+                    <input type="text" id="new-prenom" placeholder="Prénom" class="p-4 bg-gray-50 rounded-2xl font-bold border-none focus:ring-2 focus:ring-blue-500">
+                    <input type="text" id="new-nom" placeholder="NOM DE FAMILLE" class="p-4 bg-gray-50 rounded-2xl font-bold border-none uppercase focus:ring-2 focus:ring-blue-500">
+                    <input type="email" id="new-email" placeholder="Email (ex: pierre@smmd.fr)" class="sm:col-span-2 p-4 bg-gray-50 rounded-2xl font-bold border-none focus:ring-2 focus:ring-blue-500">
+                    <input type="text" id="new-password" placeholder="Mot de passe provisoire" class="sm:col-span-2 p-4 bg-gray-50 rounded-2xl font-bold border-none focus:ring-2 focus:ring-blue-500">
                     
-                    <select id="new-role" class="p-4 bg-gray-50 rounded-2xl font-bold border-none">
-                        <option value="user">Utilisateur Simple</option>
-                        <option value="chef">Chef de Maison</option>
-                    </select>
-                    <select id="new-house" class="p-4 bg-gray-50 rounded-2xl font-bold border-none"></select>
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-gray-400 ml-2 mb-1 block">Rôle</label>
+                        <select id="new-role" class="w-full p-4 bg-gray-50 rounded-2xl font-bold border-none">
+                            <option value="user">👤 Utilisateur Simple</option>
+                            <option value="chef">🔑 Chef de Maison</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-gray-400 ml-2 mb-1 block">Affectation</label>
+                        <select id="new-house" class="w-full p-4 bg-gray-50 rounded-2xl font-bold border-none"></select>
+                    </div>
                 </div>
-                <button onclick="createFullUser()" id="btn-create" class="w-full mt-6 bg-blue-900 text-white py-5 rounded-3xl font-black uppercase tracking-widest shadow-lg shadow-blue-200">
-                    Créer et Activer le compte
+                <button onclick="createFullUser()" id="btn-create" class="w-full mt-8 bg-blue-900 text-white py-5 rounded-3xl font-black uppercase tracking-widest shadow-xl shadow-blue-100 active:scale-95 transition-all">
+                    Créer le compte et le profil
                 </button>
             </section>
 
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <section>
+                    <h2 class="text-[10px] font-black uppercase text-gray-400 mb-4 tracking-[0.2em]">🏠 Maisons</h2>
+                    <div class="bg-white p-6 rounded-3xl border shadow-sm mb-4">
+                        <div class="flex gap-2">
+                            <input type="text" id="new-house-name" placeholder="NOM (ex: PARIS)" class="flex-1 p-3 bg-gray-50 border-none rounded-xl font-bold text-sm uppercase">
+                            <button onclick="addHouse()" class="bg-slate-800 text-white px-4 rounded-xl font-black">+</button>
+                        </div>
+                    </div>
+                    <div id="houses-list" class="space-y-2"></div>
+                </section>
+
+                <section>
+                    <h2 class="text-[10px] font-black uppercase text-gray-400 mb-4 tracking-[0.2em]">🏷️ Motifs</h2>
+                    <div class="bg-white p-6 rounded-3xl border shadow-sm mb-4">
+                        <div class="flex gap-2">
+                            <input type="text" id="new-motif-name" placeholder="Ex: Essence" class="flex-1 p-3 bg-gray-50 border-none rounded-xl font-bold text-sm">
+                            <button onclick="addMotif()" class="bg-slate-800 text-white px-4 rounded-xl font-black">+</button>
+                        </div>
+                    </div>
+                    <div id="motifs-list" class="flex flex-wrap gap-2"></div>
+                </section>
+            </div>
+
             <section>
-                <h2 class="text-[10px] font-black uppercase text-gray-400 mb-4 tracking-[0.2em]">Membres de l'organisation</h2>
+                <h2 class="text-[10px] font-black uppercase text-gray-400 mb-4 tracking-[0.2em]">👥 Membres & Exports</h2>
+                <div class="bg-slate-900 p-6 rounded-[30px] mb-6 flex flex-col sm:flex-row gap-4 items-center justify-between">
+                    <div class="text-white text-sm font-bold">Exporter la compta de :</div>
+                    <select id="export-house-select" class="bg-slate-800 text-white p-3 rounded-xl border-none font-bold text-sm w-full sm:w-auto"></select>
+                    <button onclick="exportData()" class="bg-white text-slate-900 px-6 py-3 rounded-xl font-black text-[10px] uppercase w-full sm:w-auto">Télécharger CSV</button>
+                </div>
                 <div id="users-list" class="space-y-3"></div>
             </section>
 
@@ -58,36 +97,6 @@
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjY25uY2t1cGh4bG94ZnJxdGtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODA3NjEsImV4cCI6MjA4Mjc1Njc2MX0.1mIEhKfS5OSsaw78f1_Iatni39y8CoIurAd5IXP6n6g";
         const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        async function createFullUser() {
-            const btn = document.getElementById('btn-create');
-            const payload = {
-                email: document.getElementById('new-email').value.trim(),
-                password: document.getElementById('new-password').value,
-                prenom: document.getElementById('new-prenom').value.trim(),
-                nom: document.getElementById('new-nom').value.trim(),
-                role: document.getElementById('new-role').value,
-                maison_id: document.getElementById('new-house').value
-            };
-
-            if(!payload.email || !payload.password) return alert("Email et mot de passe requis");
-
-            btn.innerText = "CRÉATION EN COURS...";
-            btn.disabled = true;
-
-            // Appel à l'Edge Function
-            const { data, error } = await sb.functions.invoke('create-user', { body: payload });
-
-            if (error) {
-                alert("Erreur: " + error.message);
-            } else {
-                alert("Compte créé avec succès !");
-                location.reload();
-            }
-            btn.disabled = false;
-            btn.innerText = "CRÉER ET ACTIVER LE COMPTE";
-        }
-
-        // --- Fonctions Support (Maisons, Liste, Auth) ---
         async function init() {
             const { data: { user } } = await sb.auth.getUser();
             if (user) {
@@ -95,34 +104,133 @@
                 if (p && p.role === 'admin') {
                     document.getElementById('view-login').classList.add('hidden');
                     document.getElementById('view-main').classList.remove('hidden');
-                    loadData();
+                    refreshAll();
                 } else { logout(); }
             }
         }
 
-        async function loadData() {
-            const { data: h } = await sb.from('maisons').select('*').order('nom');
-            const select = document.getElementById('new-house');
-            h.forEach(m => select.innerHTML += `<option value="${m.id}">${m.nom}</option>`);
+        function refreshAll() { loadHouses(); loadMotifs(); loadUsers(); }
 
-            const { data: u } = await sb.from('profiles').select('*, maisons(nom)').neq('role', 'admin').order('nom');
+        // --- CRÉATION UTILISATEUR VIA RPC (FONCTION SQL) ---
+        async function createFullUser() {
+            const btn = document.getElementById('btn-create');
+            const params = {
+                email_input: document.getElementById('new-email').value.trim(),
+                password_input: document.getElementById('new-password').value,
+                prenom_input: document.getElementById('new-prenom').value.trim(),
+                nom_input: document.getElementById('new-nom').value.trim(),
+                role_input: document.getElementById('new-role').value,
+                maison_id_input: document.getElementById('new-house').value
+            };
+
+            if(!params.email_input || !params.password_input || !params.nom_input) return alert("Veuillez remplir tous les champs.");
+
+            btn.innerText = "CRÉATION EN COURS...";
+            btn.disabled = true;
+
+            const { data, error } = await sb.rpc('create_user_admin', params);
+
+            if (error) {
+                alert("Erreur technique: " + error.message);
+            } else if (data.status === 'error') {
+                alert("Erreur base de données: " + data.message);
+            } else {
+                alert("Compte de " + params.prenom_input + " créé avec succès !");
+                refreshAll();
+                // Reset formulaire
+                document.getElementById('new-email').value = "";
+                document.getElementById('new-password').value = "";
+                document.getElementById('new-prenom').value = "";
+                document.getElementById('new-nom').value = "";
+            }
+            btn.disabled = false;
+            btn.innerText = "Créer le compte et le profil";
+        }
+
+        // --- GESTION DONNÉES ---
+        async function loadHouses() {
+            const { data } = await sb.from('maisons').select('*').order('nom');
+            const list = document.getElementById('houses-list');
+            const selects = [document.getElementById('new-house'), document.getElementById('export-house-select')];
+            list.innerHTML = ""; 
+            selects.forEach(s => s.innerHTML = "");
+
+            data.forEach(h => {
+                list.innerHTML += `<div class="bg-white p-4 rounded-2xl border flex justify-between items-center shadow-sm">
+                    <span class="font-black text-xs uppercase tracking-tighter">${h.nom}</span>
+                    <button onclick="deleteHouse('${h.id}')" class="text-red-400 text-[9px] font-black border border-red-50 px-2 py-1 rounded-lg">Suppr.</button>
+                </div>`;
+                selects.forEach(s => s.innerHTML += `<option value="${h.id}">${h.nom}</option>`);
+            });
+        }
+
+        async function loadUsers() {
+            const { data } = await sb.from('profiles').select('*, maisons(nom)').neq('role', 'admin').order('nom');
             const list = document.getElementById('users-list');
-            u.forEach(user => {
-                list.innerHTML += `<div class="bg-white p-5 rounded-3xl border flex justify-between items-center shadow-sm">
+            list.innerHTML = "";
+            data.forEach(u => {
+                const icon = u.role === 'chef' ? '🔑' : '👤';
+                list.innerHTML += `<div class="bg-white p-5 rounded-3xl border flex justify-between items-center shadow-sm transition-all hover:border-blue-200">
                     <div>
-                        <div class="font-black text-sm uppercase">${user.nom} <span class="font-bold normal-case text-gray-500">${user.prenom}</span></div>
-                        <div class="text-[9px] font-black text-blue-500 mt-1 uppercase tracking-widest">${user.role} — ${user.maisons?.nom}</div>
+                        <div class="font-black text-sm uppercase">${u.nom} <span class="font-bold normal-case text-gray-500">${u.prenom}</span></div>
+                        <div class="text-[9px] font-black text-blue-500 uppercase tracking-widest mt-1">${icon} ${u.role} — ${u.maisons?.nom || 'AUCUNE'}</div>
                     </div>
+                    <button onclick="deleteUser('${u.id}')" class="text-red-500 font-black text-[9px] bg-red-50 px-3 py-2 rounded-xl">VIRER</button>
                 </div>`;
             });
         }
 
+        async function loadMotifs() {
+            const { data } = await sb.from('motifs').select('*').order('nom');
+            const list = document.getElementById('motifs-list');
+            list.innerHTML = "";
+            data.forEach(m => {
+                list.innerHTML += `<span class="bg-white px-3 py-2 rounded-xl border text-[10px] font-black uppercase flex items-center gap-2 shadow-sm">
+                    ${m.nom} <button onclick="deleteMotif('${m.id}')" class="text-red-500 text-lg">&times;</button>
+                </span>`;
+            });
+        }
+
+        // --- EXPORT CSV ---
+        async function exportData() {
+            const houseId = document.getElementById('export-house-select').value;
+            const houseName = document.getElementById('export-house-select').options[document.getElementById('export-house-select').selectedIndex].text;
+            const { data: trans } = await sb.from('transactions').select('*, profiles(nom, prenom)').eq('maison_id', houseId);
+            
+            if(!trans || trans.length === 0) return alert("Aucune dépense enregistrée pour cette maison.");
+
+            let csv = "Date;Membre;Motif;Type;Montant\n";
+            trans.forEach(t => {
+                csv += `${new Date(t.created_at).toLocaleDateString()};${t.profiles.nom} ${t.profiles.prenom};${t.motif};${t.type};${t.montant.toFixed(2)}€\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `COMPTA_${houseName}_2026.csv`;
+            a.click();
+        }
+
+        // --- ACTIONS BASIQUES ---
+        async function addHouse() {
+            const nom = document.getElementById('new-house-name').value.toUpperCase().trim();
+            if(nom) { await sb.from('maisons').insert([{ nom }]); document.getElementById('new-house-name').value = ""; refreshAll(); }
+        }
+        async function addMotif() {
+            const nom = document.getElementById('new-motif-name').value.trim();
+            if(nom) { await sb.from('motifs').insert([{ nom }]); document.getElementById('new-motif-name').value = ""; refreshAll(); }
+        }
+        async function deleteHouse(id) { if(confirm("Supprimer cette maison ?")) { await sb.from('maisons').delete().eq('id', id); refreshAll(); } }
+        async function deleteUser(id) { if(confirm("Supprimer ce membre définitivement ?")) { await sb.from('profiles').delete().eq('id', id); refreshAll(); } }
+        async function deleteMotif(id) { if(confirm("Supprimer ?")) { await sb.from('motifs').delete().eq('id', id); refreshAll(); } }
+        
         async function handleLogin() {
             let u = document.getElementById('login-user').value.trim();
             const p = document.getElementById('login-pass').value;
             if(!u.includes('@')) u += "@smmd.fr";
             const { error } = await sb.auth.signInWithPassword({ email: u, password: p });
-            if(error) alert(error.message); else location.reload();
+            if(error) alert("Erreur d'identifiant admin."); else location.reload();
         }
         function logout() { sb.auth.signOut(); location.reload(); }
         init();
