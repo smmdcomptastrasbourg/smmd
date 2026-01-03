@@ -3,54 +3,111 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SMMD - Étape 1</title>
+    <title>SMMD - Étape 2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body class="bg-slate-50">
+<body class="bg-slate-50 text-slate-900">
 
     <div id="view-login" class="flex flex-col items-center justify-center min-h-screen p-6">
         <h1 class="text-3xl font-black italic mb-8">SMMD.</h1>
         <div class="bg-white p-8 rounded-3xl shadow-xl w-full max-w-sm border border-gray-100">
-            <input type="text" id="login-user" placeholder="Identifiant (ex: admin)" class="w-full mb-4 p-4 bg-gray-100 rounded-2xl border-none font-bold">
+            <input type="text" id="login-user" placeholder="Identifiant" class="w-full mb-4 p-4 bg-gray-100 rounded-2xl border-none font-bold">
             <input type="password" id="login-pass" placeholder="Mot de passe" class="w-full mb-6 p-4 bg-gray-100 rounded-2xl border-none font-bold">
-            <button onclick="handleLogin()" class="w-full bg-blue-900 text-white font-black py-4 rounded-2xl uppercase shadow-lg">Entrer</button>
+            <button onclick="handleLogin()" class="w-full bg-blue-900 text-white font-black py-4 rounded-2xl uppercase">Entrer</button>
         </div>
     </div>
 
-    <div id="view-main" class="hidden">
-        <header class="bg-white p-4 border-b flex justify-between items-center">
+    <div id="view-main" class="hidden pb-24">
+        <header class="bg-white p-4 border-b flex justify-between items-center sticky top-0 z-50">
             <span class="font-black italic text-xl">SMMD.</span>
             <button onclick="logout()" class="text-[10px] font-bold text-red-500 border border-red-200 px-3 py-1 rounded-lg uppercase">Déconnexion</button>
         </header>
         
         <main class="p-6 max-w-md mx-auto">
-            <div id="admin-badge" class="hidden bg-blue-900 text-white text-[10px] font-black uppercase px-3 py-1 rounded-full w-fit mb-4">
-                Session Administrateur
+            <div id="tab-compta" class="tab-content">
+                <h2 class="text-2xl font-black mb-4">Ma Compta</h2>
+                <div id="motifs-list-display" class="grid grid-cols-2 gap-4">
+                    </div>
             </div>
-            <h2 id="welcome-msg" class="text-3xl font-black text-slate-800"></h2>
-            <p class="text-gray-500 mt-2">La connexion est établie. Prêt pour l'étape 2 ?</p>
+
+            <div id="tab-admin" class="tab-content hidden">
+                <h2 class="text-2xl font-black mb-6">Configuration</h2>
+                <div class="bg-white p-6 rounded-3xl shadow-sm border mb-6">
+                    <h3 class="text-xs font-black uppercase text-blue-600 mb-4 tracking-widest">Ajouter un Motif</h3>
+                    <div class="flex gap-2">
+                        <input type="text" id="new-motif-name" placeholder="Ex: Alimentaire" class="flex-1 p-3 bg-gray-50 border rounded-xl font-bold text-sm">
+                        <button onclick="addMotif()" class="bg-blue-900 text-white px-6 rounded-xl font-black">+</button>
+                    </div>
+                </div>
+                <div id="admin-motifs-list" class="space-y-2">
+                    </div>
+            </div>
         </main>
+
+        <nav class="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around p-2 max-w-md mx-auto">
+            <button onclick="switchTab('tab-compta')" class="flex-1 py-3 font-black text-[10px] uppercase">Compta</button>
+            <button id="nav-admin" onclick="switchTab('tab-admin')" class="hidden flex-1 py-3 font-black text-[10px] uppercase text-blue-600">Admin</button>
+        </nav>
     </div>
 
     <script>
         const SUPABASE_URL = "https://xccnnckuphxloxfrqtkf.supabase.co";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjY25uY2t1cGh4bG94ZnJxdGtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODA3NjEsImV4cCI6MjA4Mjc1Njc2MX0.1mIEhKfS5OSsaw78f1_Iatni39y8CoIurAd5IXP6n6g";
         const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        let uProfile = null;
 
         async function init() {
             const { data: { user } } = await sb.auth.getUser();
             if (user) {
                 const { data: p } = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
                 if (p) {
+                    uProfile = p;
                     document.getElementById('view-login').classList.add('hidden');
                     document.getElementById('view-main').classList.remove('hidden');
-                    document.getElementById('welcome-msg').innerText = "Salut, " + p.prenom;
-                    if (p.role === 'admin') {
-                        document.getElementById('admin-badge').classList.remove('hidden');
-                    }
+                    if (p.role === 'admin') document.getElementById('nav-admin').classList.remove('hidden');
+                    loadMotifs();
                 }
             }
+        }
+
+        async function loadMotifs() {
+            const { data: motifs } = await sb.from('motifs').select('*').order('nom');
+            const display = document.getElementById('motifs-list-display');
+            const adminList = document.getElementById('admin-motifs-list');
+            
+            display.innerHTML = "";
+            adminList.innerHTML = "";
+
+            motifs.forEach(m => {
+                // Affichage dans Compta
+                display.innerHTML += `<div class="bg-white p-4 rounded-2xl border-2 border-gray-100 text-center font-bold text-xs uppercase shadow-sm">${m.nom}</div>`;
+                // Affichage dans Admin
+                adminList.innerHTML += `<div class="flex justify-between items-center bg-white p-4 rounded-2xl border shadow-sm">
+                    <span class="font-bold">${m.nom}</span>
+                    <button onclick="deleteMotif('${m.id}')" class="text-red-500 font-black text-xs">SUPPR.</button>
+                </div>`;
+            });
+        }
+
+        async function addMotif() {
+            const nom = document.getElementById('new-motif-name').value.trim();
+            if (!nom) return;
+            await sb.from('motifs').insert([{ nom }]);
+            document.getElementById('new-motif-name').value = "";
+            loadMotifs();
+        }
+
+        async function deleteMotif(id) {
+            if (confirm("Supprimer ce motif ?")) {
+                await sb.from('motifs').delete().eq('id', id);
+                loadMotifs();
+            }
+        }
+
+        function switchTab(id) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
+            document.getElementById(id).classList.remove('hidden');
         }
 
         async function handleLogin() {
@@ -58,14 +115,11 @@
             const pass = document.getElementById('login-pass').value;
             if (!user.includes('@')) user += "@smmd.fr";
             const { error } = await sb.auth.signInWithPassword({ email: user, password: pass });
-            if (error) alert("Erreur : " + error.message);
+            if (error) alert(error.message);
             else location.reload();
         }
 
-        async function logout() {
-            await sb.auth.signOut();
-            location.reload();
-        }
+        async function logout() { await sb.auth.signOut(); location.reload(); }
 
         init();
     </script>
