@@ -137,23 +137,40 @@
         }
 
         function setupUI() {
-            showV('view-main');
-            document.getElementById('global-header').classList.remove('hidden');
-            document.getElementById('house-name').innerText = uProfile.maisons?.nom || "Admin";
-            document.getElementById('user-info').innerText = `${uProfile.prenom} | ROLE: ${uProfile.role}`;
-            document.getElementById('my-iban').value = uProfile.iban || "";
-            
-            let tabs = `<button onclick="switchT('tab-compta')" id="btn-tab-compta" class="tab-btn active flex-1 py-4 text-[10px] font-black uppercase">Compta</button>`;
-            if(uProfile.role === 'chef') tabs += `<button onclick="switchT('tab-chef')" id="btn-tab-chef" class="tab-btn flex-1 py-4 text-[10px] font-black uppercase">Équipe</button>`;
-            if(uProfile.role === 'admin') tabs += `<button onclick="switchT('tab-admin')" id="btn-tab-admin" class="tab-btn flex-1 py-4 text-[10px] font-black uppercase">Admin</button>`;
-            tabs += `<button onclick="switchT('tab-profil')" id="btn-tab-profil" class="tab-btn flex-1 py-4 text-[10px] font-black uppercase">Profil</button>`;
-            
-            document.getElementById('nav-tabs').innerHTML = tabs;
-            loadMotifs();
-            loadHistory();
-            if(uProfile.role === 'chef') loadChefView();
-            switchT('tab-compta');
-        }
+    if (!uProfile) {
+        alert("Erreur : Profil introuvable. Vérifiez la table profiles.");
+        return;
+    }
+    
+    showV('view-main');
+    document.getElementById('global-header').classList.remove('hidden');
+    
+    // Ajout d'une sécurité si la maison n'est pas trouvée
+    const nomMaison = uProfile.maisons ? uProfile.maisons.nom : "Non assigné";
+    document.getElementById('house-name').innerText = nomMaison;
+    
+    document.getElementById('user-info').innerText = `${uProfile.prenom} | ROLE: ${uProfile.role}`;
+    document.getElementById('my-iban').value = uProfile.iban || "";
+    
+    // Génération des onglets
+    let tabs = `<button onclick="switchT('tab-compta')" id="btn-tab-compta" class="tab-btn active flex-1 py-4 text-[10px] font-black uppercase">Compta</button>`;
+    
+    if(uProfile.role === 'chef' || uProfile.role === 'admin') {
+        tabs += `<button onclick="switchT('tab-chef')" id="btn-tab-chef" class="tab-btn flex-1 py-4 text-[10px] font-black uppercase">Équipe</button>`;
+    }
+    if(uProfile.role === 'admin') {
+        tabs += `<button onclick="switchT('tab-admin')" id="btn-tab-admin" class="tab-btn flex-1 py-4 text-[10px] font-black uppercase">Admin</button>`;
+    }
+    
+    tabs += `<button onclick="switchT('tab-profil')" id="btn-tab-profil" class="tab-btn flex-1 py-4 text-[10px] font-black uppercase">Profil</button>`;
+    
+    document.getElementById('nav-tabs').innerHTML = tabs;
+    
+    loadMotifs();
+    loadHistory();
+    if(uProfile.role === 'chef' || uProfile.role === 'admin') loadChefView();
+    switchT('tab-compta');
+}
 
         async function loadMotifs() {
             const { data } = await sb.from('motifs').select('*');
@@ -259,3 +276,4 @@
     </script>
 </body>
 </html>
+
