@@ -3,284 +3,245 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SMMD - Super Admin</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <title>SMMD - Master Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body class="bg-slate-100 min-h-screen font-sans">
+<body class="bg-slate-50 text-slate-900 font-sans pb-20">
 
-    <nav class="bg-blue-900 text-white p-4 shadow-lg mb-8">
-        <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <h1 class="text-xl font-bold tracking-tight">SMMD ADMIN SYSTEM</h1>
-            <div class="flex items-center space-x-6">
-                <span id="admin-name" class="text-sm font-medium text-blue-200"></span>
-                <button onclick="sb.auth.signOut().then(() => location.href='index.html')" class="bg-red-500/20 hover:bg-red-500 px-3 py-1 rounded text-xs transition-all">Déconnexion</button>
-            </div>
-        </div>
+    <nav class="bg-white border-b p-6 flex justify-between items-center sticky top-0 z-50">
+        <h1 class="text-2xl font-black italic tracking-tighter text-blue-900">SMMD. <span class="text-xs opacity-30 not-italic font-bold uppercase tracking-widest ml-2">Console Master</span></h1>
+        <button onclick="logout()" class="bg-red-50 text-red-600 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-100 transition-all">Déconnexion</button>
     </nav>
 
-    <main class="max-w-7xl mx-auto px-4 pb-20 grid grid-cols-1 lg:grid-cols-12 gap-8">
+    <main class="p-6 max-w-6xl mx-auto space-y-10">
         
-        <div class="lg:col-span-4 space-y-6">
-            
-            <section class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-blue-500">
-                <h2 class="font-bold text-slate-800 mb-4 uppercase text-xs tracking-wider">Maisons</h2>
+        <section class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
+            <h2 class="text-[10px] font-black uppercase tracking-[0.3em] mb-6 text-blue-500">Ajouter un Membre</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <input type="text" id="new-nom" placeholder="NOM" class="p-4 bg-gray-50 rounded-2xl border-none font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="text" id="new-prenom" placeholder="Prénom" class="p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="text" id="new-user" placeholder="Identifiant (ex: g.legall)" class="p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="password" id="new-pass" placeholder="Mot de passe" class="p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500">
+                <select id="new-maison" class="p-4 bg-gray-50 rounded-2xl border-none font-bold text-gray-500 outline-none"></select>
+                <select id="new-role" class="p-4 bg-gray-50 rounded-2xl border-none font-bold text-gray-500 outline-none">
+                    <option value="user">Membre (User)</option>
+                    <option value="chef">Chef de Maison</option>
+                </select>
+                <button onclick="createUser()" class="md:col-span-3 bg-blue-900 text-white font-black py-4 rounded-2xl uppercase tracking-widest hover:bg-blue-800 shadow-lg transition-all">Créer le compte et le profil</button>
+            </div>
+        </section>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="bg-white p-6 rounded-[35px] border border-gray-100">
+                <h3 class="text-[10px] font-black uppercase tracking-[0.3em] mb-4 text-gray-400">Maisons</h3>
                 <div class="flex gap-2 mb-4">
-                    <input type="text" id="new_maison" placeholder="Nom (ex: Lyon)" class="flex-1 border p-2 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-                    <button onclick="saveMaison()" class="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700">+</button>
+                    <input type="text" id="add-maison-nom" placeholder="Nom maison" class="flex-1 p-3 bg-gray-50 rounded-xl border-none font-bold text-sm">
+                    <button onclick="addMaison()" class="bg-blue-100 text-blue-900 px-4 rounded-xl font-black hover:bg-blue-200">+</button>
                 </div>
-                <div id="list-maisons" class="space-y-2 max-h-48 overflow-y-auto"></div>
-            </section>
-
-            <section class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-amber-500">
-                <h2 class="font-bold text-slate-800 mb-4 uppercase text-xs tracking-wider">Motifs de Dépense</h2>
+                <div id="list-maisons" class="space-y-2 max-h-60 overflow-y-auto"></div>
+            </div>
+            <div class="bg-white p-6 rounded-[35px] border border-gray-100">
+                <h3 class="text-[10px] font-black uppercase tracking-[0.3em] mb-4 text-gray-400">Motifs de Dépenses</h3>
                 <div class="flex gap-2 mb-4">
-                    <input type="text" id="new_motif" placeholder="Motif (ex: Loyer)" class="flex-1 border p-2 rounded text-sm focus:ring-2 focus:ring-amber-500 outline-none">
-                    <button onclick="saveMotif()" class="bg-amber-600 text-white px-4 py-2 rounded font-bold hover:bg-amber-700">+</button>
+                    <input type="text" id="add-motif-nom" placeholder="Nom motif" class="flex-1 p-3 bg-gray-50 rounded-xl border-none font-bold text-sm">
+                    <button onclick="addMotif()" class="bg-blue-100 text-blue-900 px-4 rounded-xl font-black hover:bg-blue-200">+</button>
                 </div>
-                <div id="list-motifs" class="space-y-2 max-h-48 overflow-y-auto text-sm"></div>
-            </section>
-
-            <section class="bg-slate-800 p-6 rounded-xl shadow-sm text-white">
-                <h2 class="font-bold mb-4 uppercase text-xs tracking-wider text-emerald-400">Export Comptable</h2>
-                <div class="space-y-3">
-                    <div>
-                        <label class="block text-[10px] uppercase text-slate-400 mb-1">Choisir la Maison</label>
-                        <select id="export-maison" class="w-full p-2 rounded text-black text-sm"></select>
-                    </div>
-                    <div>
-                        <label class="block text-[10px] uppercase text-slate-400 mb-1">Mois concerné</label>
-                        <input type="month" id="export-month" class="w-full p-2 rounded text-black text-sm">
-                    </div>
-                    <button onclick="exportMensuel()" class="w-full bg-emerald-500 hover:bg-emerald-600 p-3 rounded text-sm font-bold uppercase transition-colors">Générer le CSV</button>
-                </div>
-            </section>
-        </div>
-
-        <div class="lg:col-span-8">
-            <section class="bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200">
-                <div class="p-6 bg-slate-50 border-b flex justify-between items-center">
-                    <div>
-                        <h2 class="font-bold text-slate-800 text-lg">Membres du Réseau</h2>
-                        <p class="text-xs text-slate-500">Gérez les accès, rôles et allocations</p>
-                    </div>
-                    <button onclick="openCreateModal()" class="bg-blue-600 text-white px-5 py-2 rounded-full text-sm font-bold shadow-lg hover:shadow-blue-200 transition-all">+ Nouveau Membre</button>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead class="bg-slate-50 text-slate-400 text-[10px] uppercase font-bold border-b">
-                            <tr>
-                                <th class="px-6 py-4">Utilisateur</th>
-                                <th class="px-6 py-4">Maison / Rôle</th>
-                                <th class="px-6 py-4">Allocation</th>
-                                <th class="px-6 py-4 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="user-table-body" class="divide-y divide-slate-100">
-                            </tbody>
-                    </table>
-                </div>
-            </section>
-        </div>
-    </main>
-
-    <div id="user-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-        <div class="bg-white p-8 rounded-2xl w-full max-w-md shadow-2xl scale-95 transition-transform">
-            <h3 id="modal-title" class="text-xl font-bold mb-6 text-slate-800">Créer un membre</h3>
-            <div class="space-y-4">
-                <input type="hidden" id="edit-id">
-                <div class="grid grid-cols-2 gap-4">
-                    <input type="text" id="u-prenom" placeholder="Prénom" class="border p-3 rounded-lg w-full text-sm">
-                    <input type="text" id="u-nom" placeholder="Nom" class="border p-3 rounded-lg w-full text-sm">
-                </div>
-                <div id="auth-fields" class="space-y-4">
-                    <input type="email" id="u-email" placeholder="Email" class="border p-3 rounded-lg w-full text-sm">
-                    <input type="password" id="u-pass" placeholder="Mot de passe temporaire" class="border p-3 rounded-lg w-full text-sm">
-                </div>
-                
-                <div class="grid grid-cols-2 gap-4">
-                    <select id="u-role" class="border p-3 rounded-lg w-full bg-slate-50 text-sm">
-                        <option value="user">Utilisateur</option>
-                        <option value="chef">Chef</option>
-                        <option value="admin">Admin</option>
-                    </select>
-                    <select id="u-maison" class="border p-3 rounded-lg w-full bg-slate-50 text-sm"></select>
-                </div>
-                <div>
-                    <label class="text-[10px] uppercase font-bold text-slate-400 ml-1">Allocation (€ / mois)</label>
-                    <input type="number" id="u-alloc" value="0" class="border p-3 rounded-lg w-full text-sm font-mono">
-                </div>
-                
-                <div class="flex gap-4 mt-8">
-                    <button onclick="closeModal()" class="flex-1 text-slate-400 hover:text-slate-600 font-medium text-sm">Annuler</button>
-                    <button onclick="saveUser()" class="flex-1 bg-blue-600 text-white p-3 rounded-xl font-bold shadow-lg hover:bg-blue-700">ENREGISTRER</button>
-                </div>
+                <div id="list-motifs" class="space-y-2 max-h-60 overflow-y-auto"></div>
             </div>
         </div>
-    </div>
+
+        <section class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
+            <h2 class="text-[10px] font-black uppercase tracking-[0.3em] mb-6 text-blue-500">Gestion des Membres</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="text-[9px] font-black text-gray-300 uppercase tracking-widest border-b">
+                            <th class="pb-4">Membre</th>
+                            <th class="pb-4">Maison Actuelle</th>
+                            <th class="pb-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="list-users-table" class="divide-y divide-gray-50"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="bg-white p-8 rounded-[40px] shadow-xl border-t-4 border-t-emerald-500">
+            <h2 class="text-[10px] font-black uppercase tracking-[0.3em] mb-6 text-emerald-600">Export Comptable</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <select id="export-maison" class="p-4 bg-gray-50 rounded-2xl border-none font-bold text-gray-500 outline-none"></select>
+                <select id="export-month" class="p-4 bg-gray-50 rounded-2xl border-none font-bold text-gray-500 outline-none">
+                    <option value="01">Janvier</option><option value="02">Février</option><option value="03">Mars</option>
+                    <option value="04">Avril</option><option value="05">Mai</option><option value="06">Juin</option>
+                    <option value="07">Juillet</option><option value="08">Août</option><option value="09">Septembre</option>
+                    <option value="10">Octobre</option><option value="11">Novembre</option><option value="12">Décembre</option>
+                </select>
+                <button onclick="exportData()" class="bg-emerald-500 text-white font-black py-4 rounded-2xl uppercase tracking-widest hover:bg-emerald-600 shadow-md transition-all">Télécharger CSV</button>
+            </div>
+        </section>
+    </main>
 
     <script>
-        const SUPABASE_URL = "VOTRE_URL";
-        const SUPABASE_KEY = "VOTRE_KEY";
+        const SUPABASE_URL = "https://xccnnckuphxloxfrqtkf.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjY25uY2t1cGh4bG94ZnJxdGtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODA3NjEsImV4cCI6MjA4Mjc1Njc2MX0.1mIEhKfS5OSsaw78f1_Iatni39y8CoIurAd5IXP6n6g";
         const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        document.addEventListener('DOMContentLoaded', async () => {
-            const { data: { user } } = await sb.auth.getUser();
-            if(!user) window.location.href = "index.html";
-            
-            await Promise.all([initMaisons(), initMotifs(), loadUsers()]);
-        });
+        let maisonsGlobal = [];
 
-        // --- GESTION MAISONS & MOTIFS ---
-        async function initMaisons() {
-            const { data } = await sb.from('maisons').select('*').order('nom');
-            const selectU = document.getElementById('u-maison');
-            const selectE = document.getElementById('export-maison');
-            const list = document.getElementById('list-maisons');
-            
-            [selectU, selectE, list].forEach(el => el.innerHTML = '');
-            data.forEach(m => {
-                selectU.innerHTML += `<option value="${m.id}">${m.nom}</option>`;
-                selectE.innerHTML += `<option value="${m.id}">${m.nom}</option>`;
-                list.innerHTML += `
-                    <div class="flex justify-between items-center p-2 bg-slate-50 rounded border border-slate-100">
-                        <input onchange="renameMaison('${m.id}', this.value)" value="${m.nom}" class="bg-transparent border-none text-sm font-medium focus:ring-0 w-32">
-                        <button onclick="deleteMaison('${m.id}')" class="text-slate-300 hover:text-red-500">🗑️</button>
-                    </div>`;
-            });
+        async function init() {
+            await loadMaisons(); // Important : charger les maisons avant les users
+            loadMotifs();
+            loadUsers();
+            document.getElementById('export-month').value = String(new Date().getMonth() + 1).padStart(2, '0');
         }
 
-        async function initMotifs() {
-            const { data } = await sb.from('motifs').select('*').order('nom');
-            const list = document.getElementById('list-motifs');
-            list.innerHTML = '';
-            data.forEach(m => {
-                list.innerHTML += `
-                    <div class="flex justify-between items-center p-2 border-b border-slate-50">
-                        <span>${m.nom}</span>
-                        <button onclick="deleteMotif('${m.id}')" class="text-slate-300 hover:text-red-500">×</button>
-                    </div>`;
-            });
+        // --- GESTION MEMBRES ---
+        async function createUser() {
+            const idInput = document.getElementById('new-user').value.trim().toLowerCase();
+            const email = idInput.includes('@') ? idInput : idInput + "@smmd.fr";
+            const pass = document.getElementById('new-pass').value;
+            const nom = document.getElementById('new-nom').value.trim().toUpperCase();
+            const prenom = document.getElementById('new-prenom').value.trim();
+            const maisonId = document.getElementById('new-maison').value;
+            const role = document.getElementById('new-role').value;
+
+            if(!maisonId) return alert("Veuillez sélectionner une maison.");
+
+            const { data, error } = await sb.auth.signUp({ email, password: pass });
+            if (error) return alert(error.message);
+
+            const { error: profError } = await sb.from('profiles').insert([{ 
+                id: data.user.id, nom, prenom, role, maison_id: maisonId, allocation: 0, allocation_mensuelle: 0 
+            }]);
+
+            if (profError) alert("Auth OK mais Profil erreur: " + profError.message);
+            else { alert("Membre créé avec succès !"); location.reload(); }
         }
 
-        // --- GESTION UTILISATEURS ---
         async function loadUsers() {
             const { data } = await sb.from('profiles').select('*, maisons(nom)').order('nom');
-            const tbody = document.getElementById('user-table-body');
-            tbody.innerHTML = '';
-            data.forEach(u => {
-                tbody.innerHTML += `
-                    <tr class="hover:bg-slate-50/80 transition-all">
-                        <td class="px-6 py-4">
-                            <div class="font-bold text-slate-800 uppercase text-sm">${u.nom} ${u.prenom}</div>
-                            <div class="text-[10px] text-slate-400 font-mono">${u.id.substring(0,13)}</div>
-                        </td>
-                        <td class="px-6 py-4">
-                            <div class="text-sm font-semibold text-slate-600">${u.maisons ? u.maisons.nom : 'Non rattaché'}</div>
-                            <span class="text-[9px] px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-black uppercase">${u.role}</span>
-                        </td>
-                        <td class="px-6 py-4">
-                            <div class="text-sm font-bold text-emerald-600">${u.allocation_mensuelle}€</div>
-                            <div class="text-[10px] text-slate-400 italic">par mois</div>
-                        </td>
-                        <td class="px-6 py-4 text-right">
-                            <button onclick='openEditModal(${JSON.stringify(u)})' class="bg-slate-100 hover:bg-blue-600 hover:text-white p-2 rounded-lg transition-all mr-2">✏️</button>
-                            <button onclick="deleteUser('${u.id}')" class="bg-slate-100 hover:bg-red-600 hover:text-white p-2 rounded-lg transition-all">🗑️</button>
-                        </td>
-                    </tr>`;
-            });
+            const tbody = document.getElementById('list-users-table');
+            tbody.innerHTML = data.map(u => `
+                <tr class="text-sm">
+                    <td class="py-4 font-black uppercase text-xs">${u.nom} ${u.prenom} <br><span class="text-[8px] text-blue-500 font-bold tracking-widest">${u.role}</span></td>
+                    <td class="py-4 font-bold text-gray-400 text-[10px] uppercase">${u.maisons ? u.maisons.nom : 'Admin'}</td>
+                    <td class="py-4 text-right">
+                        <button onclick="editMember('${u.id}', '${u.nom}', '${u.prenom}', '${u.role}', '${u.maison_id}')" class="bg-blue-50 text-blue-600 px-3 py-1 rounded-lg font-bold text-[9px] uppercase hover:bg-blue-100">Modifier</button>
+                    </td>
+                </tr>
+            `).join('');
         }
 
-        async function saveUser() {
-            const id = document.getElementById('edit-id').value;
-            const payload = {
-                prenom: document.getElementById('u-prenom').value,
-                nom: document.getElementById('u-nom').value,
-                role: document.getElementById('u-role').value,
-                maison_id: document.getElementById('u-maison').value,
-                allocation_mensuelle: parseFloat(document.getElementById('u-alloc').value) || 0
+        async function editMember(id, oldNom, oldPrenom, oldRole, oldMaisonId) {
+            const newNom = prompt("Modifier le NOM (actuel: " + oldNom + ") :", oldNom);
+            const newPrenom = prompt("Modifier le Prénom :", oldPrenom);
+            const newRole = prompt("Modifier le Rôle (user ou chef) :", oldRole);
+            
+            // Proposer le choix de maison
+            const listM = maisonsGlobal.map((m, i) => `${i+1}. ${m.nom}`).join('\n');
+            const choice = prompt("Choisir une nouvelle maison (tapez le chiffre) :\n" + listM);
+            
+            let updateData = { 
+                nom: (newNom || oldNom).toUpperCase(), 
+                prenom: newPrenom || oldPrenom, 
+                role: newRole || oldRole 
             };
 
-            if(id) {
-                const { error } = await sb.from('profiles').update(payload).eq('id', id);
-                if(error) alert(error.message);
-            } else {
-                const email = document.getElementById('u-email').value;
-                const pass = document.getElementById('u-pass').value;
-                const { data, error: authError } = await sb.auth.signUp({ email, password: pass });
-                if(authError) return alert("Erreur Auth: " + authError.message);
-                
-                const { error } = await sb.from('profiles').insert([{ id: data.user.id, ...payload }]);
-                if(error) alert("Profil: " + error.message);
+            if (choice && !isNaN(choice)) {
+                const idx = parseInt(choice) - 1;
+                if(maisonsGlobal[idx]) updateData.maison_id = maisonsGlobal[idx].id;
             }
-            closeModal();
-            loadUsers();
+
+            const { error } = await sb.from('profiles').update(updateData).eq('id', id);
+            if (error) alert(error.message); else loadUsers();
         }
 
-        // --- EXPORT CSV ---
-        async function exportMensuel() {
-            const mId = document.getElementById('export-maison').value;
-            const monthStr = document.getElementById('export-month').value;
-            if(!monthStr) return alert("Choisissez un mois");
+        // --- CRUD MAISONS ---
+        async function loadMaisons() {
+            const { data } = await sb.from('maisons').select('*').order('nom');
+            maisonsGlobal = data;
+            document.getElementById('list-maisons').innerHTML = data.map(m => `
+                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <span class="font-bold text-xs uppercase">${m.nom}</span>
+                    <div class="space-x-2">
+                        <button onclick="updateMaison('${m.id}', '${m.nom}')" class="text-blue-500 text-[9px] font-black uppercase">Éditer</button>
+                        <button onclick="deleteMaison('${m.id}')" class="text-red-300 font-black">×</button>
+                    </div>
+                </div>`).join('');
+            
+            const options = data.map(m => `<option value="${m.id}">${m.nom}</option>`).join('');
+            document.getElementById('new-maison').innerHTML = '<option value="">Choisir Maison</option>' + options;
+            document.getElementById('export-maison').innerHTML = '<option value="all">Toutes les maisons</option>' + options;
+        }
 
-            const { data, error } = await sb.from('transactions')
-                .select('created_at, type, montant, libelle, motif, profiles(nom, prenom)')
-                .eq('maison_id', mId)
-                .gte('created_at', `${monthStr}-01`)
-                .lte('created_at', `${monthStr}-31`);
+        async function updateMaison(id, old) {
+            const n = prompt("Renommer la maison :", old);
+            if(n) { await sb.from('maisons').update({ nom: n }).eq('id', id); loadMaisons(); }
+        }
+        async function addMaison() {
+            const n = document.getElementById('add-maison-nom').value.trim();
+            if(n) { await sb.from('maisons').insert([{ nom: n }]); loadMaisons(); }
+        }
+        async function deleteMaison(id) {
+            if(confirm("Supprimer cette maison ?")) { await sb.from('maisons').delete().eq('id', id); loadMaisons(); }
+        }
 
-            if(error || !data.length) return alert("Aucune donnée pour cette période");
+        // --- CRUD MOTIFS ---
+        async function loadMotifs() {
+            const { data } = await sb.from('motifs').select('*').order('nom');
+            document.getElementById('list-motifs').innerHTML = data.map(m => `
+                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <span class="font-bold text-xs uppercase">${m.nom}</span>
+                    <div class="space-x-2">
+                        <button onclick="updateMotif('${m.id}', '${m.nom}')" class="text-blue-500 text-[9px] font-black uppercase">Éditer</button>
+                        <button onclick="deleteMotif('${m.id}')" class="text-red-300 font-black">×</button>
+                    </div>
+                </div>`).join('');
+        }
+        async function updateMotif(id, old) {
+            const n = prompt("Renommer le motif :", old);
+            if(n) { await sb.from('motifs').update({ nom: n }).eq('id', id); loadMotifs(); }
+        }
+        async function addMotif() {
+            const n = document.getElementById('add-motif-nom').value.trim();
+            if(n) { await sb.from('motifs').insert([{ nom: n }]); loadMotifs(); }
+        }
+        async function deleteMotif(id) {
+            if(confirm("Supprimer ce motif ?")) { await sb.from('motifs').delete().eq('id', id); loadMotifs(); }
+        }
 
-            let csv = "\uFEFFDate;Membre;Type;Motif;Libelle;Montant\n";
-            data.forEach(t => {
-                const user = t.profiles ? `${t.profiles.nom} ${t.profiles.prenom}` : 'N/A';
-                csv += `${t.created_at.split('T')[0]};${user};${t.type};${t.motif};${t.libelle};${t.montant}\n`;
+        // --- EXPORT COMPTABLE ---
+        async function exportData() {
+            const month = document.getElementById('export-month').value;
+            const maison = document.getElementById('export-maison').value;
+            
+            let query = sb.from('transactions').select('*, profiles(nom, prenom), maisons(nom)');
+            if(maison !== 'all') query = query.eq('maison_id', maison);
+
+            const { data, error } = await query;
+            if(error) return alert("Erreur export.");
+
+            const filtered = data.filter(t => String(new Date(t.created_at).getMonth() + 1).padStart(2, '0') === month);
+            if(filtered.length === 0) return alert("Aucune donnée pour ce mois.");
+
+            let csv = "Date;Membre;Maison;Motif;Montant;Type\n";
+            filtered.forEach(t => {
+                const d = new Date(t.created_at).toLocaleDateString();
+                const m = t.profiles ? `${t.profiles.nom} ${t.profiles.prenom}` : "Inconnu";
+                csv += `${d};${m};${t.maisons ? t.maisons.nom : '-'};${t.motif};${t.montant};${t.type}\n`;
             });
 
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.setAttribute("download", `SMMD_${monthStr}_Maison.csv`);
-            link.click();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `SMMD_Export_${month}.csv`;
+            a.click();
         }
 
-        // --- UTILS ---
-        function openCreateModal() {
-            document.getElementById('user-modal').classList.remove('hidden');
-            document.getElementById('modal-title').innerText = "Nouveau Membre";
-            document.getElementById('auth-fields').classList.remove('hidden');
-            document.getElementById('edit-id').value = '';
-        }
-
-        function openEditModal(u) {
-            document.getElementById('user-modal').classList.remove('hidden');
-            document.getElementById('modal-title').innerText = "Modifier Profil";
-            document.getElementById('auth-fields').classList.add('hidden');
-            document.getElementById('edit-id').value = u.id;
-            document.getElementById('u-prenom').value = u.prenom;
-            document.getElementById('u-nom').value = u.nom;
-            document.getElementById('u-role').value = u.role;
-            document.getElementById('u-maison').value = u.maison_id;
-            document.getElementById('u-alloc').value = u.allocation_mensuelle;
-        }
-
-        function closeModal() { document.getElementById('user-modal').classList.add('hidden'); }
-
-        async function saveMaison() { 
-            const nom = document.getElementById('new_maison').value;
-            if(nom) await sb.from('maisons').insert([{ nom }]); initMaisons();
-        }
-
-        async function saveMotif() { 
-            const nom = document.getElementById('new_motif').value;
-            if(nom) await sb.from('motifs').insert([{ nom }]); initMotifs();
-        }
-
-        async function deleteUser(id) { 
-            if(confirm("Supprimer ce profil ? L'accès Auth devra être supprimé manuellement dans Supabase.")) {
-                await sb.from('profiles').delete().eq('id', id); loadUsers();
-            }
-        }
+        function logout() { sb.auth.signOut().then(() => location.href="index.html"); }
+        init();
     </script>
 </body>
 </html>
