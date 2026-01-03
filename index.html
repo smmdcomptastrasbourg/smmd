@@ -2,35 +2,84 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SMMD Compta - Connexion</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SMMD Compta - Accueil</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="bg-slate-50 flex items-center justify-center min-h-screen p-6">
 
-    <div id="login-card" class="bg-white p-8 rounded-[40px] shadow-xl w-full max-w-sm">
-        <h1 class="text-3xl font-black italic mb-8 text-center text-blue-900 italic">SMMD.</h1>
-        <input type="text" id="user" placeholder="Identifiant" class="w-full mb-4 p-4 bg-gray-100 rounded-2xl border-none font-bold">
-        <input type="password" id="pass" placeholder="Mot de passe" class="w-full mb-6 p-4 bg-gray-100 rounded-2xl border-none font-bold">
-        <button onclick="login()" id="btn" class="w-full bg-blue-900 text-white font-black py-5 rounded-2xl uppercase tracking-widest shadow-lg">Se connecter</button>
+    <div id="login-card" class="bg-white p-8 rounded-[40px] shadow-xl w-full max-w-sm border border-gray-100">
+        <h1 class="text-4xl font-black italic mb-8 text-center text-blue-900 tracking-tighter">SMMD.</h1>
+        
+        <div class="space-y-4">
+            <input type="text" id="user-input" placeholder="Identifiant" 
+                class="w-full p-4 bg-gray-100 rounded-2xl border-none font-bold focus:ring-2 focus:ring-blue-500 outline-none">
+            
+            <input type="password" id="pass-input" placeholder="Mot de passe" 
+                class="w-full p-4 bg-gray-100 rounded-2xl border-none font-bold focus:ring-2 focus:ring-blue-500 outline-none">
+            
+            <button onclick="handleLogin()" id="btn-connexion" 
+                class="w-full bg-blue-900 text-white font-black py-5 rounded-2xl uppercase tracking-widest shadow-lg active:scale-95 transition-all">
+                Se connecter
+            </button>
+        </div>
+        
+        <p id="error-msg" class="text-red-500 text-[10px] font-bold uppercase text-center mt-4 hidden"></p>
     </div>
 
     <script>
-        const sb = supabase.createClient("https://xccnnckuphxloxfrqtkf.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjY25uY2t1cGh4bG94ZnJxdGtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODA3NjEsImV4cCI6MjA4Mjc1Njc2MX0.1mIEhKfS5OSsaw78f1_Iatni39y8CoIurAd5IXP6n6g");
+        // Configuration de ta base Supabase
+        const SUPABASE_URL = "https://xccnnckuphxloxfrqtkf.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjY25uY2t1cGh4bG94ZnJxdGtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODA3NjEsImV4cCI6MjA4Mjc1Njc2MX0.1mIEhKfS5OSsaw78f1_Iatni39y8CoIurAd5IXP6n6g";
+        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        async function login() {
-            let u = document.getElementById('user').value.trim();
-            const p = document.getElementById('pass').value;
-            if(!u.includes('@')) u += "@smmd.fr";
+        async function handleLogin() {
+            const btn = document.getElementById('btn-connexion');
+            const err = document.getElementById('error-msg');
+            let identifier = document.getElementById('user-input').value.trim();
+            const password = document.getElementById('pass-input').value;
 
-            const { data, error } = await sb.auth.signInWithPassword({ email: u, password: p });
-            if(error) return alert("Identifiants incorrects");
+            if(!identifier || !password) return alert("Remplissez tous les champs.");
 
-            // Aiguillage selon le rôle
-            const { data: prof } = await sb.from('profiles').select('role').eq('id', data.user.id).single();
-            
-            if(prof.role === 'admin') {
+            // Raccourci pour le domaine
+            if(!identifier.includes('@')) identifier += "@smmd.fr";
+
+            btn.disabled = true;
+            btn.innerText = "VÉRIFICATION...";
+            err.classList.add('hidden');
+
+            // 1. Authentification
+            const { data, error: authError } = await sb.auth.signInWithPassword({
+                email: identifier,
+                password: password
+            });
+
+            if (authError) {
+                err.innerText = "Identifiants incorrects";
+                err.classList.remove('hidden');
+                btn.disabled = false;
+                btn.innerText = "Se connecter";
+                return;
+            }
+
+            // 2. Récupération du rôle pour l'aiguillage
+            const { data: profile, error: profError } = await sb
+                .from('profiles')
+                .select('role')
+                .eq('id', data.user.id)
+                .single();
+
+            if (profError || !profile) {
+                alert("Erreur : Impossible de trouver votre profil utilisateur.");
+                await sb.auth.signOut();
+                location.reload();
+                return;
+            }
+
+            // 3. Redirection automatique
+            // Comme tes fichiers sont dans le dossier /smmd/, on reste dans le même dossier
+            if (profile.role === 'admin') {
                 window.location.href = "admin.html";
             } else {
                 window.location.href = "user.html";
