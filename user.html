@@ -7,107 +7,124 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        
+        body { font-family: 'Inter', sans-serif; background: radial-gradient(circle at top, #f8fafc 0%, #f1f5f9 100%); }
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        .active-tab { background-color: #1e3a8a !important; color: white !important; }
-        .active-recette { background-color: #10b981 !important; color: white !important; }
+        
+        /* Amélioration des onglets avec une transition plus douce */
+        .active-tab { background: #1e3a8a !important; color: white !important; box-shadow: 0 10px 15px -3px rgba(30, 58, 138, 0.3); }
+        .active-recette { background: #10b981 !important; color: white !important; box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.3); }
+        
+        /* Effet de lueur sur les montants */
+        .glow-amount { text-shadow: 0 0 20px rgba(255,255,255,0.2); }
+        
+        /* Style des inputs focus */
+        .custom-input:focus { transform: translateY(-2px); box-shadow: 0 10px 20px -5px rgba(0,0,0,0.05); }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-900 pb-10">
+<body class="text-slate-900 pb-10 min-h-screen">
 
-    <nav class="bg-blue-900 text-white p-6 rounded-b-[40px] shadow-lg sticky top-0 z-50">
-        <div class="flex justify-between items-start mb-6">
+    <nav class="bg-gradient-to-tr from-blue-950 via-blue-900 to-indigo-900 text-white p-6 rounded-b-[45px] shadow-2xl sticky top-0 z-50 border-b border-white/10">
+        <div class="flex justify-between items-start mb-8">
             <div>
-                <h1 id="user-name" class="text-xl font-black italic tracking-tighter">Chargement...</h1>
-                <p id="maison-name" class="text-[10px] uppercase tracking-[0.2em] opacity-60 font-bold italic">Maison ...</p>
+                <h1 id="user-name" class="text-2xl font-black italic tracking-tighter leading-none">Chargement...</h1>
+                <p id="maison-name" class="text-[10px] uppercase tracking-[0.3em] opacity-50 font-bold italic mt-1">Maison ...</p>
             </div>
-            <button onclick="logout()" class="bg-white/10 p-3 rounded-2xl hover:bg-white/20 transition-all">
+            <button onclick="logout()" class="bg-white/10 backdrop-blur-md p-3 rounded-2xl hover:bg-white/20 transition-all border border-white/10 active:scale-90">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
             </button>
         </div>
         
-        <div class="space-y-4">
-            <div class="bg-gradient-to-br from-blue-800 to-blue-900 p-5 rounded-3xl border border-white/10 text-center shadow-xl">
-                <p class="text-[9px] uppercase font-black opacity-60 mb-1 tracking-widest text-blue-200">Solde Commun Maison</p>
-                <h2 id="house-balance" class="text-3xl font-black text-white">0.00€</h2>
+        <div class="space-y-5">
+            <div class="bg-white/5 backdrop-blur-xl p-6 rounded-[32px] border border-white/10 text-center shadow-inner relative overflow-hidden">
+                <div class="absolute -right-4 -top-4 w-20 h-20 bg-blue-400/10 blur-3xl rounded-full"></div>
+                <p class="text-[10px] uppercase font-black opacity-50 mb-1 tracking-[0.2em] text-blue-100">Solde Commun Maison</p>
+                <h2 id="house-balance" class="text-4xl font-black text-white glow-amount tracking-tight">0.00€</h2>
             </div>
 
             <div class="grid grid-cols-2 gap-4">
-                <div class="bg-white/5 p-4 rounded-3xl border border-white/10 backdrop-blur-sm">
-                    <p class="text-[9px] uppercase font-black opacity-60 mb-1">Mon Solde</p>
-                    <h2 id="balance" class="text-xl font-black">0.00€</h2>
+                <div class="bg-white/5 backdrop-blur-md p-4 rounded-[28px] border border-white/10">
+                    <p class="text-[9px] uppercase font-black opacity-40 mb-1 tracking-wider">Mon Solde</p>
+                    <h2 id="balance" class="text-xl font-black text-blue-50">0.00€</h2>
                 </div>
-                <div class="bg-orange-500/20 p-4 rounded-3xl border border-orange-500/20">
-                    <p class="text-[9px] uppercase font-black text-orange-200 mb-1">À me rembourser</p>
+                <div class="bg-orange-500/10 backdrop-blur-md p-4 rounded-[28px] border border-orange-500/20">
+                    <p class="text-[9px] uppercase font-black text-orange-300/70 mb-1 tracking-wider">À me rembourser</p>
                     <h2 id="pending-refund" class="text-xl font-black text-orange-50">0.00€</h2>
                 </div>
             </div>
         </div>
     </nav>
 
-    <main class="p-6 space-y-8">
+    <main class="p-6 space-y-10">
         
-        <section class="bg-white p-6 rounded-[35px] shadow-sm border border-gray-100">
-            <div class="flex bg-gray-100 p-1.5 rounded-2xl mb-6">
-                <button id="tab-depense" onclick="setTxType('depense')" class="flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest active-tab transition-all">Dépense</button>
-                <button id="tab-recette" onclick="setTxType('recette')" class="flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all">Recette</button>
+        <section class="bg-white/80 backdrop-blur-sm p-7 rounded-[40px] shadow-[0_20px_50px_rgba(0,0,0,0.04)] border border-white">
+            <div class="flex bg-slate-100/80 p-1.5 rounded-[22px] mb-8">
+                <button id="tab-depense" onclick="setTxType('depense')" class="flex-1 py-3.5 rounded-[18px] font-black text-[11px] uppercase tracking-widest active-tab transition-all duration-300">Dépense</button>
+                <button id="tab-recette" onclick="setTxType('recette')" class="flex-1 py-3.5 rounded-[18px] font-black text-[11px] uppercase tracking-widest transition-all duration-300 text-slate-400">Recette</button>
             </div>
 
-            <div class="space-y-4">
+            <div class="space-y-6">
                 <div>
-                    <label class="text-[10px] font-black uppercase text-gray-400 ml-2">Date de l'opération</label>
-                    <input type="date" id="tx-date" class="w-full bg-gray-50 p-4 rounded-2xl font-bold mt-1 outline-none border-none">
+                    <label class="text-[10px] font-black uppercase text-slate-400 ml-3 mb-2 block tracking-widest">Date de l'opération</label>
+                    <input type="date" id="tx-date" class="w-full bg-slate-50 p-4 rounded-2xl font-bold border-2 border-slate-50 focus:bg-white focus:border-blue-100 outline-none transition-all custom-input">
                 </div>
 
-                <div class="relative">
-                    <input type="number" id="tx-amount" placeholder="0.00" class="w-full bg-gray-50 p-6 rounded-3xl text-3xl font-black text-center outline-none border-2 border-transparent focus:border-blue-900 transition-all">
-                    <span class="absolute right-6 top-1/2 -translate-y-1/2 font-black text-gray-300">€</span>
+                <div class="relative group">
+                    <input type="number" id="tx-amount" placeholder="0.00" class="w-full bg-slate-50 p-8 rounded-[32px] text-4xl font-black text-center outline-none border-2 border-transparent focus:border-blue-900 focus:bg-white transition-all custom-input">
+                    <span class="absolute right-8 top-1/2 -translate-y-1/2 font-black text-slate-200 text-2xl group-focus-within:text-blue-900 transition-colors">€</span>
                 </div>
 
                 <div id="container-motif">
-                    <label class="text-[10px] font-black uppercase text-gray-400 ml-2">Motif</label>
-                    <select id="tx-motif" class="w-full bg-gray-50 p-4 rounded-2xl font-bold mt-1 outline-none border-none appearance-none"></select>
+                    <label class="text-[10px] font-black uppercase text-slate-400 ml-3 mb-2 block tracking-widest">Motif</label>
+                    <div class="relative">
+                        <select id="tx-motif" class="w-full bg-slate-50 p-4 rounded-2xl font-bold border-2 border-slate-50 focus:bg-white focus:border-blue-100 outline-none appearance-none custom-input"></select>
+                        <div class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-30">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                        </div>
+                    </div>
                 </div>
 
                 <div>
-                    <label class="text-[10px] font-black uppercase text-gray-400 ml-2">Commentaire</label>
-                    <input type="text" id="tx-comment" placeholder="Optionnel..." class="w-full bg-gray-50 p-4 rounded-2xl font-bold mt-1 outline-none border-none">
+                    <label class="text-[10px] font-black uppercase text-slate-400 ml-3 mb-2 block tracking-widest">Commentaire</label>
+                    <input type="text" id="tx-comment" placeholder="Ajouter une note..." class="w-full bg-slate-50 p-4 rounded-2xl font-bold border-2 border-slate-50 focus:bg-white focus:border-blue-100 outline-none transition-all custom-input">
                 </div>
 
                 <div id="container-paiement">
-                    <label class="text-[10px] font-black uppercase text-gray-400 ml-2">Moyen de paiement</label>
-                    <select id="tx-method" class="w-full bg-gray-50 p-4 rounded-2xl font-bold mt-1 outline-none border-none appearance-none">
-                        <option value="maison_cb">CB MAISON</option>
-                        <option value="perso_cb">CARTE PERSO (À REMBOURSER)</option>
-                        <option value="perso_especes">ESPÈCES (À REMBOURSER)</option>
+                    <label class="text-[10px] font-black uppercase text-slate-400 ml-3 mb-2 block tracking-widest">Moyen de paiement</label>
+                    <select id="tx-method" class="w-full bg-slate-50 p-4 rounded-2xl font-bold border-2 border-slate-50 focus:bg-white focus:border-blue-100 outline-none appearance-none custom-input">
+                        <option value="maison_cb">💳 CB MAISON</option>
+                        <option value="perso_cb">📱 CARTE PERSO (À REMBOURSER)</option>
+                        <option value="perso_especes">💵 ESPÈCES (À REMBOURSER)</option>
                     </select>
                 </div>
 
-                <button onclick="submitTx()" class="w-full bg-blue-900 text-white py-5 rounded-3xl font-black text-[11px] uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all">Enregistrer</button>
+                <button onclick="submitTx()" class="w-full bg-blue-900 text-white py-6 rounded-[28px] font-black text-[12px] uppercase tracking-[0.25em] shadow-[0_15px_30px_rgba(30,58,138,0.25)] active:scale-[0.97] hover:bg-blue-800 transition-all duration-300">Enregistrer</button>
             </div>
         </section>
 
         <section>
-            <div class="flex justify-between items-center mb-4 px-2">
-                <h3 class="text-[10px] font-black uppercase tracking-widest text-gray-400 italic">Mes 8 dernières opérations</h3>
-                <button onclick="undoLast()" class="text-[9px] font-black text-red-500 uppercase hover:underline">Annuler</button>
+            <div class="flex justify-between items-center mb-5 px-4">
+                <h3 class="text-[11px] font-black uppercase tracking-[0.15em] text-slate-400 italic">Dernières opérations</h3>
+                <button onclick="undoLast()" class="text-[10px] font-black text-red-500/70 uppercase hover:text-red-600 transition-colors">Annuler</button>
             </div>
-            <div id="tx-history" class="space-y-3"></div>
+            <div id="tx-history" class="space-y-4"></div>
         </section>
 
-        <section class="bg-slate-900 p-8 rounded-[40px] text-white space-y-6 shadow-xl">
+        <section class="bg-gradient-to-b from-slate-800 to-slate-950 p-8 rounded-[45px] text-white space-y-8 shadow-2xl border border-slate-700/50">
             <div>
-                <label class="text-[9px] font-black uppercase opacity-40 ml-1">Mon IBAN</label>
-                <div class="flex gap-2 mt-1">
-                    <input type="text" id="user-iban" class="flex-1 bg-white/10 p-4 rounded-2xl font-mono text-xs border-none outline-none" placeholder="FR76...">
-                    <button onclick="updateIban()" class="bg-blue-600 px-4 rounded-2xl font-black text-[10px] uppercase">OK</button>
+                <label class="text-[10px] font-black uppercase opacity-40 ml-1 tracking-widest">Mon IBAN</label>
+                <div class="flex gap-3 mt-2">
+                    <input type="text" id="user-iban" class="flex-1 bg-white/5 p-4 rounded-2xl font-mono text-xs border border-white/10 outline-none focus:bg-white/10 transition-all" placeholder="FR76...">
+                    <button onclick="updateIban()" class="bg-blue-600 px-6 rounded-2xl font-black text-[11px] uppercase shadow-lg shadow-blue-900/40 active:scale-90 transition-all">OK</button>
                 </div>
             </div>
 
-            <div class="pt-4 border-t border-white/10">
-                <label class="text-[9px] font-black uppercase opacity-40 ml-1">Changer mot de passe</label>
-                <div class="flex gap-2 mt-1">
-                    <input type="password" id="new-password" class="flex-1 bg-white/10 p-4 rounded-2xl font-bold text-xs outline-none focus:bg-white/20" placeholder="Nouveau code...">
-                    <button onclick="updatePassword()" class="bg-emerald-600 px-4 rounded-2xl font-black text-[10px] uppercase">Modifier</button>
+            <div class="pt-6 border-t border-white/5">
+                <label class="text-[10px] font-black uppercase opacity-40 ml-1 tracking-widest">Changer mot de passe</label>
+                <div class="flex gap-3 mt-2">
+                    <input type="password" id="new-password" class="flex-1 bg-white/5 p-4 rounded-2xl font-bold text-xs border border-white/10 outline-none focus:bg-white/10 transition-all" placeholder="Nouveau code...">
+                    <button onclick="updatePassword()" class="bg-emerald-600 px-6 rounded-2xl font-black text-[11px] uppercase shadow-lg shadow-emerald-900/40 active:scale-90 transition-all">Changer</button>
                 </div>
             </div>
         </section>
@@ -115,6 +132,7 @@
     </main>
 
     <script>
+        // LE SCRIPT RESTE IDENTIQUE (Logique métier intacte)
         const SUPABASE_URL = "https://xccnnckuphxloxfrqtkf.supabase.co";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjY25uY2t1cGh4bG94ZnJxdGtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODA3NjEsImV4cCI6MjA4Mjc1Njc2MX0.1mIEhKfS5OSsaw78f1_Iatni39y8CoIurAd5IXP6n6g";
         const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -137,15 +155,11 @@
 
             loadMotifs();
             refreshDashboard();
-            checkNotifications(); // <--- Intégration Étape 3
+            checkNotifications();
         }
 
         async function checkNotifications() {
-            const { data, error } = await sb.from('notifications')
-                .select('*')
-                .eq('user_id', userProfile.id)
-                .eq('lu', false);
-
+            const { data, error } = await sb.from('notifications').select('*').eq('user_id', userProfile.id).eq('lu', false);
             if (data && data.length > 0) {
                 data.forEach(n => {
                     alert("🔔 NOTIFICATION : " + n.message);
@@ -183,15 +197,17 @@
 
             const hist = myTx.sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).slice(0,8);
             document.getElementById('tx-history').innerHTML = hist.map(t => `
-                <div class="flex justify-between items-center p-4 bg-white rounded-2xl shadow-sm border border-gray-50">
-                    <div class="flex items-center gap-3">
-                        <div class="w-2.5 h-2.5 rounded-full ${t.type === 'recette' ? 'bg-emerald-500' : (t.statut === 'attente' ? 'bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]' : 'bg-blue-900')}"></div>
+                <div class="flex justify-between items-center p-5 bg-white rounded-[24px] shadow-sm border border-slate-100 hover:scale-[1.02] transition-transform">
+                    <div class="flex items-center gap-4">
+                        <div class="w-3 h-3 rounded-full ${t.type === 'recette' ? 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]' : (t.statut === 'attente' ? 'bg-orange-500 shadow-[0_0_12px_rgba(249,115,22,0.4)]' : 'bg-blue-900 shadow-[0_0_12px_rgba(30,58,138,0.2)]')}"></div>
                         <div>
-                            <p class="text-[10px] font-black uppercase">${t.motif || 'RECETTE'}</p>
-                            <p class="text-[8px] text-gray-400 font-bold">${new Date(t.created_at).toLocaleDateString('fr-FR')}</p>
+                            <p class="text-[11px] font-black uppercase tracking-wider text-slate-700">${t.motif || 'RECETTE'}</p>
+                            <p class="text-[9px] text-slate-400 font-bold">${new Date(t.created_at).toLocaleDateString('fr-FR')}</p>
                         </div>
                     </div>
-                    <p class="font-black text-sm">${t.type === 'recette' ? '+' : '-'}${t.montant.toFixed(2)}€</p>
+                    <p class="font-black text-base ${t.type === 'recette' ? 'text-emerald-600' : 'text-slate-900'}">
+                        ${t.type === 'recette' ? '+' : '-'}${t.montant.toFixed(2)}€
+                    </p>
                 </div>
             `).join('');
         }
@@ -256,8 +272,8 @@
             const isR = type === 'recette';
             document.getElementById('container-motif').classList.toggle('hidden', isR);
             document.getElementById('container-paiement').classList.toggle('hidden', isR);
-            document.getElementById('tab-depense').className = isR ? "flex-1 py-3 rounded-xl font-black text-[10px] bg-gray-100 text-gray-400" : "flex-1 py-3 rounded-xl font-black text-[10px] active-tab";
-            document.getElementById('tab-recette').className = isR ? "flex-1 py-3 rounded-xl font-black text-[10px] active-recette" : "flex-1 py-3 rounded-xl font-black text-[10px] bg-gray-100 text-gray-400";
+            document.getElementById('tab-depense').className = isR ? "flex-1 py-3.5 rounded-[18px] font-black text-[11px] bg-slate-100 text-slate-400" : "flex-1 py-3.5 rounded-[18px] font-black text-[11px] active-tab";
+            document.getElementById('tab-recette').className = isR ? "flex-1 py-3.5 rounded-[18px] font-black text-[11px] active-recette" : "flex-1 py-3.5 rounded-[18px] font-black text-[11px] bg-slate-100 text-slate-400";
         }
 
         function logout() { sb.auth.signOut().then(() => window.location.href = "index.html"); }
