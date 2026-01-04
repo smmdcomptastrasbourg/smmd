@@ -12,7 +12,6 @@
         .tab-active { background-color: #1e3a8a !important; color: white !important; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         
-        /* Témoin clignotant pour les remboursements */
         @keyframes blink {
             0% { opacity: 1; transform: scale(1); }
             50% { opacity: 0.5; transform: scale(1.1); }
@@ -34,7 +33,7 @@
             </div>
             <div class="flex gap-2">
                 <button onclick="openSettingsModal()" class="bg-blue-500/20 text-blue-100 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase">⚙️ Profil</button>
-                <button onclick="exportMaisonExcel()" class="bg-emerald-500/20 text-emerald-100 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase">📊 Export</button>
+                <button onclick="exportMaisonExcel()" class="bg-emerald-500/20 text-emerald-100 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase">📊 Export & Bilan</button>
                 <button onclick="logout()" class="bg-red-500/20 text-red-100 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase">Sortir</button>
             </div>
         </div>
@@ -56,6 +55,7 @@
                 Remboursements <span id="alert-dot" class="hidden h-2 w-2 rounded-full blink-alert"></span>
             </a>
             <a href="#section-membres" class="bg-white/10 px-4 py-2 rounded-lg text-[9px] font-black uppercase whitespace-nowrap">Membres & IBAN</a>
+            <a href="#section-audit" class="bg-white/10 px-4 py-2 rounded-lg text-[9px] font-black uppercase whitespace-nowrap">Audit Global</a>
         </div>
     </nav>
 
@@ -63,26 +63,21 @@
 
         <section id="section-perso" class="space-y-4">
             <h2 class="text-[10px] font-black uppercase text-gray-400 tracking-widest px-2">Ma Gestion Personnelle</h2>
-            
             <div class="bg-white p-6 rounded-[35px] shadow-sm border border-gray-100">
                 <div class="flex gap-4 mb-6">
                     <button onclick="setTxType('depense')" id="tab-depense" class="flex-1 py-3 rounded-xl font-black text-[10px] uppercase bg-blue-900 text-white tab-active">Dépense</button>
                     <button onclick="setTxType('recette')" id="tab-recette" class="flex-1 py-3 rounded-xl font-black text-[10px] uppercase bg-gray-100 text-gray-400">Recette</button>
                 </div>
-
                 <div class="space-y-4">
                     <div>
                         <label class="text-[10px] font-black uppercase text-gray-400 ml-2">Date de l'opération</label>
                         <input type="date" id="tx-date" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold text-sm outline-none mt-1">
                     </div>
-
                     <input type="number" id="tx-amount" step="0.01" placeholder="Montant (€)" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-black text-xl outline-none focus:ring-2 focus:ring-blue-500">
-                    
                     <div id="container-motif">
                         <label class="text-[10px] font-black uppercase text-gray-400 ml-2">Motif</label>
                         <select id="tx-motif" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none text-sm mt-1"></select>
                     </div>
-
                     <div id="container-paiement">
                         <label class="text-[10px] font-black uppercase text-gray-400 ml-2">Moyen de paiement</label>
                         <select id="tx-method" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none text-sm mt-1">
@@ -91,12 +86,10 @@
                             <option value="perso_liq">PERSO - Liquide</option>
                         </select>
                     </div>
-
                     <div>
                         <label class="text-[10px] font-black uppercase text-gray-400 ml-2">Commentaire</label>
                         <input type="text" id="tx-note" placeholder="Optionnel..." class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none text-sm mt-1">
                     </div>
-
                     <button onclick="submitTransaction()" class="w-full bg-blue-900 text-white font-black py-5 rounded-2xl uppercase tracking-widest shadow-lg active:scale-95 transition-all">Enregistrer</button>
                 </div>
             </div>
@@ -104,11 +97,10 @@
 
         <section id="section-validation" class="bg-orange-50 p-6 rounded-[35px] border border-orange-100">
             <div class="flex justify-between items-center mb-4">
-                <h2 class="text-[10px] font-black uppercase text-orange-600 tracking-widest">Dettes à rembourser</h2>
+                <h2 class="text-[10px] font-black uppercase text-orange-600 tracking-widest">Dettes par membre</h2>
                 <div id="total-dettes" class="bg-orange-600 text-white px-3 py-1 rounded-full text-[10px] font-black">Total : 0€</div>
             </div>
-            <div id="list-avances-attente" class="space-y-4">
-                </div>
+            <div id="list-avances-attente" class="space-y-4"></div>
         </section>
 
         <section id="section-membres" class="space-y-4">
@@ -118,7 +110,7 @@
 
         <section id="section-audit" class="space-y-4">
             <h2 class="text-[10px] font-black uppercase text-gray-400 tracking-widest px-2">Journal de Bord Maison</h2>
-            <div id="audit-history" class="bg-white rounded-[35px] overflow-hidden border border-gray-100"></div>
+            <div id="audit-history" class="bg-white rounded-[35px] border border-gray-100 overflow-hidden"></div>
         </section>
 
     </main>
@@ -193,86 +185,108 @@
 
         async function loadAvancesChef() {
             const { data } = await sb.from('transactions').select('*, profiles(*)').eq('maison_id', userProfile.maison_id).eq('statut', 'attente');
-            let dettesSum = 0; 
-            const groups = {};
-
+            let dettesSum = 0; const groups = {};
             if(data && data.length > 0) {
-                // Témoin clignotant activé
                 document.getElementById('alert-dot').classList.remove('hidden');
-                
                 data.forEach(t => {
                     dettesSum += t.montant;
-                    if(!groups[t.user_id]) {
-                        groups[t.user_id] = { 
-                            name: `${t.profiles.prenom} ${t.profiles.nom}`, 
-                            iban: t.profiles.iban, 
-                            total: 0,
-                            txs: [] 
-                        };
-                    }
+                    if(!groups[t.user_id]) groups[t.user_id] = { name: `${t.profiles.prenom} ${t.profiles.nom}`, iban: t.profiles.iban, total:0, txs: [] };
                     groups[t.user_id].txs.push(t);
                     groups[t.user_id].total += t.montant;
                 });
             } else {
                 document.getElementById('alert-dot').classList.add('hidden');
             }
-
-            document.getElementById('total-dettes').innerText = `Total Dû : ${dettesSum.toFixed(2)}€`;
-            
-            document.getElementById('list-avances-attente').innerHTML = Object.keys(groups).length === 0 
-                ? '<p class="text-center text-[10px] text-gray-400 py-4">Aucun remboursement en attente</p>'
-                : Object.keys(groups).map(uid => `
-                <div class="bg-white p-5 rounded-[25px] shadow-sm border border-orange-200">
-                    <div class="flex justify-between items-start mb-3">
-                        <div>
-                            <p class="font-black text-xs text-slate-800 uppercase">${groups[uid].name}</p>
-                            <p class="text-[14px] font-black text-orange-600">Total à rembourser : ${groups[uid].total.toFixed(2)}€</p>
-                        </div>
-                        <button onclick="validerTout('${uid}')" class="bg-orange-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase shadow-md active:scale-95 transition-all">
-                            Valider le virement
-                        </button>
+            document.getElementById('total-dettes').innerText = `Total : ${dettesSum.toFixed(2)}€`;
+            document.getElementById('list-avances-attente').innerHTML = Object.keys(groups).map(uid => `
+                <div class="bg-white p-4 rounded-2xl border border-orange-200">
+                    <div class="flex justify-between items-center mb-2">
+                        <p class="font-black text-[10px] text-orange-600 uppercase">${groups[uid].name}</p>
+                        <p class="font-black text-xs">${groups[uid].total.toFixed(2)}€</p>
                     </div>
-                    <div class="flex items-center gap-2 mb-4 bg-gray-50 p-2 rounded-xl">
-                        <p class="text-[9px] font-mono text-gray-500 truncate flex-1">${groups[uid].iban || 'IBAN MANQUANT'}</p>
-                        <button onclick="copyIban('${groups[uid].iban}')" class="text-[9px] font-black text-blue-600 uppercase">Copier</button>
+                    <div class="flex gap-2 mb-3">
+                        <p class="text-[8px] font-mono text-gray-400 truncate bg-gray-50 p-1 rounded flex-1">${groups[uid].iban || 'IBAN MANQUANT'}</p>
+                        <button onclick="copyIban('${groups[uid].iban}')" class="text-[8px] font-bold text-blue-600 uppercase">Copier</button>
                     </div>
-                    <div class="space-y-2 border-t pt-3">
-                        <p class="text-[8px] font-black text-gray-400 uppercase mb-2">Détail des avances (${groups[uid].txs.length})</p>
-                        ${groups[uid].txs.map(t => `
-                            <div class="flex justify-between text-[10px] py-1 border-b border-gray-50 last:border-0">
-                                <span class="text-gray-600 italic">${new Date(t.created_at).toLocaleDateString()} - ${t.motif}</span>
-                                <span class="font-bold text-slate-700">${t.montant.toFixed(2)}€</span>
-                            </div>
-                        `).join('')}
+                    <button onclick="validerTout('${uid}')" class="w-full bg-orange-600 text-white py-2 rounded-xl text-[9px] font-black uppercase mb-3">Valider le virement</button>
+                    <div class="space-y-1">
+                        ${groups[uid].txs.map(t => `<div class="flex justify-between text-[8px] text-gray-500 border-t border-gray-50 pt-1"><span>${t.motif}</span><span>${t.montant.toFixed(2)}€</span></div>`).join('')}
                     </div>
                 </div>
             `).join('');
         }
 
         async function validerTout(uid) {
-            const dateRemb = new Date().toLocaleDateString('fr-FR');
-            if(!confirm(`Confirmez-vous avoir effectué le virement pour ce membre ce jour (${dateRemb}) ?\nCela validera toutes ses avances en une fois.`)) return;
-            
-            // On met à jour toutes les transactions en attente pour cet utilisateur précis
-            const { error } = await sb.from('transactions')
-                .update({ 
-                    statut: 'valide', 
-                    date_validation: new Date().toISOString() 
-                })
-                .eq('user_id', uid)
-                .eq('statut', 'attente')
-                .eq('maison_id', userProfile.maison_id);
+            if(!confirm("Confirmer le remboursement global pour ce membre ?")) return;
+            await sb.from('transactions').update({ statut: 'valide', date_validation: new Date().toISOString() }).eq('user_id', uid).eq('statut', 'attente');
+            refreshAll();
+        }
 
-            if(!error) {
-                alert("Remboursement enregistré avec succès !");
-                refreshAll();
-            } else {
-                alert("Erreur lors de la validation");
+        async function exportMaisonExcel() {
+            const moisInput = prompt("Mois (MM) :");
+            const anneeInput = prompt("Année (YYYY) :", new Date().getFullYear());
+            if(!moisInput || !anneeInput) return;
+
+            const { data: txData } = await sb.from('transactions').select('*, profiles(prenom, nom)').eq('maison_id', userProfile.maison_id);
+            const { data: membersData } = await sb.from('profiles').select('prenom, nom, allocation_mensuelle').eq('maison_id', userProfile.maison_id);
+
+            const filteredTx = txData.filter(t => t.created_at.includes(`${anneeInput}-${moisInput.padStart(2, '0')}-`));
+            
+            let finalRows = [];
+            let totalRecettes = 0;
+            let totalDepenses = 0;
+            let syntheseMotifs = {};
+
+            // 1. AJOUT DES ALLOCATIONS (Amélioration Export)
+            membersData.forEach(m => {
+                if(m.allocation_mensuelle > 0) {
+                    finalRows.push({ "Date": `01/${moisInput}/${anneeInput}`, "Membre": `${m.prenom} ${m.nom}`, "Type": "RECETTE", "Motif": "ALLOCATION MENSUELLE", "Montant (€)": m.allocation_mensuelle, "Méthode": "VERSEMENT", "Note": "Prévu" });
+                    totalRecettes += m.allocation_mensuelle;
+                }
+            });
+
+            // 2. AJOUT DES TRANSACTIONS & CALCUL SYNTHÈSE (Amélioration Consolidation)
+            filteredTx.forEach(t => {
+                const mt = t.montant;
+                finalRows.push({ "Date": new Date(t.created_at).toLocaleDateString(), "Membre": t.profiles.prenom, "Type": t.type.toUpperCase(), "Motif": t.motif || "RECETTE", "Montant (€)": mt, "Méthode": t.methode_paiement || "N/A", "Note": t.commentaire || "" });
+                
+                if(t.type === 'recette') {
+                    totalRecettes += mt;
+                } else {
+                    totalDepenses += mt;
+                    syntheseMotifs[t.motif] = (syntheseMotifs[t.motif] || 0) + mt;
+                }
+            });
+
+            const ws = XLSX.utils.json_to_sheet(finalRows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Journal");
+
+            // 3. ONGLET SYNTHÈSE (Amélioration Consolidation)
+            let resumeRows = [
+                { "Catégorie": "TOTAL RECETTES (Allocations incluses)", "Valeur (€)": totalRecettes },
+                { "Catégorie": "TOTAL DÉPENSES", "Valeur (€)": totalDepenses },
+                { "Catégorie": "SOLDE DU MOIS", "Valeur (€)": totalRecettes - totalDepenses },
+                {},
+                { "Catégorie": "DÉTAIL PAR MOTIF", "Valeur (€)": "" }
+            ];
+            Object.keys(syntheseMotifs).forEach(m => resumeRows.push({ "Catégorie": m, "Valeur (€)": syntheseMotifs[m] }));
+            
+            const ws2 = XLSX.utils.json_to_sheet(resumeRows);
+            XLSX.utils.book_append_sheet(wb, ws2, "Bilan");
+
+            XLSX.writeFile(wb, `SMMD_${userProfile.maisons.nom}_${moisInput}_${anneeInput}.xlsx`);
+
+            // 4. AUTOMATISATION MAIL (Amélioration Automatisation)
+            if(confirm("Voulez-vous notifier la maison par email ?")) {
+                const subject = encodeURIComponent(`Bilan SMMD - ${userProfile.maisons.nom} - ${moisInput}/${anneeInput}`);
+                const body = encodeURIComponent(`Bonjour,\n\nLe bilan du mois a été généré.\nRecettes : ${totalRecettes}€\nDépenses : ${totalDepenses}€\nSolde : ${totalRecettes - totalDepenses}€\n\nConsultez le fichier Excel pour le détail.`);
+                window.location.href = `mailto:?subject=${subject}&body=${body}`;
             }
         }
 
         async function loadAuditGlobal() {
-            const { data } = await sb.from('transactions').select('*, profiles(prenom)').eq('maison_id', userProfile.maison_id).order('created_at', { ascending: false }).limit(30);
+            const { data } = await sb.from('transactions').select('*, profiles(prenom)').eq('maison_id', userProfile.maison_id).order('created_at', { ascending: false }).limit(40);
             document.getElementById('audit-history').innerHTML = data.map(t => `
                 <div class="p-4 border-b border-gray-50 flex justify-between items-center text-xs">
                     <div class="flex items-center gap-3">
@@ -285,9 +299,7 @@
                     </div>
                     <div class="text-right">
                         <p class="font-black ${t.type === 'recette' ? 'text-emerald-500' : 'text-slate-900'}">${t.type === 'recette' ? '+' : '-'}${t.montant.toFixed(2)}€</p>
-                        <p class="text-[7px] uppercase font-bold ${t.statut === 'attente' ? 'text-orange-400' : 'text-emerald-400'}">
-                            ${t.statut === 'attente' ? '⏳ Attente' : '✅ Remboursé'}
-                        </p>
+                        <p class="text-[7px] uppercase font-bold text-gray-300">${t.statut === 'attente' ? '⏳ Attente' : '✅ Validé'}</p>
                     </div>
                 </div>
             `).join('');
@@ -299,8 +311,7 @@
             const note = document.getElementById('tx-note').value.trim();
             const motif = document.getElementById('tx-motif').value;
             const method = document.getElementById('tx-method').value;
-
-            if(!amount || !date) return alert("Champs obligatoires manquants");
+            if(!amount || !date) return alert("Montant et date requis");
 
             const { error } = await sb.from('transactions').insert([{ 
                 user_id: userProfile.id, 
@@ -332,7 +343,7 @@
                 <div class="bg-white p-4 rounded-2xl flex justify-between items-start shadow-sm">
                     <div class="flex-1">
                         <p class="font-black text-xs uppercase">${m.prenom} ${m.nom} ${m.role === 'chef' ? '👑' : ''}</p>
-                        <p class="text-[9px] text-gray-400 font-bold uppercase mb-2">Allocation : ${m.allocation_mensuelle || 0}€/mois</p>
+                        <p class="text-[9px] text-gray-400 font-bold uppercase mb-2">Alloc : ${m.allocation_mensuelle || 0}€/mois</p>
                         <div class="bg-gray-50 p-2 rounded-lg flex items-center justify-between gap-2">
                              <p class="text-[8px] font-mono text-gray-500 truncate">${m.iban || 'IBAN NON RENSEIGNÉ'}</p>
                              ${m.iban ? `<button onclick="copyIban('${m.iban}')" class="text-[8px] font-black text-blue-600 uppercase">Copier</button>` : ''}
@@ -351,18 +362,6 @@
             document.getElementById('tab-recette').className = isR ? "flex-1 py-3 rounded-xl font-black text-[10px] bg-emerald-500 text-white" : "flex-1 py-3 rounded-xl font-black text-[10px] bg-gray-100 text-gray-400"; 
         }
 
-        async function exportMaisonExcel() {
-            const moisInput = prompt("Mois (MM) :");
-            if(!moisInput) return;
-            const { data: txData } = await sb.from('transactions').select('*, profiles(prenom, nom)').eq('maison_id', userProfile.maison_id);
-            const filteredTx = txData.filter(t => t.created_at.includes(`-${moisInput.padStart(2, '0')}-`));
-            const finalRows = filteredTx.map(t => ({ "Date": new Date(t.created_at).toLocaleDateString(), "Membre": t.profiles.prenom, "Type": t.type, "Motif": t.motif, "Montant": t.montant, "Statut": t.statut }));
-            const ws = XLSX.utils.json_to_sheet(finalRows);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Comptabilité");
-            XLSX.writeFile(wb, `Export_Maison_${moisInput}.xlsx`);
-        }
-
         function openSettingsModal() { 
             document.getElementById('settings-modal').classList.remove('hidden'); 
             document.getElementById('settings-iban').value = userProfile.iban || ''; 
@@ -372,12 +371,12 @@
         async function updateAllocation() {
             const newVal = parseFloat(document.getElementById('settings-allocation').value);
             await sb.from('profiles').update({ allocation_mensuelle: newVal }).eq('id', userProfile.id);
-            alert("Mis à jour !"); refreshAll();
+            alert("Allocation mise à jour !"); refreshAll();
         }
         async function updateIban() {
             const newIban = document.getElementById('settings-iban').value.trim();
             await sb.from('profiles').update({ iban: newIban }).eq('id', userProfile.id);
-            alert("IBAN mis à jour !");
+            userProfile.iban = newIban; alert("IBAN mis à jour !"); refreshAll();
         }
         async function updatePassword() {
             const newPass = document.getElementById('settings-pass').value;
@@ -386,11 +385,11 @@
             alert("Mot de passe modifié !"); closeSettingsModal();
         }
         async function supprimerOperation(id) {
-            if(!confirm("Supprimer ?")) return;
+            if(!confirm("Supprimer cette opération ?")) return;
             await sb.from('transactions').delete().eq('id', id);
             refreshAll();
         }
-        function copyIban(iban) { if(!iban) return; navigator.clipboard.writeText(iban); alert("Copié !"); }
+        function copyIban(iban) { if(!iban) return; navigator.clipboard.writeText(iban); alert("IBAN copié !"); }
         function logout() { sb.auth.signOut().then(() => location.href="index.html"); }
         checkAuth();
     </script>
