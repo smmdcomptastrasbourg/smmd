@@ -232,9 +232,15 @@
         async function loadMembres() {
             const { data } = await sb.from('profiles').select('*').eq('maison_id', userProfile.maison_id);
             document.getElementById('list-membres').innerHTML = data.map(m => `
-                <div class="bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm">
-                    <div><p class="font-black text-xs uppercase">${m.prenom} ${m.nom} ${m.role === 'chef' ? '👑' : ''}</p><p class="text-[9px] text-gray-400 font-bold uppercase">Allocation : ${m.allocation_mensuelle || 0}€/mois</p></div>
-                    <p class="text-[10px] font-mono text-gray-400 italic">${m.iban ? 'IBAN OK' : 'IBAN MANQUANT'}</p>
+                <div class="bg-white p-4 rounded-2xl flex justify-between items-start shadow-sm">
+                    <div class="flex-1">
+                        <p class="font-black text-xs uppercase">${m.prenom} ${m.nom} ${m.role === 'chef' ? '👑' : ''}</p>
+                        <p class="text-[9px] text-gray-400 font-bold uppercase mb-2">Allocation : ${m.allocation_mensuelle || 0}€/mois</p>
+                        <div class="bg-gray-50 p-2 rounded-lg flex items-center justify-between gap-2">
+                             <p class="text-[8px] font-mono text-gray-500 truncate">${m.iban || 'IBAN NON RENSEIGNÉ'}</p>
+                             ${m.iban ? `<button onclick="copyIban('${m.iban}')" class="text-[8px] font-black text-blue-600 uppercase">Copier</button>` : ''}
+                        </div>
+                    </div>
                 </div>
             `).join('');
         }
