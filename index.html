@@ -5,34 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SMMD Compta - Connexion</title>
     
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="SMMD Compta">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
     <style>
-        /* Supprime l'effet gris au clic sur mobile */
-        body { 
-            -webkit-tap-highlight-color: transparent; 
-            touch-action: manipulation;
-        }
-        
-        /* Animation de chargement */
-        .loader {
-            border-top-color: #1e3a8a;
-            animation: spinner 1.5s linear infinite;
-        }
+        body { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+        .loader { border-top-color: #1e3a8a; animation: spinner 1.5s linear infinite; }
         @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        /* Pour un aspect plus "App" sur iOS */
         input { font-size: 16px !important; } 
     </style>
 </head>
-<body class="bg-slate-50 flex items-center justify-center min-h-[100dvh] p-6 overflow-hidden">
+<body class="bg-slate-50 flex items-center justify-center min-h-[100dvh] p-6">
 
-    <div id="login-card" class="bg-white p-8 rounded-[40px] shadow-2xl w-full max-w-sm border border-gray-100 transition-all active:scale-[0.99]">
+    <div id="login-card" class="bg-white p-8 rounded-[40px] shadow-2xl w-full max-w-sm border border-gray-100 transition-all">
         <h1 class="text-5xl font-black italic mb-2 text-center text-blue-900 tracking-tighter">SMMD.</h1>
         <p class="text-[10px] text-center font-bold uppercase tracking-[0.3em] text-blue-900/30 mb-8">Gestion Coloc</p>
         
@@ -40,19 +28,19 @@
             <div>
                 <label class="text-[10px] font-black uppercase ml-4 mb-2 block text-gray-400 tracking-widest">Identifiant</label>
                 <input type="text" id="login-user" placeholder="nom.prenom" 
-                    class="w-full p-5 bg-gray-50 rounded-3xl border-2 border-transparent focus:border-blue-900 focus:bg-white outline-none transition-all font-bold text-slate-700">
+                    class="w-full p-5 bg-gray-50 rounded-3xl border-2 border-transparent focus:border-blue-900 outline-none transition-all font-bold">
             </div>
             
             <div>
                 <label class="text-[10px] font-black uppercase ml-4 mb-2 block text-gray-400 tracking-widest">Mot de passe</label>
                 <input type="password" id="login-pass" placeholder="••••••••" 
-                    class="w-full p-5 bg-gray-50 rounded-3xl border-2 border-transparent focus:border-blue-900 focus:bg-white outline-none transition-all font-bold text-slate-700">
+                    class="w-full p-5 bg-gray-50 rounded-3xl border-2 border-transparent focus:border-blue-900 outline-none transition-all font-bold">
             </div>
 
-            <p id="error-msg" class="text-red-500 text-[11px] font-bold text-center hidden bg-red-50 p-3 rounded-2xl border border-red-100 italic"></p>
+            <p id="error-msg" class="text-red-500 text-[11px] font-bold text-center hidden bg-red-50 p-3 rounded-2xl italic"></p>
 
             <button onclick="handleLogin()" id="login-btn" 
-                class="w-full bg-blue-900 text-white py-5 rounded-[28px] font-black text-xs uppercase tracking-[0.2em] shadow-lg shadow-blue-900/30 hover:shadow-blue-900/50 active:scale-95 transition-all">
+                class="w-full bg-blue-900 text-white py-5 rounded-[28px] font-black text-xs uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all">
                 Se connecter
             </button>
         </div>
@@ -60,7 +48,7 @@
 
     <div id="loading-screen" class="hidden text-center space-y-4">
         <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-16 w-16 mx-auto"></div>
-        <p class="text-blue-900 font-black italic animate-pulse">Synchronisation...</p>
+        <p class="text-blue-900 font-black italic animate-pulse">Vérification du profil...</p>
     </div>
 
     <script>
@@ -69,37 +57,37 @@
         const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         async function handleLogin() {
-            const user = document.getElementById('login-user').value.trim();
-            const pass = document.getElementById('login-pass').value;
+            const userStr = document.getElementById('login-user').value.trim();
+            const passStr = document.getElementById('login-pass').value; // Récupéré ici
             const btn = document.getElementById('login-btn');
             const err = document.getElementById('error-msg');
-            const card = document.getElementById('login-card');
-            const load = document.getElementById('loading-screen');
 
-            if (!user || !pass) return;
+            if (!userStr || !passStr) return;
 
             btn.disabled = true;
-            btn.innerText = "Vérification...";
+            btn.innerText = "Connexion...";
             err.classList.add('hidden');
 
-            // Formatage email si nécessaire
-            const identifier = user.includes('@') ? user : `${user}@smmd.com`;
+            const email = userStr.includes('@') ? userStr : `${userStr}@smmd.com`;
 
+            // LA CORRECTION EST ICI : password: passStr
             const { data, error: authError } = await sb.auth.signInWithPassword({
-                email: identifier,
-                password: password
+                email: email,
+                password: passStr
             });
 
             if (authError) {
-                err.innerText = "Accès refusé. Vérifiez vos codes.";
+                console.error("Erreur Auth:", authError.message);
+                err.innerText = "Identifiants incorrects.";
                 err.classList.remove('hidden');
                 btn.disabled = false;
                 btn.innerText = "Se connecter";
                 return;
             }
 
-            card.classList.add('hidden');
-            load.classList.remove('hidden');
+            document.getElementById('login-card').classList.add('hidden');
+            document.getElementById('loading-screen').classList.remove('hidden');
+            
             redirectUser(data.user.id);
         }
 
@@ -111,19 +99,15 @@
                 .maybeSingle();
 
             if (error || !profile) {
+                alert("Profil introuvable dans la table 'profiles'.");
                 await sb.auth.signOut();
                 window.location.reload();
                 return;
             }
 
-            // Redirection selon le rôle
-            if (profile.role === 'chef') {
-                window.location.href = "chef.html";
-            } else if (profile.role === 'admin') {
-                window.location.href = "admin.html";
-            } else {
-                window.location.href = "user.html";
-            }
+            if (profile.role === 'chef') window.location.href = "chef.html";
+            else if (profile.role === 'admin') window.location.href = "admin.html";
+            else window.location.href = "user.html";
         }
     </script>
 </body>
