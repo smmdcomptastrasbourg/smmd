@@ -84,38 +84,54 @@
         async function exportData() {
             const month = document.getElementById('export-month').value;
             const maisonId = document.getElementById('export-maison').value;
-            const year = new Date().getFullYear(); // Ou laisser choisir l'année si besoin
+            const year = new Date().getFullYear();
 
-            let query = sb.from('transactions')
+            // 1. Récupération des transactions
+            let txQuery = sb.from('transactions')
                           .select('created_at, type, montant, motif, commentaire, methode_paiement, profiles(prenom, nom), maisons(nom)')
                           .order('created_at', { ascending: true });
 
             if (maisonId !== 'all') {
-                query = query.eq('maison_id', maisonId);
+                txQuery = txQuery.eq('maison_id', maisonId);
             }
 
-            const { data, error } = await query;
+            const { data: transactions, error: txError } = await txQuery;
+            if (txError) return alert("Erreur transactions : " + txError.message);
 
-            if (error) return alert("Erreur lors de la récupération : " + error.message);
+            // 2. Récupération des membres pour inclure leurs allocations
+            let membersQuery = sb.from('profiles').select('prenom, nom, allocation_mensuelle, maison_id, maisons(nom)');
+            if (maisonId !== 'all') {
+                membersQuery = membersQuery.eq('maison_id', maisonId);
+            }
+            const { data: members, error: memError } = await membersQuery;
+            if (memError) return alert("Erreur membres : " + memError.message);
 
-            // Filtrage par mois (Format YYYY-MM-DD)
-            const filtered = data.filter(t => t.created_at.includes(`-${month}-`));
+            // Filtrage des transactions par mois
+            const filteredTx = transactions.filter(t => t.created_at.includes(`-${month}-`));
 
-            if (filtered.length === 0) return alert("Aucune donnée pour ce mois.");
-
-            // Construction du CSV avec BOM pour Excel (gestion des accents)
+            // Construction du CSV avec BOM pour Excel
             let csvContent = "\uFEFF"; 
             csvContent += "Date;Maison;Membre;Type;Motif;Montant;Méthode;Commentaire\n";
 
-            filtered.forEach(t => {
+            // AJOUT DES ALLOCATIONS (Lignes théoriques au 1er du mois)
+            members.forEach(m => {
+                if (m.allocation_mensuelle > 0) {
+                    const montantAlloc = m.allocation_mensuelle.toString().replace('.', ',');
+                    const nomMaison = m.maisons ? m.maisons.nom : 'N/A';
+                    csvContent += `01/${month}/${year};${nomMaison};${m.prenom} ${m.nom};REVENU;ALLOCATION MENSUELLE;${montantAlloc};AUTOMATIQUE;Génération auto\n`;
+                }
+            });
+
+            // AJOUT DES TRANSACTIONS RÉELLES
+            filteredTx.forEach(t => {
                 const date = new Date(t.created_at).toLocaleDateString('fr-FR');
                 const maison = t.maisons ? t.maisons.nom : 'N/A';
                 const membre = t.profiles ? `${t.profiles.prenom} ${t.profiles.nom}` : 'Inconnu';
                 const type = t.type.toUpperCase();
                 const motif = t.motif || (t.type === 'recette' ? 'RECETTE' : 'N/A');
-                const montant = t.montant.toString().replace('.', ','); // Format Excel FR
+                const montant = t.montant.toString().replace('.', ',');
                 const methode = t.methode_paiement || '-';
-                const note = (t.commentaire || '').replace(/;/g, ','); // Éviter de casser les colonnes
+                const note = (t.commentaire || '').replace(/;/g, ',');
 
                 csvContent += `${date};${maison};${membre};${type};${motif};${montant};${methode};${note}\n`;
             });
@@ -124,7 +140,7 @@
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.setAttribute("href", url);
-            link.setAttribute("download", `SMMD_Export_${maisonId}_Mois_${month}.csv`);
+            link.setAttribute("download", `SMMD_Compta_Maison_${maisonId}_Mois_${month}.csv`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -233,3 +249,4 @@
     </script>
 </body>
 </html>
+
