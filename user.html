@@ -20,85 +20,91 @@
                 <h1 id="user-name" class="text-xl font-black italic tracking-tighter">Chargement...</h1>
                 <p id="maison-name" class="text-[10px] uppercase tracking-[0.2em] opacity-60 font-bold italic">Maison ...</p>
             </div>
-            <button onclick="logout()" class="bg-red-500/20 text-red-200 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest">Sortir</button>
+            <button onclick="logout()" class="bg-white/10 p-3 rounded-2xl">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+            </button>
         </div>
-        
-        <div class="grid grid-cols-2 gap-3 mb-6">
-            <div class="bg-blue-800/40 p-4 rounded-2xl border border-blue-700/30">
-                <p class="text-[7px] font-black uppercase tracking-widest mb-1 opacity-50">Mon Solde Perso</p>
-                <p id="solde-perso" class="text-xl font-black">-- €</p>
+        <div class="grid grid-cols-2 gap-4">
+            <div class="bg-white/10 p-4 rounded-3xl backdrop-blur-md">
+                <p class="text-[9px] uppercase font-black opacity-60 mb-1">Mon Solde</p>
+                <h2 id="balance" class="text-2xl font-black">0.00€</h2>
             </div>
-            <div class="bg-white/10 p-4 rounded-2xl border border-white/10">
-                <p class="text-[7px] font-black uppercase tracking-widest mb-1 opacity-50">Solde Maison</p>
-                <p id="solde-maison" class="text-xl font-black">-- €</p>
-            </div>
-        </div>
-
-        <div class="bg-black/20 p-4 rounded-2xl space-y-3 border border-white/5">
-            <div class="flex gap-4">
-                <div class="flex-1">
-                    <label class="text-[7px] font-black uppercase opacity-50">Alloc. Mensuelle (€)</label>
-                    <input type="number" id="user-alloc" onchange="updateProfile()" class="w-full bg-transparent border-b border-white/20 font-bold text-sm outline-none py-1">
-                </div>
-                <div class="flex-[2]">
-                    <label class="text-[7px] font-black uppercase opacity-50">Mon IBAN</label>
-                    <input type="text" id="user-iban" onchange="updateProfile()" placeholder="FR76..." class="w-full bg-transparent border-b border-white/20 font-bold text-sm outline-none py-1">
-                </div>
+            <div class="bg-orange-500/20 p-4 rounded-3xl backdrop-blur-md">
+                <p class="text-[9px] uppercase font-black text-orange-200 mb-1">À me rembourser</p>
+                <h2 id="pending-refund" class="text-2xl font-black text-orange-100">0.00€</h2>
             </div>
         </div>
     </nav>
 
-    <main class="p-6 space-y-6">
-
+    <main class="p-6 space-y-8">
+        
         <section class="bg-white p-6 rounded-[35px] shadow-sm border border-gray-100">
-            <div class="flex gap-4 mb-6">
-                <button onclick="setTxType('depense')" id="tab-depense" class="flex-1 py-3 rounded-xl font-black text-[10px] uppercase bg-blue-900 text-white active-tab">Dépense</button>
-                <button onclick="setTxType('recette')" id="tab-recette" class="flex-1 py-3 rounded-xl font-black text-[10px] uppercase bg-gray-100 text-gray-400">Recette</button>
+            <div class="flex bg-gray-100 p-1.5 rounded-2xl mb-6">
+                <button id="tab-depense" onclick="setTxType('depense')" class="flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest active-tab">Dépense</button>
+                <button id="tab-recette" onclick="setTxType('recette')" class="flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest">Recette</button>
             </div>
 
             <div class="space-y-4">
-                <input type="number" id="tx-amount" step="0.01" placeholder="Montant (€)" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-black text-xl outline-none focus:ring-2 focus:ring-blue-500">
+                <div class="relative">
+                    <input type="number" id="tx-amount" placeholder="0.00" class="w-full bg-gray-50 p-6 rounded-3xl text-3xl font-black text-center outline-none border-2 border-transparent focus:border-blue-900 transition-all">
+                    <span class="absolute right-6 top-1/2 -translate-y-1/2 font-black text-gray-300">€</span>
+                </div>
 
                 <div id="container-motif">
-                    <label class="text-[9px] font-black uppercase ml-2 text-gray-400">Motif</label>
-                    <select id="tx-motif" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none"></select>
+                    <label class="text-[10px] font-black uppercase text-gray-400 ml-2">Motif de la dépense</label>
+                    <select id="tx-motif" class="w-full bg-gray-50 p-4 rounded-2xl font-bold mt-1 outline-none appearance-none"></select>
                 </div>
 
                 <div id="container-paiement">
-                    <label class="text-[9px] font-black uppercase ml-2 text-gray-400">Moyen de paiement</label>
-                    <select id="tx-method" onchange="toggleAvanceInfo()" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none">
-                        <option value="cb_maison">CB MAISON</option>
-                        <option value="perso_cb">PERSO - Carte Bancaire</option>
-                        <option value="perso_liq">PERSO - Liquide</option>
-                        <option value="perso_vir">PERSO - Virement</option>
+                    <label class="text-[10px] font-black uppercase text-gray-400 ml-2">Moyen de paiement</label>
+                    <select id="tx-method" class="w-full bg-gray-50 p-4 rounded-2xl font-bold mt-1 outline-none appearance-none">
+                        <option value="maison_cb">CB MAISON</option>
+                        <option value="perso_cb">MA CARTE PERSO (À REMBOURSER)</option>
+                        <option value="perso_especes">MES ESPÈCES (À REMBOURSER)</option>
                     </select>
-                    <p id="info-avance" class="hidden text-[8px] text-orange-500 font-black uppercase mt-2 ml-2 italic">⚠️ Avance : nécessite validation du chef</p>
                 </div>
 
-                <div>
-                    <label id="label-note" class="text-[9px] font-black uppercase ml-2 text-gray-400">Commentaire</label>
-                    <input type="text" id="tx-note" placeholder="..." class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none text-sm">
-                </div>
+                <input type="text" id="tx-note" placeholder="Commentaire libre..." class="w-full bg-gray-50 p-4 rounded-2xl font-bold outline-none border-none">
 
-                <button onclick="submitTransaction()" class="w-full bg-blue-900 text-white font-black py-5 rounded-2xl uppercase tracking-widest shadow-lg active:scale-95 transition-all">Enregistrer</button>
+                <div class="grid grid-cols-4 gap-2">
+                    <button onclick="document.getElementById('tx-file').click()" class="aspect-square bg-gray-100 rounded-2xl flex flex-col items-center justify-center text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-all">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                        <span class="text-[8px] font-black mt-1 uppercase">Reçu</span>
+                    </button>
+                    <input type="file" id="tx-file" accept="image/*" capture="environment" class="hidden">
+                    <button onclick="submitTx()" class="col-span-3 bg-blue-900 text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] shadow-lg shadow-blue-900/30">Valider la saisie</button>
+                </div>
             </div>
         </section>
 
-        <section id="chef-section" class="hidden bg-orange-50 p-6 rounded-[35px] border border-orange-100">
-            <h2 class="text-[10px] font-black uppercase text-orange-600 mb-4 flex justify-between items-center">
-                Validation Avances 
-                <span id="badge-count" class="bg-orange-600 text-white px-2 py-0.5 rounded-full text-[8px]">0</span>
-            </h2>
-            <div id="list-avances-attente" class="space-y-3"></div>
+        <section>
+            <div class="flex justify-between items-center mb-4 px-2">
+                <h3 class="text-[10px] font-black uppercase tracking-widest text-gray-400 italic">Dernières opérations</h3>
+                <button onclick="undoLast()" class="text-[9px] font-black text-red-500 uppercase">Annuler la dernière</button>
+            </div>
+            <div id="tx-history" class="space-y-3"></div>
         </section>
 
-        <section class="space-y-4">
-            <div class="flex justify-between items-center px-2">
-                <h2 class="text-[10px] font-black uppercase text-gray-400 tracking-widest">Mes Opérations</h2>
-                <button onclick="undoLast()" class="text-[9px] font-bold uppercase text-red-500 hover:underline">Annuler dernier</button>
+        <section class="bg-slate-900 p-8 rounded-[40px] text-white space-y-6 shadow-xl">
+            <h3 class="text-xs font-black uppercase tracking-widest opacity-50 italic">Paramètres du compte</h3>
+            
+            <div>
+                <label class="text-[9px] font-black uppercase opacity-40 ml-1">Mon IBAN (pour remboursements)</label>
+                <div class="flex gap-2 mt-1">
+                    <input type="text" id="user-iban" class="flex-1 bg-white/10 p-4 rounded-2xl font-mono text-xs border-none outline-none focus:bg-white/20" placeholder="FR76...">
+                    <button onclick="updateIban()" class="bg-blue-600 px-4 rounded-2xl font-black text-[10px] uppercase">OK</button>
+                </div>
             </div>
-            <div id="user-history" class="space-y-3"></div>
+
+            <div class="pt-4 border-t border-white/10">
+                <label class="text-[9px] font-black uppercase opacity-40 ml-1">Changer mon mot de passe</label>
+                <div class="flex gap-2 mt-1">
+                    <input type="password" id="new-password" class="flex-1 bg-white/10 p-4 rounded-2xl font-bold text-xs border-none outline-none focus:bg-white/20" placeholder="Nouveau mot de passe">
+                    <button onclick="updatePassword()" class="bg-emerald-600 px-4 rounded-2xl font-black text-[10px] uppercase">Modifier</button>
+                </div>
+            </div>
         </section>
+
     </main>
 
     <script>
@@ -109,91 +115,78 @@
         let userProfile = null;
         let currentType = 'depense';
 
-        async function checkAuth() {
+        async function init() {
             const { data: { user } } = await sb.auth.getUser();
             if (!user) { window.location.href = "index.html"; return; }
-            const { data: profile } = await sb.from('profiles').select('*, maisons(*)').eq('id', user.id).single();
+
+            const { data: profile } = await sb.from('profiles').select('*, maisons(nom)').eq('id', user.id).single();
             userProfile = profile;
-            
+
             document.getElementById('user-name').innerText = `${profile.prenom} ${profile.nom}`;
             document.getElementById('maison-name').innerText = `Maison ${profile.maisons.nom}`;
-            document.getElementById('user-alloc').value = profile.allocation_mensuelle || 0;
             document.getElementById('user-iban').value = profile.iban || '';
-            
-            if (profile.role === 'chef') {
-                document.getElementById('chef-section').classList.remove('hidden');
-                loadAvancesChef();
-            }
+
             loadMotifs();
             refreshDashboard();
         }
 
-        async function updateProfile() {
-            const alloc = document.getElementById('user-alloc').value;
-            const iban = document.getElementById('user-iban').value.trim().toUpperCase();
-            await sb.from('profiles').update({ allocation_mensuelle: alloc, iban: iban }).eq('id', userProfile.id);
-            refreshDashboard();
-        }
-
         async function loadMotifs() {
-            const { data } = await sb.from('motifs').select('nom').order('nom');
-            document.getElementById('tx-motif').innerHTML = data.map(m => `<option value="${m.nom}">${m.nom}</option>`).join('');
-        }
-
-        function setTxType(type) {
-            currentType = type;
-            const isRecette = type === 'recette';
-            document.getElementById('container-motif').classList.toggle('hidden', isRecette);
-            document.getElementById('container-paiement').classList.toggle('hidden', isRecette);
-            document.getElementById('label-note').innerHTML = isRecette ? 'Commentaire (OBLIGATOIRE)' : 'Commentaire';
-            
-            document.getElementById('tab-depense').className = isRecette ? "flex-1 py-3 rounded-xl font-black text-[10px] uppercase bg-gray-100 text-gray-400" : "flex-1 py-3 rounded-xl font-black text-[10px] uppercase bg-blue-900 text-white active-tab";
-            document.getElementById('tab-recette').className = isRecette ? "flex-1 py-3 rounded-xl font-black text-[10px] uppercase bg-emerald-500 text-white active-recette" : "flex-1 py-3 rounded-xl font-black text-[10px] uppercase bg-gray-100 text-gray-400";
-        }
-
-        function toggleAvanceInfo() {
-            const method = document.getElementById('tx-method').value;
-            document.getElementById('info-avance').classList.toggle('hidden', !method.startsWith('perso_'));
+            const { data } = await sb.from('motifs').select('*').order('nom');
+            document.getElementById('tx-motif').innerHTML = data.map(m => `<option value="${m.nom}">${m.nom.toUpperCase()}</option>`).join('');
         }
 
         async function refreshDashboard() {
-            const { data: soldes } = await sb.from('soldes_calculables').select('*').eq('maison_id', userProfile.maison_id);
-            let cumulMaison = 0;
-            let monSoldePerso = 0;
+            // Solde = Allocations cumulées + Recettes - Dépenses
+            const { data: txs } = await sb.from('transactions').select('*').eq('user_id', userProfile.id);
+            const totalRecettes = txs.filter(t => t.type === 'recette').reduce((sum, t) => sum + t.montant, 0);
+            const totalDepenses = txs.filter(t => t.type === 'depense').reduce((sum, t) => sum + t.montant, 0);
+            
+            // On calcule le nombre de mois depuis l'inscription pour les allocations
+            const months = Math.max(1, new Date().getMonth() - new Date(userProfile.created_at).getMonth() + 1);
+            const solde = (userProfile.allocation_mensuelle * months) + totalRecettes - totalDepenses;
+            
+            // À rembourser (Dépenses perso en attente)
+            const aRembourser = txs.filter(t => t.statut === 'attente').reduce((sum, t) => sum + t.montant, 0);
 
-            if(soldes) {
-                soldes.forEach(s => {
-                    const total = parseFloat(s.total_allocations) + parseFloat(s.total_transactions);
-                    cumulMaison += total;
-                    if (s.user_id === userProfile.id) monSoldePerso = total;
-                });
-            }
+            document.getElementById('balance').innerText = `${solde.toFixed(2)}€`;
+            document.getElementById('pending-refund').innerText = `${aRembourser.toFixed(2)}€`;
 
-            document.getElementById('solde-maison').innerText = cumulMaison.toFixed(2) + " €";
-            document.getElementById('solde-perso').innerText = monSoldePerso.toFixed(2) + " €";
-
-            const { data: myTxs } = await sb.from('transactions').select('*').eq('user_id', userProfile.id).order('created_at', { ascending: false }).limit(8);
-            document.getElementById('user-history').innerHTML = myTxs.map(t => `
-                <div class="bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm border border-gray-50 text-xs">
-                    <div>
-                        <p class="font-black uppercase text-gray-400 text-[8px] tracking-widest">${t.type === 'recette' ? 'RECETTE' : t.motif} ${t.statut === 'attente' ? '⏳' : ''}</p>
-                        <p class="font-bold text-slate-700">${t.commentaire || '-'}</p>
+            // Historique
+            const { data: history } = await sb.from('transactions').select('*').eq('user_id', userProfile.id).order('created_at', { ascending: false }).limit(8);
+            document.getElementById('tx-history').innerHTML = history.map(t => `
+                <div class="flex justify-between items-center p-4 bg-white rounded-2xl shadow-sm border border-gray-50">
+                    <div class="flex items-center gap-3">
+                        <div class="w-2 h-2 rounded-full ${t.type === 'recette' ? 'bg-emerald-500' : (t.statut === 'attente' ? 'bg-orange-500' : 'bg-blue-900')}"></div>
+                        <div>
+                            <p class="text-[10px] font-black uppercase tracking-tight">${t.motif || 'RECETTE'}</p>
+                            <p class="text-[8px] text-gray-400 font-bold uppercase">${new Date(t.created_at).toLocaleDateString()}</p>
+                        </div>
                     </div>
-                    <p class="font-black ${t.type === 'recette' ? 'text-emerald-500' : 'text-slate-900'}">${t.type === 'recette' ? '+' : '-'}${t.montant.toFixed(2)}€</p>
+                    <div class="flex items-center gap-3 text-right">
+                        ${t.photo_url ? `<button onclick="window.open('${sb.storage.from('receipts').getPublicUrl(t.photo_url).data.publicUrl}')" class="text-xs">📄</button>` : ''}
+                        <p class="font-black text-sm ${t.type === 'recette' ? 'text-emerald-600' : 'text-slate-900'}">${t.type === 'recette' ? '+' : '-'}${t.montant.toFixed(2)}€</p>
+                    </div>
                 </div>
             `).join('');
         }
 
-        async function submitTransaction() {
+        async function submitTx() {
             const amount = parseFloat(document.getElementById('tx-amount').value);
-            const note = document.getElementById('tx-note').value.trim();
             const motif = document.getElementById('tx-motif').value;
             const method = document.getElementById('tx-method').value;
+            const note = document.getElementById('tx-note').value;
+            const file = document.getElementById('tx-file').files[0];
 
-            if (!amount || amount <= 0) return alert("Entrez un montant valide.");
-            if (currentType === 'recette' && !note) return alert("Justifiez la recette dans le commentaire.");
+            if (!amount) return alert("Veuillez saisir un montant");
 
-            const { error } = await sb.from('transactions').insert([{
+            let photoPath = null;
+            if (file) {
+                const fileName = `${Date.now()}_${userProfile.id}.jpg`;
+                const { data, error } = await sb.storage.from('receipts').upload(fileName, file);
+                if (!error) photoPath = fileName;
+            }
+
+            await sb.from('transactions').insert([{
                 user_id: userProfile.id,
                 maison_id: userProfile.maison_id,
                 montant: amount,
@@ -201,58 +194,58 @@
                 commentaire: note,
                 type: currentType,
                 methode_paiement: currentType === 'recette' ? null : method,
-                statut: (currentType === 'depense' && method.startsWith('perso_')) ? 'attente' : 'valide'
+                statut: (currentType === 'depense' && method.startsWith('perso_')) ? 'attente' : 'valide',
+                photo_url: photoPath
             }]);
 
-            if (error) alert(error.message);
-            else {
-                document.getElementById('tx-amount').value = '';
-                document.getElementById('tx-note').value = '';
-                refreshDashboard();
-                if(userProfile.role === 'chef') loadAvancesChef();
+            document.getElementById('tx-amount').value = '';
+            document.getElementById('tx-note').value = '';
+            document.getElementById('tx-file').value = '';
+            alert("Saisie enregistrée !");
+            refreshDashboard();
+        }
+
+        async function updateIban() {
+            const iban = document.getElementById('user-iban').value;
+            await sb.from('profiles').update({ iban }).eq('id', userProfile.id);
+            alert("IBAN enregistré");
+        }
+
+        // --- NOUVELLE FONCTION : CHANGEMENT DE MOT DE PASSE ---
+        async function updatePassword() {
+            const newPass = document.getElementById('new-password').value;
+            if (newPass.length < 6) return alert("Le mot de passe doit faire au moins 6 caractères.");
+
+            const { error } = await sb.auth.updateUser({ password: newPass });
+            
+            if (error) {
+                alert("Erreur : " + error.message);
+            } else {
+                alert("Mot de passe mis à jour avec succès !");
+                document.getElementById('new-password').value = '';
             }
         }
 
-        async function loadAvancesChef() {
-            const { data } = await sb.from('transactions').select('*, profiles(*)').eq('maison_id', userProfile.maison_id).eq('statut', 'attente');
-            document.getElementById('badge-count').innerText = data ? data.length : 0;
-            const groups = {};
-            if(data) {
-                data.forEach(t => {
-                    if(!groups[t.user_id]) groups[t.user_id] = { name: `${t.profiles.prenom} ${t.profiles.nom}`, iban: t.profiles.iban, txs: [] };
-                    groups[t.user_id].txs.push(t);
-                });
-            }
-            document.getElementById('list-avances-attente').innerHTML = Object.keys(groups).map(uid => `
-                <div class="bg-white p-4 rounded-2xl border border-orange-200 shadow-sm">
-                    <div class="flex justify-between items-start mb-2">
-                        <p class="font-black text-[9px] uppercase text-orange-600">${groups[uid].name}</p>
-                        <button onclick="validerTout('${uid}')" class="text-[8px] font-black bg-orange-600 text-white px-2 py-1 rounded-lg">VALIDER TOUT</button>
-                    </div>
-                    <p class="text-[8px] font-mono text-gray-400 mb-2">IBAN: ${groups[uid].iban || 'MANQUANT'}</p>
-                    ${groups[uid].txs.map(t => `
-                        <div class="flex justify-between text-[10px] bg-orange-50 p-1.5 rounded-lg mb-1">
-                            <span>${t.montant}€ (${t.motif})</span>
-                            <button onclick="validerUnique('${t.id}')" class="font-bold text-orange-600">OK</button>
-                        </div>
-                    `).join('')}
-                </div>
-            `).join('');
-        }
-
-        async function validerUnique(id) { await sb.from('transactions').update({ statut: 'valide', date_validation: new Date() }).eq('id', id); loadAvancesChef(); refreshDashboard(); }
-        async function validerTout(uid) { await sb.from('transactions').update({ statut: 'valide', date_validation: new Date() }).eq('user_id', uid).eq('statut', 'attente'); loadAvancesChef(); refreshDashboard(); }
-        
         async function undoLast() {
             const { data } = await sb.from('transactions').select('id').eq('user_id', userProfile.id).order('created_at', { ascending: false }).limit(1);
-            if (data && data[0] && confirm("Annuler la dernière saisie ?")) {
+            if (data && data[0] && confirm("Annuler la dernière opération ?")) {
                 await sb.from('transactions').delete().eq('id', data[0].id);
                 refreshDashboard();
             }
         }
 
-        function logout() { sb.auth.signOut().then(() => window.location.href="index.html"); }
-        checkAuth();
+        function setTxType(type) {
+            currentType = type;
+            const isR = type === 'recette';
+            document.getElementById('container-motif').classList.toggle('hidden', isR);
+            document.getElementById('container-paiement').classList.toggle('hidden', isR);
+            document.getElementById('tab-depense').className = isR ? "flex-1 py-3 rounded-xl font-black text-[10px] bg-gray-100 text-gray-400" : "flex-1 py-3 rounded-xl font-black text-[10px] bg-blue-900 text-white active-tab";
+            document.getElementById('tab-recette').className = isR ? "flex-1 py-3 rounded-xl font-black text-[10px] bg-emerald-500 text-white active-recette" : "flex-1 py-3 rounded-xl font-black text-[10px] bg-gray-100 text-gray-400";
+        }
+
+        function logout() { sb.auth.signOut().then(() => window.location.href = "index.html"); }
+
+        init();
     </script>
 </body>
 </html>
