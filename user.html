@@ -20,18 +20,26 @@
                 <h1 id="user-name" class="text-xl font-black italic tracking-tighter">Chargement...</h1>
                 <p id="maison-name" class="text-[10px] uppercase tracking-[0.2em] opacity-60 font-bold italic">Maison ...</p>
             </div>
-            <button onclick="logout()" class="bg-white/10 p-3 rounded-2xl hover:bg-white/20 transition-all">
+            <button onclick="logout()" class="bg-white/10 p-3 rounded-2xl">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
             </button>
         </div>
-        <div class="grid grid-cols-2 gap-4">
-            <div class="bg-white/10 p-4 rounded-3xl backdrop-blur-md border border-white/10">
-                <p class="text-[9px] uppercase font-black opacity-60 mb-1">Mon Solde</p>
-                <h2 id="balance" class="text-2xl font-black">0.00€</h2>
+        
+        <div class="space-y-4">
+            <div class="bg-blue-800/50 p-4 rounded-3xl border border-white/10 text-center">
+                <p class="text-[9px] uppercase font-black opacity-60 mb-1">Cagnotte Globale Maison</p>
+                <h2 id="house-balance" class="text-xl font-black text-blue-100">0.00€</h2>
             </div>
-            <div class="bg-orange-500/20 p-4 rounded-3xl backdrop-blur-md border border-orange-500/20">
-                <p class="text-[9px] uppercase font-black text-orange-200 mb-1">À me rembourser</p>
-                <h2 id="pending-refund" class="text-2xl font-black text-orange-100">0.00€</h2>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-white/10 p-4 rounded-3xl backdrop-blur-md">
+                    <p class="text-[9px] uppercase font-black opacity-60 mb-1">Mon Solde</p>
+                    <h2 id="balance" class="text-2xl font-black">0.00€</h2>
+                </div>
+                <div class="bg-orange-500/20 p-4 rounded-3xl backdrop-blur-md">
+                    <p class="text-[9px] uppercase font-black text-orange-200 mb-1">À me rembourser</p>
+                    <h2 id="pending-refund" class="text-2xl font-black text-orange-100">0.00€</h2>
+                </div>
             </div>
         </div>
     </nav>
@@ -40,59 +48,55 @@
         
         <section class="bg-white p-6 rounded-[35px] shadow-sm border border-gray-100">
             <div class="flex bg-gray-100 p-1.5 rounded-2xl mb-6">
-                <button id="tab-depense" onclick="setTxType('depense')" class="flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest active-tab transition-all">Dépense</button>
-                <button id="tab-recette" onclick="setTxType('recette')" class="flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all">Recette</button>
+                <button id="tab-depense" onclick="setTxType('depense')" class="flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest active-tab">Dépense</button>
+                <button id="tab-recette" onclick="setTxType('recette')" class="flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest">Recette</button>
             </div>
 
             <div class="space-y-4">
                 <div class="relative">
                     <input type="number" id="tx-amount" placeholder="0.00" class="w-full bg-gray-50 p-6 rounded-3xl text-3xl font-black text-center outline-none border-2 border-transparent focus:border-blue-900 transition-all">
-                    <span class="absolute right-6 top-1/2 -translate-y-1/2 font-black text-gray-300 text-xl">€</span>
+                    <span class="absolute right-6 top-1/2 -translate-y-1/2 font-black text-gray-300">€</span>
                 </div>
 
                 <div id="container-motif">
-                    <label class="text-[10px] font-black uppercase text-gray-400 ml-2">Motif</label>
-                    <select id="tx-motif" class="w-full bg-gray-50 p-4 rounded-2xl font-bold mt-1 outline-none appearance-none border-none"></select>
+                    <select id="tx-motif" class="w-full bg-gray-50 p-4 rounded-2xl font-bold outline-none appearance-none"></select>
                 </div>
 
                 <div id="container-paiement">
-                    <label class="text-[10px] font-black uppercase text-gray-400 ml-2">Moyen de paiement</label>
-                    <select id="tx-method" class="w-full bg-gray-50 p-4 rounded-2xl font-bold mt-1 outline-none appearance-none border-none">
-                        <option value="maison_cb">CB MAISON (Direct)</option>
-                        <option value="perso_cb">CARTE PERSO (À rembourser)</option>
-                        <option value="perso_especes">ESPÈCES (À rembourser)</option>
+                    <select id="tx-method" class="w-full bg-gray-50 p-4 rounded-2xl font-bold outline-none appearance-none">
+                        <option value="maison_cb">CB MAISON</option>
+                        <option value="perso_cb">MA CARTE PERSO (À REMBOURSER)</option>
+                        <option value="perso_especes">MES ESPÈCES (À REMBOURSER)</option>
                     </select>
                 </div>
 
-                <input type="text" id="tx-note" placeholder="Commentaire optionnel..." class="w-full bg-gray-50 p-4 rounded-2xl font-bold outline-none border-none">
+                <input type="text" id="tx-note" placeholder="Commentaire..." class="w-full bg-gray-50 p-4 rounded-2xl font-bold outline-none">
 
-                <button onclick="submitTx()" class="w-full bg-blue-900 text-white py-5 rounded-3xl font-black text-[11px] uppercase tracking-[0.2em] shadow-lg shadow-blue-900/30 active:scale-95 transition-all">Enregistrer l'opération</button>
+                <button onclick="submitTx()" class="w-full bg-blue-900 text-white py-5 rounded-3xl font-black text-[11px] uppercase tracking-widest shadow-lg active:scale-95 transition-all">Valider</button>
             </div>
         </section>
 
         <section>
             <div class="flex justify-between items-center mb-4 px-2">
-                <h3 class="text-[10px] font-black uppercase tracking-widest text-gray-400 italic">Historique récent</h3>
-                <button onclick="undoLast()" class="text-[9px] font-black text-red-500 uppercase hover:underline">Annuler la dernière erreur</button>
+                <h3 class="text-[10px] font-black uppercase tracking-widest text-gray-400 italic">Historique</h3>
+                <button onclick="undoLast()" class="text-[9px] font-black text-red-500 uppercase">Annuler dernière</button>
             </div>
             <div id="tx-history" class="space-y-3"></div>
         </section>
 
         <section class="bg-slate-900 p-8 rounded-[40px] text-white space-y-6 shadow-xl">
-            <h3 class="text-xs font-black uppercase tracking-widest opacity-50 italic text-center">Mon Compte</h3>
-            
             <div>
-                <label class="text-[9px] font-black uppercase opacity-40 ml-1">Mon IBAN (Remboursements)</label>
+                <label class="text-[9px] font-black uppercase opacity-40 ml-1">Mon IBAN</label>
                 <div class="flex gap-2 mt-1">
-                    <input type="text" id="user-iban" class="flex-1 bg-white/10 p-4 rounded-2xl font-mono text-xs border-none outline-none focus:bg-white/20" placeholder="FR76...">
-                    <button onclick="updateIban()" class="bg-blue-600 px-6 rounded-2xl font-black text-[10px] uppercase">OK</button>
+                    <input type="text" id="user-iban" class="flex-1 bg-white/10 p-4 rounded-2xl font-mono text-xs outline-none" placeholder="FR76...">
+                    <button onclick="updateIban()" class="bg-blue-600 px-4 rounded-2xl font-black text-[10px] uppercase">OK</button>
                 </div>
             </div>
 
-            <div class="pt-6 border-t border-white/10">
-                <label class="text-[9px] font-black uppercase opacity-40 ml-1">Changer mon mot de passe</label>
+            <div class="pt-4 border-t border-white/10">
+                <label class="text-[9px] font-black uppercase opacity-40 ml-1">Changer mot de passe</label>
                 <div class="flex gap-2 mt-1">
-                    <input type="password" id="new-password" class="flex-1 bg-white/10 p-4 rounded-2xl font-bold text-xs border-none outline-none focus:bg-white/20" placeholder="Nouveau code...">
+                    <input type="password" id="new-password" class="flex-1 bg-white/10 p-4 rounded-2xl font-bold text-xs outline-none" placeholder="Nouveau code...">
                     <button onclick="updatePassword()" class="bg-emerald-600 px-4 rounded-2xl font-black text-[10px] uppercase">Modifier</button>
                 </div>
             </div>
@@ -123,40 +127,44 @@
             refreshDashboard();
         }
 
-        async function loadMotifs() {
-            const { data } = await sb.from('motifs').select('*').order('nom');
-            document.getElementById('tx-motif').innerHTML = data.map(m => `<option value="${m.nom}">${m.nom.toUpperCase()}</option>`).join('');
-        }
-
         async function refreshDashboard() {
-            const { data: txs } = await sb.from('transactions').select('*').eq('user_id', userProfile.id);
+            // 1. Transactions du membre
+            const { data: myTx } = await sb.from('transactions').select('*').eq('user_id', userProfile.id);
             
-            // Calcul du solde : Allocations cumulées + Recettes - Dépenses
-            const totalRecettes = txs.filter(t => t.type === 'recette').reduce((sum, t) => sum + t.montant, 0);
-            const totalDepenses = txs.filter(t => t.type === 'depense').reduce((sum, t) => sum + t.montant, 0);
+            // 2. Toutes les transactions de la maison
+            const { data: houseTx } = await sb.from('transactions').select('*').eq('maison_id', userProfile.maison_id);
             
-            const registrationDate = new Date(userProfile.created_at);
-            const today = new Date();
-            const months = (today.getFullYear() - registrationDate.getFullYear()) * 12 + (today.getMonth() - registrationDate.getMonth()) + 1;
-            
-            const solde = (userProfile.allocation_mensuelle * months) + totalRecettes - totalDepenses;
-            const aRembourser = txs.filter(t => t.statut === 'attente').reduce((sum, t) => sum + t.montant, 0);
+            // 3. Tous les membres de la maison (pour solde global)
+            const { data: members } = await sb.from('profiles').select('allocation_mensuelle').eq('maison_id', userProfile.id);
 
-            document.getElementById('balance').innerText = `${solde.toFixed(2)}€`;
+            const months = Math.max(1, new Date().getMonth() - new Date(userProfile.created_at).getMonth() + 1);
+
+            // Calcul Perso
+            const soldePerso = (userProfile.allocation_mensuelle * months) + 
+                               myTx.filter(t => t.type === 'recette').reduce((s, t) => s + t.montant, 0) - 
+                               myTx.filter(t => t.type === 'depense').reduce((s, t) => s + t.montant, 0);
+            
+            const aRembourser = myTx.filter(t => t.statut === 'attente').reduce((s, t) => s + t.montant, 0);
+
+            // Calcul Maison (Somme des allocations - Somme des dépenses + Somme des recettes)
+            const totalAllocHouse = (members || []).reduce((s, m) => s + (m.allocation_mensuelle * months), 0);
+            const totalDepHouse = (houseTx || []).filter(t => t.type === 'depense').reduce((s, t) => s + t.montant, 0);
+            const totalRecHouse = (houseTx || []).filter(t => t.type === 'recette').reduce((s, t) => s + t.montant, 0);
+            const soldeHouse = totalAllocHouse + totalRecHouse - totalDepHouse;
+
+            document.getElementById('balance').innerText = `${soldePerso.toFixed(2)}€`;
             document.getElementById('pending-refund').innerText = `${aRembourser.toFixed(2)}€`;
+            document.getElementById('house-balance').innerText = `${soldeHouse.toFixed(2)}€`;
 
-            // Historique (8 derniers)
+            // Historique
             const { data: history } = await sb.from('transactions').select('*').eq('user_id', userProfile.id).order('created_at', { ascending: false }).limit(8);
             document.getElementById('tx-history').innerHTML = history.map(t => `
                 <div class="flex justify-between items-center p-4 bg-white rounded-2xl shadow-sm border border-gray-50">
                     <div class="flex items-center gap-3">
-                        <div class="w-2.5 h-2.5 rounded-full ${t.type === 'recette' ? 'bg-emerald-500' : (t.statut === 'attente' ? 'bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]' : 'bg-blue-900')}"></div>
-                        <div>
-                            <p class="text-[10px] font-black uppercase tracking-tight">${t.motif || 'RECETTE'}</p>
-                            <p class="text-[8px] text-gray-400 font-bold uppercase">${new Date(t.created_at).toLocaleDateString()}</p>
-                        </div>
+                        <div class="w-2 h-2 rounded-full ${t.type === 'recette' ? 'bg-emerald-500' : (t.statut === 'attente' ? 'bg-orange-500' : 'bg-blue-900')}"></div>
+                        <p class="text-[10px] font-black uppercase tracking-tight">${t.motif || 'RECETTE'}</p>
                     </div>
-                    <p class="font-black text-sm ${t.type === 'recette' ? 'text-emerald-600' : 'text-slate-900'}">${t.type === 'recette' ? '+' : '-'}${t.montant.toFixed(2)}€</p>
+                    <p class="font-black text-sm">${t.type === 'recette' ? '+' : '-'}${t.montant.toFixed(2)}€</p>
                 </div>
             `).join('');
         }
@@ -164,9 +172,9 @@
         async function submitTx() {
             const amount = parseFloat(document.getElementById('tx-amount').value);
             const method = document.getElementById('tx-method').value;
-            if (!amount) return alert("Montant invalide");
+            if (!amount) return;
 
-            const { error } = await sb.from('transactions').insert([{
+            await sb.from('transactions').insert([{
                 user_id: userProfile.id,
                 maison_id: userProfile.maison_id,
                 montant: amount,
@@ -177,34 +185,33 @@
                 statut: (currentType === 'depense' && method.startsWith('perso_')) ? 'attente' : 'valide'
             }]);
 
-            if (error) alert(error.message);
-            else {
-                document.getElementById('tx-amount').value = '';
-                document.getElementById('tx-note').value = '';
-                refreshDashboard();
-            }
+            document.getElementById('tx-amount').value = '';
+            refreshDashboard();
         }
 
         async function updatePassword() {
             const newPass = document.getElementById('new-password').value;
-            if (newPass.length < 6) return alert("6 caractères minimum.");
+            if (newPass.length < 6) return alert("6 car. min");
             const { error } = await sb.auth.updateUser({ password: newPass });
-            if (error) alert("Erreur: " + error.message);
-            else { alert("Mot de passe mis à jour !"); document.getElementById('new-password').value = ''; }
+            if (error) alert(error.message); else { alert("OK !"); document.getElementById('new-password').value = ''; }
         }
 
         async function updateIban() {
-            const iban = document.getElementById('user-iban').value;
-            await sb.from('profiles').update({ iban }).eq('id', userProfile.id);
+            await sb.from('profiles').update({ iban: document.getElementById('user-iban').value }).eq('id', userProfile.id);
             alert("IBAN enregistré");
         }
 
         async function undoLast() {
             const { data } = await sb.from('transactions').select('id').eq('user_id', userProfile.id).order('created_at', { ascending: false }).limit(1);
-            if (data && data[0] && confirm("Supprimer la toute dernière saisie ?")) {
+            if (data && data[0] && confirm("Annuler ?")) {
                 await sb.from('transactions').delete().eq('id', data[0].id);
                 refreshDashboard();
             }
+        }
+
+        async function loadMotifs() {
+            const { data } = await sb.from('motifs').select('*').order('nom');
+            document.getElementById('tx-motif').innerHTML = data.map(m => `<option value="${m.nom}">${m.nom.toUpperCase()}</option>`).join('');
         }
 
         function setTxType(type) {
@@ -217,7 +224,6 @@
         }
 
         function logout() { sb.auth.signOut().then(() => window.location.href = "index.html"); }
-
         init();
     </script>
 </body>
