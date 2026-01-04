@@ -165,32 +165,72 @@
             refreshAll();
         }
 
-        async function exportMaisonExcel() {
-            const mois = prompt("Entrez le mois (format MM, ex: 01 pour Janvier) :");
-            if(!mois) return;
+async function exportMaisonExcel() {
+            const moisInput = prompt("Entrez le mois (format MM, ex: 01 pour Janvier) :");
+            if(!moisInput) return;
             
-            const { data, error } = await sb.from('transactions')
+            // 1. Récupérer les transactions
+            const { data: txData, error: txError } = await sb.from('transactions')
                 .select('created_at, type, montant, motif, commentaire, methode_paiement, profiles(prenom, nom)')
                 .eq('maison_id', userProfile.maison_id);
             
-            if(error) return alert(error.message);
+            if(txError) return alert(txError.message);
 
-            const filteredData = data.filter(t => t.created_at.includes(`-0${mois}-`) || t.created_at.includes(`-${mois}-`));
+            // 2. Récupérer les membres pour extraire les allocations mensuelles
+            const { data: membersData, error: memError } = await sb.from('profiles')
+                .select('prenom, nom, allocation_mensuelle')
+                .eq('maison_id', userProfile.maison_id);
+
+            if(memError) return alert(memError.message);
+
+            // Filtrage des transactions par mois
+            const filteredTx = txData.filter(t => t.created_at.includes(`-${moisInput.padStart(2, '0')}-`));
             
-            const wsData = filteredData.map(t => ({
-                "Date": new Date(t.created_at).toLocaleDateString(),
-                "Membre": `${t.profiles.prenom} ${t.profiles.nom}`,
-                "Type": t.type.toUpperCase(),
-                "Motif": t.motif || "RECETTE",
-                "Montant (€)": t.montant,
-                "Méthode": t.methode_paiement || "N/A",
-                "Note": t.commentaire || ""
-            }));
+            // 3. Préparer les données finales
+            let finalRows = [];
 
-            const ws = XLSX.utils.json_to_sheet(wsData);
+            // AJOUT DES ALLOCATIONS (Lignes de recettes automatiques)
+            membersData.forEach(m => {
+                if(m.allocation_mensuelle > 0) {
+                    finalRows.push({
+                        "Date": `01/${moisInput}/${new Date().getFullYear()}`,
+                        "Membre": `${m.prenom} ${m.nom}`,
+                        "Type": "ALLOCATION",
+                        "Motif": "VERSEMENT MENSUEL",
+                        "Montant (€)": m.allocation_mensuelle,
+                        "Méthode": "AUTOMATIQUE",
+                        "Note": "Allocation mensuelle théorique"
+                    });
+                }
+            });
+
+            // AJOUT DES TRANSACTIONS RÉELLES
+            filteredTx.forEach(t => {
+                finalRows.push({
+                    "Date": new Date(t.created_at).toLocaleDateString(),
+                    "Membre": `${t.profiles.prenom} ${t.profiles.nom}`,
+                    "Type": t.type.toUpperCase(),
+                    "Motif": t.motif || "RECETTE",
+                    "Montant (€)": t.montant,
+                    "Méthode": t.methode_paiement || "N/A",
+                    "Note": t.commentaire || ""
+                });
+            });
+
+            if(finalRows.length === 0) return alert("Aucune donnée (transaction ou allocation) pour ce mois.");
+
+            // 4. Génération du fichier Excel
+            const ws = XLSX.utils.json_to_sheet(finalRows);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Comptabilité");
-            XLSX.writeFile(wb, `SMMD_Maison_${userProfile.maisons.nom}_Mois_${mois}.xlsx`);
+            
+            // Ajustement automatique de la largeur des colonnes
+            const wscols = [
+                {wch:12}, {wch:25}, {wch:15}, {wch:20}, {wch:12}, {wch:15}, {wch:30}
+            ];
+            ws['!cols'] = wscols;
+
+            XLSX.writeFile(wb, `SMMD_Maison_${userProfile.maisons.nom}_Mois_${moisInput}.xlsx`);
         }
 
         // --- AUTRES FONCTIONS (Virement, IBAN, Membres) ---
