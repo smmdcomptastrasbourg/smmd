@@ -96,9 +96,15 @@
     </main>
 
     <div id="settings-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
-        <div class="bg-white p-8 rounded-[35px] w-full max-w-md shadow-2xl">
+        <div class="bg-white p-8 rounded-[35px] w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar">
             <h3 class="text-xl font-bold mb-6 text-slate-800 italic">Mes Paramètres</h3>
             <div class="space-y-6">
+                <div>
+                    <label class="text-[10px] font-black uppercase text-gray-400 ml-2">Mon Allocation Mensuelle (€)</label>
+                    <input type="number" id="settings-allocation" placeholder="0.00" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500 mt-1">
+                    <button onclick="updateAllocation()" class="w-full mt-2 bg-slate-100 text-slate-600 text-[10px] font-black py-2 rounded-xl uppercase hover:bg-slate-200">Mettre à jour l'allocation</button>
+                </div>
+                <hr class="border-slate-100">
                 <div>
                     <label class="text-[10px] font-black uppercase text-gray-400 ml-2">Mon IBAN</label>
                     <input type="text" id="settings-iban" placeholder="FR76..." class="w-full p-4 bg-gray-50 rounded-2xl border-none font-mono text-sm outline-none focus:ring-2 focus:ring-blue-500 mt-1">
@@ -248,8 +254,25 @@
             document.getElementById('tx-motif').innerHTML = data.map(m => `<option value="${m.nom}">${m.nom}</option>`).join('');
         }
 
-        function openSettingsModal() { document.getElementById('settings-modal').classList.remove('hidden'); document.getElementById('settings-iban').value = userProfile.iban || ''; }
+        function openSettingsModal() { 
+            document.getElementById('settings-modal').classList.remove('hidden'); 
+            document.getElementById('settings-iban').value = userProfile.iban || ''; 
+            document.getElementById('settings-allocation').value = userProfile.allocation_mensuelle || 0;
+        }
+
         function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
+
+        async function updateAllocation() {
+            const newVal = parseFloat(document.getElementById('settings-allocation').value);
+            if(isNaN(newVal)) return;
+            const { error } = await sb.from('profiles').update({ allocation_mensuelle: newVal }).eq('id', userProfile.id);
+            if(!error) {
+                userProfile.allocation_mensuelle = newVal;
+                alert("Allocation mise à jour !");
+                refreshAll();
+            }
+        }
+
         async function updateIban() { const newIban = document.getElementById('settings-iban').value.trim(); await sb.from('profiles').update({ iban: newIban }).eq('id', userProfile.id); userProfile.iban = newIban; alert("IBAN mis à jour !"); refreshAll(); }
         async function updatePassword() { const newPass = document.getElementById('settings-pass').value; if(newPass.length < 6) return alert("6 car. min"); await sb.auth.updateUser({ password: newPass }); alert("Mot de passe modifié !"); closeSettingsModal(); }
         function setTxType(type) { currentType = type; const isR = type === 'recette'; document.getElementById('container-motif').classList.toggle('hidden', isR); document.getElementById('container-paiement').classList.toggle('hidden', isR); document.getElementById('tab-depense').className = isR ? "flex-1 py-3 rounded-xl font-black text-[10px] bg-gray-100 text-gray-400" : "flex-1 py-3 rounded-xl font-black text-[10px] bg-blue-900 text-white tab-active"; document.getElementById('tab-recette').className = isR ? "flex-1 py-3 rounded-xl font-black text-[10px] bg-emerald-500 text-white" : "flex-1 py-3 rounded-xl font-black text-[10px] bg-gray-100 text-gray-400"; }
