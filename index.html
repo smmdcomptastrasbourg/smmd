@@ -4,111 +4,133 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SMMD Compta - Connexion</title>
-    <link rel="icon" href="data:,">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
     <style>
-        body { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
-        .loader { border-top-color: #1e3a8a; animation: spinner 1.5s linear infinite; }
-        @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        input { font-size: 16px !important; } 
+        body { -webkit-tap-highlight-color: transparent; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
 </head>
-<body class="bg-slate-50 flex items-center justify-center min-h-[100dvh] p-6">
+<body class="bg-slate-50 flex items-center justify-center min-h-screen p-6">
 
-    <div id="login-card" class="bg-white p-8 rounded-[40px] shadow-2xl w-full max-w-sm border border-gray-100 transition-all">
-        <h1 class="text-5xl font-black italic mb-2 text-center text-blue-900 tracking-tighter">SMMD.</h1>
-        <p class="text-[10px] text-center font-bold uppercase tracking-[0.3em] text-blue-900/30 mb-8">Gestion Coloc</p>
+    <div id="login-card" class="bg-white p-8 rounded-[40px] shadow-xl w-full max-sm:max-w-full max-w-sm border border-gray-100 transition-all">
+        <h1 class="text-4xl font-black italic mb-8 text-center text-blue-900 tracking-tighter">SMMD.</h1>
         
-        <div class="space-y-5">
+        <div class="space-y-4">
             <div>
-                <label class="text-[10px] font-black uppercase ml-4 mb-2 block text-gray-400 tracking-widest">Identifiant</label>
-                <input type="text" id="login-user" placeholder="nom.prenom" 
-                    class="w-full p-5 bg-gray-50 rounded-3xl border-2 border-transparent focus:border-blue-900 outline-none transition-all font-bold">
+                <label class="text-[10px] font-black uppercase ml-2 mb-1 block text-gray-400 tracking-widest">Identifiant</label>
+                <input type="text" id="login-user" placeholder="ex: guillaume.legall" 
+                    class="w-full p-4 bg-gray-100 rounded-2xl border-none font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all">
             </div>
             
             <div>
-                <label class="text-[10px] font-black uppercase ml-4 mb-2 block text-gray-400 tracking-widest">Mot de passe</label>
+                <label class="text-[10px] font-black uppercase ml-2 mb-1 block text-gray-400 tracking-widest">Mot de passe</label>
                 <input type="password" id="login-pass" placeholder="••••••••" 
-                    class="w-full p-5 bg-gray-50 rounded-3xl border-2 border-transparent focus:border-blue-900 outline-none transition-all font-bold">
+                    class="w-full p-4 bg-gray-100 rounded-2xl border-none font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all">
             </div>
-
-            <p id="error-msg" class="text-red-500 text-[11px] font-bold text-center hidden bg-red-50 p-3 rounded-2xl italic"></p>
-
-            <button onclick="handleLogin()" id="login-btn" 
-                class="w-full bg-blue-900 text-white py-5 rounded-[28px] font-black text-xs uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all">
+            
+            <button onclick="handleLogin()" id="btn-login" 
+                class="w-full bg-blue-900 text-white font-black py-5 rounded-2xl uppercase tracking-widest shadow-lg active:scale-95 transition-all mt-4">
                 Se connecter
             </button>
         </div>
+        
+        <p id="error-msg" class="text-red-500 text-[10px] font-black uppercase text-center mt-6 hidden"></p>
     </div>
 
-    <div id="loading-screen" class="hidden text-center space-y-4">
-        <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-16 w-16 mx-auto"></div>
-        <p class="text-blue-900 font-black italic animate-pulse">Vérification du profil...</p>
+    <div id="loading-screen" class="hidden text-center">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-900 mx-auto mb-4"></div>
+        <p class="font-black italic text-blue-900 uppercase tracking-widest text-[10px]">Vérification du rôle...</p>
     </div>
 
     <script>
+        // CONFIGURATION SUPABASE
         const SUPABASE_URL = "https://xccnnckuphxloxfrqtkf.supabase.co";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjY25uY2t1cGh4bG94ZnJxdGtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODA3NjEsImV4cCI6MjA4Mjc1Njc2MX0.1mIEhKfS5OSsaw78f1_Iatni39y8CoIurAd5IXP6n6g";
         const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        async function handleLogin() {
-            const userStr = document.getElementById('login-user').value.trim();
-            const passStr = document.getElementById('login-pass').value; // Récupéré ici
-            const btn = document.getElementById('login-btn');
-            const err = document.getElementById('error-msg');
+        // 1. VÉRIFICATION DE SESSION EXISTANTE
+        async function checkSession() {
+            const { data: { user } } = await sb.auth.getUser();
+            if (user) {
+                document.getElementById('login-card').classList.add('hidden');
+                document.getElementById('loading-screen').classList.remove('hidden');
+                redirectUser(user.id);
+            }
+        }
 
-            if (!userStr || !passStr) return;
+        // 2. FONCTION DE CONNEXION
+        async function handleLogin() {
+            const btn = document.getElementById('btn-login');
+            const err = document.getElementById('error-msg');
+            const card = document.getElementById('login-card');
+            const load = document.getElementById('loading-screen');
+
+            let identifier = document.getElementById('login-user').value.trim().toLowerCase();
+            const password = document.getElementById('login-pass').value;
+
+            if(!identifier || !password) {
+                err.innerText = "Champs requis";
+                err.classList.remove('hidden');
+                return;
+            }
+
+            // Ajout automatique du domaine si absent
+            if(!identifier.includes('@')) identifier += "@smmd.fr";
 
             btn.disabled = true;
-            btn.innerText = "Connexion...";
+            btn.innerText = "PATIENTEZ...";
             err.classList.add('hidden');
 
-            const email = userStr.includes('@') ? userStr : `${userStr}@smmd.com`;
-
-            // LA CORRECTION EST ICI : password: passStr
             const { data, error: authError } = await sb.auth.signInWithPassword({
-                email: email,
-                password: passStr
+                email: identifier,
+                password: password
             });
 
             if (authError) {
-                console.error("Erreur Auth:", authError.message);
-                err.innerText = "Identifiants incorrects.";
+                err.innerText = "Accès refusé";
                 err.classList.remove('hidden');
                 btn.disabled = false;
                 btn.innerText = "Se connecter";
                 return;
             }
 
-            document.getElementById('login-card').classList.add('hidden');
-            document.getElementById('loading-screen').classList.remove('hidden');
-            
+            card.classList.add('hidden');
+            load.classList.remove('hidden');
             redirectUser(data.user.id);
         }
 
+        // 3. LOGIQUE D'AIGUILLAGE PAR RÔLE (MODIFIÉE)
         async function redirectUser(userId) {
-            const { data: profile, error } = await sb
-                .from('profiles')
-                .select('role')
-                .eq('id', userId)
-                .maybeSingle();
+    const { data: profile, error: profError } = await sb
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .maybeSingle(); // Utilise maybeSingle au lieu de single
 
-            if (error || !profile) {
-                alert("Profil introuvable dans la table 'profiles'.");
-                await sb.auth.signOut();
-                window.location.reload();
-                return;
-            }
+    if (profError) {
+        console.error("Erreur:", profError.message);
+        return;
+    }
 
-            if (profile.role === 'chef') window.location.href = "chef.html";
-            else if (profile.role === 'admin') window.location.href = "admin.html";
-            else window.location.href = "user.html";
-        }
+    if (!profile) {
+        document.getElementById('error-msg').innerText = "Profil introuvable en base.";
+        document.getElementById('error-msg').classList.remove('hidden');
+        await sb.auth.signOut();
+        return;
+    }
+
+    // Redirection selon le rôle
+    if (profile.role === 'chef') {
+        window.location.href = "chef.html";
+    } else if (profile.role === 'admin') {
+        window.location.href = "admin.html";
+    } else {
+        window.location.href = "user.html";
+    }
+}
+
+        checkSession();
     </script>
 </body>
 </html>
