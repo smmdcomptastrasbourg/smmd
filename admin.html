@@ -112,7 +112,7 @@
             if (error) return alert(error.message);
 
             const { error: profError } = await sb.from('profiles').insert([{ 
-                id: data.user.id, nom, prenom, role, maison_id: maisonId, allocation: 0, allocation_mensuelle: 0 
+                id: data.user.id, nom, prenom, role, maison_id: maisonId, allocation_mensuelle: 0, allocation_mensuelle: 0 
             }]);
 
             if (profError) alert("Auth OK mais Profil erreur: " + profError.message);
@@ -245,3 +245,4 @@
     </script>
 </body>
 </html>
+
