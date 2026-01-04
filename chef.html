@@ -11,6 +11,17 @@
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         .tab-active { background-color: #1e3a8a !important; color: white !important; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
+        
+        /* Témoin clignotant pour les remboursements */
+        @keyframes blink {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.1); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        .blink-alert {
+            animation: blink 1.5s infinite ease-in-out;
+            background-color: #ef4444;
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 pb-20">
@@ -41,8 +52,10 @@
 
         <div class="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
             <a href="#section-perso" class="bg-white/10 px-4 py-2 rounded-lg text-[9px] font-black uppercase whitespace-nowrap">Mes Dépenses</a>
+            <a href="#section-validation" class="bg-white/10 px-4 py-2 rounded-lg text-[9px] font-black uppercase whitespace-nowrap flex items-center gap-2">
+                Remboursements <span id="alert-dot" class="hidden h-2 w-2 rounded-full blink-alert"></span>
+            </a>
             <a href="#section-membres" class="bg-white/10 px-4 py-2 rounded-lg text-[9px] font-black uppercase whitespace-nowrap">Membres & IBAN</a>
-            <a href="#section-audit" class="bg-white/10 px-4 py-2 rounded-lg text-[9px] font-black uppercase whitespace-nowrap">Audit Global</a>
         </div>
     </nav>
 
@@ -91,10 +104,11 @@
 
         <section id="section-validation" class="bg-orange-50 p-6 rounded-[35px] border border-orange-100">
             <div class="flex justify-between items-center mb-4">
-                <h2 class="text-[10px] font-black uppercase text-orange-600 tracking-widest">Avances en attente</h2>
+                <h2 class="text-[10px] font-black uppercase text-orange-600 tracking-widest">Dettes à rembourser</h2>
                 <div id="total-dettes" class="bg-orange-600 text-white px-3 py-1 rounded-full text-[10px] font-black">Total : 0€</div>
             </div>
-            <div id="list-avances-attente" class="space-y-4"></div>
+            <div id="list-avances-attente" class="space-y-4">
+                </div>
         </section>
 
         <section id="section-membres" class="space-y-4">
@@ -151,10 +165,7 @@
             userProfile = profile;
             document.getElementById('user-name').innerText = `${profile.prenom} ${profile.nom}`;
             document.getElementById('maison-name').innerText = `Maison ${profile.maisons.nom}`;
-            
-            // Initialisation de la date du jour
             document.getElementById('tx-date').valueAsDate = new Date();
-
             loadMotifs();
             refreshAll();
         }
@@ -169,8 +180,6 @@
         async function refreshSoldes() {
             const { data: soldes } = await sb.from('soldes_calculables').select('*').eq('maison_id', userProfile.maison_id);
             let totalMaison = 0; let monPerso = 0;
-            const today = new Date();
-
             if(soldes) {
                 soldes.forEach(s => {
                     const solde = parseFloat(s.total_allocations) + parseFloat(s.total_transactions);
@@ -182,8 +191,88 @@
             document.getElementById('solde-perso').innerText = monPerso.toFixed(2) + " €";
         }
 
+        async function loadAvancesChef() {
+            const { data } = await sb.from('transactions').select('*, profiles(*)').eq('maison_id', userProfile.maison_id).eq('statut', 'attente');
+            let dettesSum = 0; 
+            const groups = {};
+
+            if(data && data.length > 0) {
+                // Témoin clignotant activé
+                document.getElementById('alert-dot').classList.remove('hidden');
+                
+                data.forEach(t => {
+                    dettesSum += t.montant;
+                    if(!groups[t.user_id]) {
+                        groups[t.user_id] = { 
+                            name: `${t.profiles.prenom} ${t.profiles.nom}`, 
+                            iban: t.profiles.iban, 
+                            total: 0,
+                            txs: [] 
+                        };
+                    }
+                    groups[t.user_id].txs.push(t);
+                    groups[t.user_id].total += t.montant;
+                });
+            } else {
+                document.getElementById('alert-dot').classList.add('hidden');
+            }
+
+            document.getElementById('total-dettes').innerText = `Total Dû : ${dettesSum.toFixed(2)}€`;
+            
+            document.getElementById('list-avances-attente').innerHTML = Object.keys(groups).length === 0 
+                ? '<p class="text-center text-[10px] text-gray-400 py-4">Aucun remboursement en attente</p>'
+                : Object.keys(groups).map(uid => `
+                <div class="bg-white p-5 rounded-[25px] shadow-sm border border-orange-200">
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <p class="font-black text-xs text-slate-800 uppercase">${groups[uid].name}</p>
+                            <p class="text-[14px] font-black text-orange-600">Total à rembourser : ${groups[uid].total.toFixed(2)}€</p>
+                        </div>
+                        <button onclick="validerTout('${uid}')" class="bg-orange-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase shadow-md active:scale-95 transition-all">
+                            Valider le virement
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-2 mb-4 bg-gray-50 p-2 rounded-xl">
+                        <p class="text-[9px] font-mono text-gray-500 truncate flex-1">${groups[uid].iban || 'IBAN MANQUANT'}</p>
+                        <button onclick="copyIban('${groups[uid].iban}')" class="text-[9px] font-black text-blue-600 uppercase">Copier</button>
+                    </div>
+                    <div class="space-y-2 border-t pt-3">
+                        <p class="text-[8px] font-black text-gray-400 uppercase mb-2">Détail des avances (${groups[uid].txs.length})</p>
+                        ${groups[uid].txs.map(t => `
+                            <div class="flex justify-between text-[10px] py-1 border-b border-gray-50 last:border-0">
+                                <span class="text-gray-600 italic">${new Date(t.created_at).toLocaleDateString()} - ${t.motif}</span>
+                                <span class="font-bold text-slate-700">${t.montant.toFixed(2)}€</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function validerTout(uid) {
+            const dateRemb = new Date().toLocaleDateString('fr-FR');
+            if(!confirm(`Confirmez-vous avoir effectué le virement pour ce membre ce jour (${dateRemb}) ?\nCela validera toutes ses avances en une fois.`)) return;
+            
+            // On met à jour toutes les transactions en attente pour cet utilisateur précis
+            const { error } = await sb.from('transactions')
+                .update({ 
+                    statut: 'valide', 
+                    date_validation: new Date().toISOString() 
+                })
+                .eq('user_id', uid)
+                .eq('statut', 'attente')
+                .eq('maison_id', userProfile.maison_id);
+
+            if(!error) {
+                alert("Remboursement enregistré avec succès !");
+                refreshAll();
+            } else {
+                alert("Erreur lors de la validation");
+            }
+        }
+
         async function loadAuditGlobal() {
-            const { data } = await sb.from('transactions').select('*, profiles(prenom)').eq('maison_id', userProfile.maison_id).order('created_at', { ascending: false }).limit(20);
+            const { data } = await sb.from('transactions').select('*, profiles(prenom)').eq('maison_id', userProfile.maison_id).order('created_at', { ascending: false }).limit(30);
             document.getElementById('audit-history').innerHTML = data.map(t => `
                 <div class="p-4 border-b border-gray-50 flex justify-between items-center text-xs">
                     <div class="flex items-center gap-3">
@@ -196,58 +285,45 @@
                     </div>
                     <div class="text-right">
                         <p class="font-black ${t.type === 'recette' ? 'text-emerald-500' : 'text-slate-900'}">${t.type === 'recette' ? '+' : '-'}${t.montant.toFixed(2)}€</p>
-                        <p class="text-[7px] uppercase font-bold text-gray-300">${t.statut === 'attente' ? '⏳ Attente' : '✅ Validé'}</p>
+                        <p class="text-[7px] uppercase font-bold ${t.statut === 'attente' ? 'text-orange-400' : 'text-emerald-400'}">
+                            ${t.statut === 'attente' ? '⏳ Attente' : '✅ Remboursé'}
+                        </p>
                     </div>
                 </div>
             `).join('');
         }
 
-        async function supprimerOperation(id) {
-            if(!confirm("Supprimer cette opération définitivement ?")) return;
-            await sb.from('transactions').delete().eq('id', id);
-            refreshAll();
-        }
+        async function submitTransaction() {
+            const amount = parseFloat(document.getElementById('tx-amount').value);
+            const date = document.getElementById('tx-date').value;
+            const note = document.getElementById('tx-note').value.trim();
+            const motif = document.getElementById('tx-motif').value;
+            const method = document.getElementById('tx-method').value;
 
-        async function exportMaisonExcel() {
-            const moisInput = prompt("Entrez le mois (format MM, ex: 01) :");
-            if(!moisInput) return;
-            const { data: txData } = await sb.from('transactions').select('created_at, type, montant, motif, commentaire, methode_paiement, profiles(prenom, nom)').eq('maison_id', userProfile.maison_id);
-            const { data: membersData } = await sb.from('profiles').select('prenom, nom, allocation_mensuelle').eq('maison_id', userProfile.maison_id);
-            const filteredTx = txData.filter(t => t.created_at.includes(`-${moisInput.padStart(2, '0')}-`));
-            let finalRows = [];
-            membersData.forEach(m => {
-                if(m.allocation_mensuelle > 0) {
-                    finalRows.push({ "Date": `01/${moisInput}/${new Date().getFullYear()}`, "Membre": `${m.prenom} ${m.nom}`, "Type": "ALLOCATION", "Motif": "VERSEMENT MENSUEL", "Montant (€)": m.allocation_mensuelle, "Méthode": "AUTOMATIQUE", "Note": "Allocation mensuelle" });
-                }
-            });
-            filteredTx.forEach(t => {
-                finalRows.push({ "Date": new Date(t.created_at).toLocaleDateString(), "Membre": `${t.profiles.prenom} ${t.profiles.nom}`, "Type": t.type.toUpperCase(), "Motif": t.motif || "RECETTE", "Montant (€)": t.montant, "Méthode": t.methode_paiement || "N/A", "Note": t.commentaire || "" });
-            });
-            const ws = XLSX.utils.json_to_sheet(finalRows);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Comptabilité");
-            ws['!cols'] = [{wch:12}, {wch:25}, {wch:15}, {wch:20}, {wch:12}, {wch:15}, {wch:30}];
-            XLSX.writeFile(wb, `SMMD_Maison_${userProfile.maisons.nom}_Mois_${moisInput}.xlsx`);
-        }
+            if(!amount || !date) return alert("Champs obligatoires manquants");
 
-        async function loadAvancesChef() {
-            const { data } = await sb.from('transactions').select('*, profiles(*)').eq('maison_id', userProfile.maison_id).eq('statut', 'attente');
-            let dettesSum = 0; const groups = {};
-            if(data) {
-                data.forEach(t => {
-                    dettesSum += t.montant;
-                    if(!groups[t.user_id]) groups[t.user_id] = { name: `${t.profiles.prenom} ${t.profiles.nom}`, iban: t.profiles.iban, txs: [] };
-                    groups[t.user_id].txs.push(t);
-                });
+            const { error } = await sb.from('transactions').insert([{ 
+                user_id: userProfile.id, 
+                maison_id: userProfile.maison_id, 
+                montant: amount, 
+                motif: currentType === 'recette' ? 'RECETTE' : motif, 
+                commentaire: note, 
+                created_at: new Date(date).toISOString(),
+                type: currentType, 
+                methode_paiement: currentType === 'recette' ? null : method, 
+                statut: (currentType === 'depense' && method.startsWith('perso_')) ? 'attente' : 'valide' 
+            }]);
+
+            if(!error) {
+                document.getElementById('tx-amount').value = ''; 
+                document.getElementById('tx-note').value = ''; 
+                refreshAll();
             }
-            document.getElementById('total-dettes').innerText = `Dettes : ${dettesSum.toFixed(2)}€`;
-            document.getElementById('list-avances-attente').innerHTML = Object.keys(groups).map(uid => `
-                <div class="bg-white p-4 rounded-2xl shadow-sm border border-orange-200">
-                    <div class="flex justify-between items-start mb-2"><p class="font-black text-[10px] text-orange-600 uppercase">${groups[uid].name}</p><button onclick="validerTout('${uid}')" class="bg-orange-600 text-white px-2 py-1 rounded-lg text-[8px] font-black">VALIDER LE VIREMENT</button></div>
-                    <div class="flex items-center gap-2 mb-3"><p class="text-[8px] font-mono text-gray-500 truncate bg-gray-50 p-1 rounded flex-1">${groups[uid].iban || 'IBAN MANQUANT'}</p><button onclick="copyIban('${groups[uid].iban}')" class="text-[8px] font-bold text-blue-600 uppercase">Copier</button></div>
-                    ${groups[uid].txs.map(t => `<div class="flex justify-between text-[10px] py-1 border-t border-gray-50"><span>${t.motif}</span><span class="font-bold">${t.montant.toFixed(2)}€</span></div>`).join('')}
-                </div>
-            `).join('');
+        }
+
+        async function loadMotifs() {
+            const { data } = await sb.from('motifs').select('nom').order('nom');
+            document.getElementById('tx-motif').innerHTML = data.map(m => `<option value="${m.nom}">${m.nom.toUpperCase()}</option>`).join('');
         }
 
         async function loadMembres() {
@@ -266,64 +342,6 @@
             `).join('');
         }
 
-        async function submitTransaction() {
-            const amount = parseFloat(document.getElementById('tx-amount').value);
-            const date = document.getElementById('tx-date').value;
-            const note = document.getElementById('tx-note').value.trim();
-            const motif = document.getElementById('tx-motif').value;
-            const method = document.getElementById('tx-method').value;
-
-            if(!amount) return alert("Saisissez un montant");
-            if(!date) return alert("Saisissez une date");
-
-            const { error } = await sb.from('transactions').insert([{ 
-                user_id: userProfile.id, 
-                maison_id: userProfile.maison_id, 
-                montant: amount, 
-                motif: currentType === 'recette' ? 'RECETTE' : motif, 
-                commentaire: note, 
-                created_at: new Date(date).toISOString(),
-                type: currentType, 
-                methode_paiement: currentType === 'recette' ? null : method, 
-                statut: (currentType === 'depense' && method.startsWith('perso_')) ? 'attente' : 'valide' 
-            }]);
-
-            if(!error) {
-                document.getElementById('tx-amount').value = ''; 
-                document.getElementById('tx-note').value = ''; 
-                refreshAll();
-            } else {
-                alert("Erreur lors de l'enregistrement");
-            }
-        }
-
-        async function loadMotifs() {
-            const { data } = await sb.from('motifs').select('nom').order('nom');
-            document.getElementById('tx-motif').innerHTML = data.map(m => `<option value="${m.nom}">${m.nom.toUpperCase()}</option>`).join('');
-        }
-
-        function openSettingsModal() { 
-            document.getElementById('settings-modal').classList.remove('hidden'); 
-            document.getElementById('settings-iban').value = userProfile.iban || ''; 
-            document.getElementById('settings-allocation').value = userProfile.allocation_mensuelle || 0;
-        }
-
-        function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
-
-        async function updateAllocation() {
-            const newVal = parseFloat(document.getElementById('settings-allocation').value);
-            if(isNaN(newVal)) return;
-            const { error } = await sb.from('profiles').update({ allocation_mensuelle: newVal }).eq('id', userProfile.id);
-            if(!error) {
-                userProfile.allocation_mensuelle = newVal;
-                alert("Allocation mise à jour !");
-                refreshAll();
-            }
-        }
-
-        async function updateIban() { const newIban = document.getElementById('settings-iban').value.trim(); await sb.from('profiles').update({ iban: newIban }).eq('id', userProfile.id); userProfile.iban = newIban; alert("IBAN mis à jour !"); refreshAll(); }
-        async function updatePassword() { const newPass = document.getElementById('settings-pass').value; if(newPass.length < 6) return alert("6 car. min"); await sb.auth.updateUser({ password: newPass }); alert("Mot de passe modifié !"); closeSettingsModal(); }
-        
         function setTxType(type) { 
             currentType = type; 
             const isR = type === 'recette'; 
@@ -333,8 +351,46 @@
             document.getElementById('tab-recette').className = isR ? "flex-1 py-3 rounded-xl font-black text-[10px] bg-emerald-500 text-white" : "flex-1 py-3 rounded-xl font-black text-[10px] bg-gray-100 text-gray-400"; 
         }
 
-        function copyIban(iban) { if(!iban) return; navigator.clipboard.writeText(iban); alert("IBAN copié !"); }
-        async function validerTout(uid) { if(!confirm("Virement fait ?")) return; await sb.from('transactions').update({ statut: 'valide', date_validation: new Date() }).eq('user_id', uid).eq('statut', 'attente'); refreshAll(); }
+        async function exportMaisonExcel() {
+            const moisInput = prompt("Mois (MM) :");
+            if(!moisInput) return;
+            const { data: txData } = await sb.from('transactions').select('*, profiles(prenom, nom)').eq('maison_id', userProfile.maison_id);
+            const filteredTx = txData.filter(t => t.created_at.includes(`-${moisInput.padStart(2, '0')}-`));
+            const finalRows = filteredTx.map(t => ({ "Date": new Date(t.created_at).toLocaleDateString(), "Membre": t.profiles.prenom, "Type": t.type, "Motif": t.motif, "Montant": t.montant, "Statut": t.statut }));
+            const ws = XLSX.utils.json_to_sheet(finalRows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Comptabilité");
+            XLSX.writeFile(wb, `Export_Maison_${moisInput}.xlsx`);
+        }
+
+        function openSettingsModal() { 
+            document.getElementById('settings-modal').classList.remove('hidden'); 
+            document.getElementById('settings-iban').value = userProfile.iban || ''; 
+            document.getElementById('settings-allocation').value = userProfile.allocation_mensuelle || 0;
+        }
+        function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
+        async function updateAllocation() {
+            const newVal = parseFloat(document.getElementById('settings-allocation').value);
+            await sb.from('profiles').update({ allocation_mensuelle: newVal }).eq('id', userProfile.id);
+            alert("Mis à jour !"); refreshAll();
+        }
+        async function updateIban() {
+            const newIban = document.getElementById('settings-iban').value.trim();
+            await sb.from('profiles').update({ iban: newIban }).eq('id', userProfile.id);
+            alert("IBAN mis à jour !");
+        }
+        async function updatePassword() {
+            const newPass = document.getElementById('settings-pass').value;
+            if(newPass.length < 6) return alert("6 car. min");
+            await sb.auth.updateUser({ password: newPass });
+            alert("Mot de passe modifié !"); closeSettingsModal();
+        }
+        async function supprimerOperation(id) {
+            if(!confirm("Supprimer ?")) return;
+            await sb.from('transactions').delete().eq('id', id);
+            refreshAll();
+        }
+        function copyIban(iban) { if(!iban) return; navigator.clipboard.writeText(iban); alert("Copié !"); }
         function logout() { sb.auth.signOut().then(() => location.href="index.html"); }
         checkAuth();
     </script>
