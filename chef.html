@@ -8,135 +8,179 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
+        
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background-color: #f8fafc;
+        }
+
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        .tab-active { background-color: #1e3a8a !important; color: white !important; }
+        
+        .tab-active { 
+            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%) !important; 
+            color: white !important;
+            box-shadow: 0 10px 15px -3px rgba(30, 58, 138, 0.2);
+        }
+
         .no-scrollbar::-webkit-scrollbar { display: none; }
         
-        @keyframes blink {
-            0% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.5; transform: scale(1.1); }
-            100% { opacity: 1; transform: scale(1); }
+        @keyframes pulse-orange {
+            0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); transform: scale(1); }
+            70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); transform: scale(1.1); }
+            100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); transform: scale(1); }
         }
+
         .blink-alert {
-            animation: blink 1.5s infinite ease-in-out;
-            background-color: #ef4444;
+            animation: pulse-orange 2s infinite ease-in-out;
+            background-color: #f59e0b;
+        }
+
+        .glass-nav {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+        }
+
+        input:focus, select:focus {
+            ring: 2px solid #3b82f6 !important;
+            background-color: white !important;
+        }
+
+        .card-shadow {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01);
         }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-900 pb-20">
+<body class="text-slate-900 pb-20">
 
-    <nav class="bg-blue-900 text-white p-6 rounded-b-[40px] shadow-lg sticky top-0 z-50">
-        <div class="flex justify-between items-start mb-6">
+    <nav class="glass-nav text-white p-6 rounded-b-[45px] shadow-2xl sticky top-0 z-50 border-b border-white/10">
+        <div class="flex justify-between items-start mb-8">
             <div>
-                <h1 id="user-name" class="text-xl font-black italic tracking-tighter">Chef de Maison</h1>
-                <p id="maison-name" class="text-[10px] uppercase tracking-[0.2em] opacity-60 font-bold italic">Chargement...</p>
+                <h1 id="user-name" class="text-2xl font-black italic tracking-tighter bg-gradient-to-r from-white to-blue-300 bg-clip-text text-transparent">Chef de Maison</h1>
+                <p id="maison-name" class="text-[10px] uppercase tracking-[0.3em] text-blue-400/80 font-bold italic">Chargement...</p>
             </div>
             <div class="flex gap-2">
-                <button onclick="openSettingsModal()" class="bg-blue-500/20 text-blue-100 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase">⚙️ Profil</button>
-                <button onclick="exportMaisonExcel()" class="bg-emerald-500/20 text-emerald-100 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase">📊 Export & Bilan</button>
-                <button onclick="logout()" class="bg-red-500/20 text-red-100 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase">Sortir</button>
+                <button onclick="openSettingsModal()" class="bg-white/10 hover:bg-white/20 p-2.5 rounded-2xl transition-all">⚙️</button>
+                <button onclick="exportMaisonExcel()" class="bg-emerald-500/20 text-emerald-400 p-2.5 rounded-2xl border border-emerald-500/20 font-black text-[10px] uppercase">Bilan</button>
+                <button onclick="logout()" class="bg-red-500/10 text-red-400 p-2.5 rounded-2xl border border-red-500/20 font-black text-[10px] uppercase">Sortir</button>
             </div>
         </div>
         
-        <div class="grid grid-cols-2 gap-3 mb-6">
-            <div class="bg-blue-800/40 p-4 rounded-2xl border border-blue-700/30">
-                <p class="text-[7px] font-black uppercase tracking-widest mb-1 opacity-50">Mon Solde Perso</p>
-                <p id="solde-perso" class="text-xl font-black">-- €</p>
+        <div class="grid grid-cols-2 gap-4 mb-8">
+            <div class="bg-white/5 backdrop-blur-md p-5 rounded-[30px] border border-white/10">
+                <p class="text-[8px] font-black uppercase tracking-widest mb-2 opacity-60">Mon Solde Perso</p>
+                <p id="solde-perso" class="text-2xl font-black tracking-tight">-- €</p>
             </div>
-            <div class="bg-emerald-500/20 p-4 rounded-2xl border border-emerald-500/20">
-                <p class="text-[7px] font-black uppercase tracking-widest mb-1 opacity-50">Trésorerie Maison</p>
-                <p id="solde-maison" class="text-xl font-black">-- €</p>
+            <div class="bg-emerald-500/10 backdrop-blur-md p-5 rounded-[30px] border border-emerald-500/20">
+                <p class="text-[8px] font-black uppercase tracking-widest mb-2 text-emerald-400">Trésorerie Maison</p>
+                <p id="solde-maison" class="text-2xl font-black tracking-tight text-emerald-50">-- €</p>
             </div>
         </div>
 
-        <div class="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-            <a href="#section-perso" class="bg-white/10 px-4 py-2 rounded-lg text-[9px] font-black uppercase whitespace-nowrap">Mes Dépenses</a>
-            <a href="#section-validation" class="bg-white/10 px-4 py-2 rounded-lg text-[9px] font-black uppercase whitespace-nowrap flex items-center gap-2">
-                Remboursements <span id="alert-dot" class="hidden h-2 w-2 rounded-full blink-alert"></span>
+        <div class="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+            <a href="#section-perso" class="bg-white/10 px-5 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap border border-white/5">Dépenses</a>
+            <a href="#section-validation" class="bg-white/10 px-5 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap border border-white/5 flex items-center gap-2">
+                Remboursements <span id="alert-dot" class="hidden h-2.5 w-2.5 rounded-full blink-alert"></span>
             </a>
-            <a href="#section-membres" class="bg-white/10 px-4 py-2 rounded-lg text-[9px] font-black uppercase whitespace-nowrap">Membres & IBAN</a>
-            <a href="#section-audit" class="bg-white/10 px-4 py-2 rounded-lg text-[9px] font-black uppercase whitespace-nowrap">Audit Global</a>
+            <a href="#section-membres" class="bg-white/10 px-5 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap border border-white/5">Membres</a>
+            <a href="#section-audit" class="bg-white/10 px-5 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap border border-white/5">Audit</a>
         </div>
     </nav>
 
-    <main class="p-6 space-y-8">
+    <main class="p-6 space-y-10">
 
         <section id="section-perso" class="space-y-4">
-            <h2 class="text-[10px] font-black uppercase text-gray-400 tracking-widest px-2">Ma Gestion Personnelle</h2>
-            <div class="bg-white p-6 rounded-[35px] shadow-sm border border-gray-100">
-                <div class="flex gap-4 mb-6">
-                    <button onclick="setTxType('depense')" id="tab-depense" class="flex-1 py-3 rounded-xl font-black text-[10px] uppercase bg-blue-900 text-white tab-active">Dépense</button>
-                    <button onclick="setTxType('recette')" id="tab-recette" class="flex-1 py-3 rounded-xl font-black text-[10px] uppercase bg-gray-100 text-gray-400">Recette</button>
+            <div class="flex items-center gap-2 px-2">
+                <div class="h-1 w-4 bg-blue-600 rounded-full"></div>
+                <h2 class="text-[11px] font-black uppercase text-slate-400 tracking-[0.2em]">Ma Gestion Perso</h2>
+            </div>
+            <div class="bg-white p-7 rounded-[40px] shadow-sm border border-slate-100">
+                <div class="flex gap-3 mb-8 bg-slate-100 p-1.5 rounded-[22px]">
+                    <button onclick="setTxType('depense')" id="tab-depense" class="flex-1 py-3 rounded-[18px] font-black text-[10px] uppercase transition-all tab-active">Dépense</button>
+                    <button onclick="setTxType('recette')" id="tab-recette" class="flex-1 py-3 rounded-[18px] font-black text-[10px] uppercase transition-all text-slate-400">Recette</button>
                 </div>
-                <div class="space-y-4">
+                <div class="space-y-5">
                     <div>
-                        <label class="text-[10px] font-black uppercase text-gray-400 ml-2">Date de l'opération</label>
-                        <input type="date" id="tx-date" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold text-sm outline-none mt-1">
+                        <label class="text-[9px] font-black uppercase text-slate-400 ml-4 mb-1 block tracking-widest">Date de l'opération</label>
+                        <input type="date" id="tx-date" class="w-full p-4 bg-slate-50 rounded-2xl border-transparent font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500/20">
                     </div>
-                    <input type="number" id="tx-amount" step="0.01" placeholder="Montant (€)" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-black text-xl outline-none focus:ring-2 focus:ring-blue-500">
+                    <div>
+                         <label class="text-[9px] font-black uppercase text-slate-400 ml-4 mb-1 block tracking-widest">Montant</label>
+                         <input type="number" id="tx-amount" step="0.01" placeholder="0.00 €" class="w-full p-5 bg-slate-50 rounded-2xl border-transparent font-black text-2xl outline-none focus:ring-2 focus:ring-blue-500/20">
+                    </div>
                     <div id="container-motif">
-                        <label class="text-[10px] font-black uppercase text-gray-400 ml-2">Motif</label>
-                        <select id="tx-motif" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none text-sm mt-1"></select>
+                        <label class="text-[9px] font-black uppercase text-slate-400 ml-4 mb-1 block tracking-widest">Motif</label>
+                        <select id="tx-motif" class="w-full p-4 bg-slate-50 rounded-2xl border-transparent font-bold outline-none text-sm focus:ring-2 focus:ring-blue-500/20"></select>
                     </div>
                     <div id="container-paiement">
-                        <label class="text-[10px] font-black uppercase text-gray-400 ml-2">Moyen de paiement</label>
-                        <select id="tx-method" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none text-sm mt-1">
-                            <option value="cb_maison">CB MAISON</option>
-                            <option value="perso_cb">PERSO - CB</option>
-                            <option value="perso_liq">PERSO - Liquide</option>
+                        <label class="text-[9px] font-black uppercase text-slate-400 ml-4 mb-1 block tracking-widest">Moyen de paiement</label>
+                        <select id="tx-method" class="w-full p-4 bg-slate-50 rounded-2xl border-transparent font-bold outline-none text-sm focus:ring-2 focus:ring-blue-500/20">
+                            <option value="cb_maison">💳 CB MAISON</option>
+                            <option value="perso_cb">📱 PERSO - CB</option>
+                            <option value="perso_liq">💵 PERSO - Liquide</option>
                         </select>
                     </div>
                     <div>
-                        <label class="text-[10px] font-black uppercase text-gray-400 ml-2">Commentaire</label>
-                        <input type="text" id="tx-note" placeholder="Optionnel..." class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none text-sm mt-1">
+                        <label class="text-[9px] font-black uppercase text-slate-400 ml-4 mb-1 block tracking-widest">Commentaire</label>
+                        <input type="text" id="tx-note" placeholder="Note rapide..." class="w-full p-4 bg-slate-50 rounded-2xl border-transparent font-bold outline-none text-sm focus:ring-2 focus:ring-blue-500/20">
                     </div>
-                    <button onclick="submitTransaction()" class="w-full bg-blue-900 text-white font-black py-5 rounded-2xl uppercase tracking-widest shadow-lg active:scale-95 transition-all">Enregistrer</button>
+                    <button onclick="submitTransaction()" class="w-full bg-slate-900 text-white font-black py-5 rounded-[22px] uppercase tracking-[0.2em] shadow-xl shadow-blue-900/10 active:scale-[0.98] transition-all mt-4">Enregistrer</button>
                 </div>
             </div>
         </section>
 
-        <section id="section-validation" class="bg-orange-50 p-6 rounded-[35px] border border-orange-100">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-[10px] font-black uppercase text-orange-600 tracking-widest">Dettes par membre</h2>
-                <div id="total-dettes" class="bg-orange-600 text-white px-3 py-1 rounded-full text-[10px] font-black">Total : 0€</div>
+        <section id="section-validation" class="bg-orange-50 p-7 rounded-[40px] border border-orange-100 shadow-inner">
+            <div class="flex justify-between items-center mb-6">
+                <div class="flex items-center gap-2">
+                    <div class="h-1 w-4 bg-orange-500 rounded-full"></div>
+                    <h2 class="text-[11px] font-black uppercase text-orange-700 tracking-[0.2em]">Dettes Membres</h2>
+                </div>
+                <div id="total-dettes" class="bg-orange-500 text-white px-4 py-1.5 rounded-full text-[10px] font-black shadow-lg shadow-orange-500/20">Total : 0€</div>
             </div>
             <div id="list-avances-attente" class="space-y-4"></div>
         </section>
 
         <section id="section-membres" class="space-y-4">
-            <h2 class="text-[10px] font-black uppercase text-gray-400 tracking-widest px-2">Annuaire & IBAN</h2>
+            <div class="flex items-center gap-2 px-2">
+                <div class="h-1 w-4 bg-indigo-500 rounded-full"></div>
+                <h2 class="text-[11px] font-black uppercase text-slate-400 tracking-[0.2em]">Annuaire & IBAN</h2>
+            </div>
             <div id="list-membres" class="space-y-3"></div>
         </section>
 
         <section id="section-audit" class="space-y-4">
-            <h2 class="text-[10px] font-black uppercase text-gray-400 tracking-widest px-2">Journal de Bord Maison</h2>
-            <div id="audit-history" class="bg-white rounded-[35px] border border-gray-100 overflow-hidden"></div>
+            <div class="flex items-center gap-2 px-2">
+                <div class="h-1 w-4 bg-emerald-500 rounded-full"></div>
+                <h2 class="text-[11px] font-black uppercase text-slate-400 tracking-[0.2em]">Journal Maison</h2>
+            </div>
+            <div id="audit-history" class="bg-white rounded-[40px] border border-slate-100 overflow-hidden card-shadow"></div>
         </section>
 
     </main>
 
-    <div id="settings-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
-        <div class="bg-white p-8 rounded-[35px] w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar">
-            <h3 class="text-xl font-bold mb-6 text-slate-800 italic">Mes Paramètres</h3>
-            <div class="space-y-6">
-                <div>
-                    <label class="text-[10px] font-black uppercase text-gray-400 ml-2">Mon Allocation Mensuelle (€)</label>
-                    <input type="number" id="settings-allocation" placeholder="0.00" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500 mt-1">
-                    <button onclick="updateAllocation()" class="w-full mt-2 bg-slate-100 text-slate-600 text-[10px] font-black py-2 rounded-xl uppercase hover:bg-slate-200">Mettre à jour l'allocation</button>
+    <div id="settings-modal" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-6 z-[100]">
+        <div class="bg-white p-8 rounded-[45px] w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar border border-white/20">
+            <div class="flex justify-between items-center mb-8">
+                <h3 class="text-2xl font-black italic tracking-tighter text-slate-800">Profil</h3>
+                <button onclick="closeSettingsModal()" class="text-slate-300 text-2xl">✕</button>
+            </div>
+            <div class="space-y-8">
+                <div class="bg-slate-50 p-5 rounded-3xl">
+                    <label class="text-[9px] font-black uppercase text-slate-400 ml-2 tracking-widest block mb-2">Allocation Mensuelle (€)</label>
+                    <input type="number" id="settings-allocation" class="w-full bg-white p-4 rounded-2xl border-none font-black text-lg shadow-sm focus:ring-2 focus:ring-blue-500/10">
+                    <button onclick="updateAllocation()" class="w-full mt-3 bg-white text-slate-600 text-[9px] font-black py-3 rounded-xl uppercase border border-slate-200 hover:bg-slate-50">Mettre à jour</button>
                 </div>
-                <hr class="border-slate-100">
-                <div>
-                    <label class="text-[10px] font-black uppercase text-gray-400 ml-2">Mon IBAN</label>
-                    <input type="text" id="settings-iban" placeholder="FR76..." class="w-full p-4 bg-gray-50 rounded-2xl border-none font-mono text-sm outline-none focus:ring-2 focus:ring-blue-500 mt-1">
-                    <button onclick="updateIban()" class="w-full mt-2 bg-slate-100 text-slate-600 text-[10px] font-black py-2 rounded-xl uppercase hover:bg-slate-200">Mettre à jour l'IBAN</button>
+                
+                <div class="bg-slate-50 p-5 rounded-3xl">
+                    <label class="text-[9px] font-black uppercase text-slate-400 ml-2 tracking-widest block mb-2">Mon IBAN</label>
+                    <input type="text" id="settings-iban" class="w-full bg-white p-4 rounded-2xl border-none font-mono text-xs shadow-sm focus:ring-2 focus:ring-blue-500/10 uppercase">
+                    <button onclick="updateIban()" class="w-full mt-3 bg-white text-slate-600 text-[9px] font-black py-3 rounded-xl uppercase border border-slate-200 hover:bg-slate-50">Mettre à jour l'IBAN</button>
                 </div>
-                <hr class="border-slate-100">
-                <div>
-                    <label class="text-[10px] font-black uppercase text-gray-400 ml-2">Nouveau mot de passe</label>
-                    <input type="password" id="settings-pass" placeholder="••••••••" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-blue-500 mt-1">
-                    <button onclick="updatePassword()" class="w-full mt-2 bg-blue-900 text-white text-[10px] font-black py-3 rounded-xl uppercase shadow-lg">Changer mon mot de passe</button>
+
+                <div class="pt-4">
+                    <label class="text-[9px] font-black uppercase text-slate-400 ml-2 tracking-widest block mb-2 text-center">Sécurité</label>
+                    <input type="password" id="settings-pass" placeholder="Nouveau mot de passe" class="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold outline-none text-center mb-3">
+                    <button onclick="updatePassword()" class="w-full bg-slate-900 text-white text-[10px] font-black py-4 rounded-2xl uppercase tracking-widest shadow-lg active:scale-95">Changer le mot de passe</button>
                 </div>
-                <button onclick="closeSettingsModal()" class="w-full text-center text-[10px] font-bold text-gray-400 uppercase mt-4">Fermer</button>
             </div>
         </div>
     </div>
@@ -199,18 +243,18 @@
             }
             document.getElementById('total-dettes').innerText = `Total : ${dettesSum.toFixed(2)}€`;
             document.getElementById('list-avances-attente').innerHTML = Object.keys(groups).map(uid => `
-                <div class="bg-white p-4 rounded-2xl border border-orange-200">
-                    <div class="flex justify-between items-center mb-2">
-                        <p class="font-black text-[10px] text-orange-600 uppercase">${groups[uid].name}</p>
-                        <p class="font-black text-xs">${groups[uid].total.toFixed(2)}€</p>
+                <div class="bg-white p-5 rounded-[30px] border border-orange-200 shadow-sm">
+                    <div class="flex justify-between items-center mb-3">
+                        <p class="font-black text-[11px] text-orange-600 uppercase tracking-widest">${groups[uid].name}</p>
+                        <p class="font-black text-sm text-slate-800">${groups[uid].total.toFixed(2)}€</p>
                     </div>
-                    <div class="flex gap-2 mb-3">
-                        <p class="text-[8px] font-mono text-gray-400 truncate bg-gray-50 p-1 rounded flex-1">${groups[uid].iban || 'IBAN MANQUANT'}</p>
-                        <button onclick="copyIban('${groups[uid].iban}')" class="text-[8px] font-bold text-blue-600 uppercase">Copier</button>
+                    <div class="bg-slate-50 p-3 rounded-2xl flex items-center justify-between gap-3 mb-4">
+                        <p class="text-[9px] font-mono text-slate-400 truncate flex-1">${groups[uid].iban || 'IBAN MANQUANT'}</p>
+                        <button onclick="copyIban('${groups[uid].iban}')" class="text-[9px] font-black text-blue-600 uppercase">Copier</button>
                     </div>
-                    <button onclick="validerTout('${uid}', ${groups[uid].total})" class="w-full bg-orange-600 text-white py-2 rounded-xl text-[9px] font-black uppercase mb-3">Valider le virement</button>
-                    <div class="space-y-1">
-                        ${groups[uid].txs.map(t => `<div class="flex justify-between text-[8px] text-gray-500 border-t border-gray-50 pt-1"><span>${t.motif}</span><span>${t.montant.toFixed(2)}€</span></div>`).join('')}
+                    <button onclick="validerTout('${uid}', ${groups[uid].total})" class="w-full bg-orange-600 text-white py-3 rounded-2xl text-[10px] font-black uppercase shadow-lg shadow-orange-600/20 active:scale-95 transition-all mb-4">Valider le virement</button>
+                    <div class="space-y-2 border-t border-slate-50 pt-3">
+                        ${groups[uid].txs.map(t => `<div class="flex justify-between text-[9px] text-slate-500 font-medium"><span>${t.motif}</span><span class="font-bold text-slate-700">${t.montant.toFixed(2)}€</span></div>`).join('')}
                     </div>
                 </div>
             `).join('');
@@ -218,79 +262,38 @@
 
         async function validerTout(uid, montantTotal) {
             if(!confirm("Confirmer le remboursement global pour ce membre ?")) return;
-            
-            // 1. Mise à jour des transactions
-            const { error: errorTx } = await sb.from('transactions')
-                .update({ statut: 'valide', date_validation: new Date().toISOString() })
-                .eq('user_id', uid)
-                .eq('statut', 'attente');
-
+            const { error: errorTx } = await sb.from('transactions').update({ statut: 'valide', date_validation: new Date().toISOString() }).eq('user_id', uid).eq('statut', 'attente');
             if(!errorTx) {
-                // 2. Création de la notification pour le membre
-                await sb.from('notifications').insert([{
-                    user_id: uid,
-                    message: `Votre chef de maison a effectué un virement de ${montantTotal.toFixed(2)}€ pour vos avances de frais.`
-                }]);
-                
+                await sb.from('notifications').insert([{ user_id: uid, message: `Votre chef de maison a effectué un virement de ${montantTotal.toFixed(2)}€ pour vos avances de frais.` }]);
                 alert("Remboursement validé et membre notifié !");
                 refreshAll();
-            } else {
-                alert("Erreur lors de la validation.");
-            }
+            } else { alert("Erreur lors de la validation."); }
         }
 
         async function exportMaisonExcel() {
             const moisInput = prompt("Mois (MM) :");
             const anneeInput = prompt("Année (YYYY) :", new Date().getFullYear());
             if(!moisInput || !anneeInput) return;
-
             const { data: txData } = await sb.from('transactions').select('*, profiles(prenom, nom)').eq('maison_id', userProfile.maison_id);
             const { data: membersData } = await sb.from('profiles').select('prenom, nom, allocation_mensuelle').eq('maison_id', userProfile.maison_id);
-
             const filteredTx = txData.filter(t => t.created_at.includes(`${anneeInput}-${moisInput.padStart(2, '0')}-`));
-            
-            let finalRows = [];
-            let totalRecettes = 0;
-            let totalDepenses = 0;
-            let syntheseMotifs = {};
-
+            let finalRows = []; let totalRecettes = 0; let totalDepenses = 0; let syntheseMotifs = {};
             membersData.forEach(m => {
                 if(m.allocation_mensuelle > 0) {
                     finalRows.push({ "Date": `01/${moisInput}/${anneeInput}`, "Membre": `${m.prenom} ${m.nom}`, "Type": "RECETTE", "Motif": "ALLOCATION MENSUELLE", "Montant (€)": m.allocation_mensuelle, "Méthode": "VERSEMENT", "Note": "Prévu" });
                     totalRecettes += m.allocation_mensuelle;
                 }
             });
-
             filteredTx.forEach(t => {
                 const mt = t.montant;
                 finalRows.push({ "Date": new Date(t.created_at).toLocaleDateString(), "Membre": t.profiles.prenom, "Type": t.type.toUpperCase(), "Motif": t.motif || "RECETTE", "Montant (€)": mt, "Méthode": t.methode_paiement || "N/A", "Note": t.commentaire || "" });
-                
-                if(t.type === 'recette') {
-                    totalRecettes += mt;
-                } else {
-                    totalDepenses += mt;
-                    syntheseMotifs[t.motif] = (syntheseMotifs[t.motif] || 0) + mt;
-                }
+                if(t.type === 'recette') { totalRecettes += mt; } else { totalDepenses += mt; syntheseMotifs[t.motif] = (syntheseMotifs[t.motif] || 0) + mt; }
             });
-
-            const ws = XLSX.utils.json_to_sheet(finalRows);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Journal");
-
-            let resumeRows = [
-                { "Catégorie": "TOTAL RECETTES (Allocations incluses)", "Valeur (€)": totalRecettes },
-                { "Catégorie": "TOTAL DÉPENSES", "Valeur (€)": totalDepenses },
-                { "Catégorie": "SOLDE DU MOIS", "Valeur (€)": totalRecettes - totalDepenses },
-                {},
-                { "Catégorie": "DÉTAIL PAR MOTIF", "Valeur (€)": "" }
-            ];
+            const ws = XLSX.utils.json_to_sheet(finalRows); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Journal");
+            let resumeRows = [ { "Catégorie": "TOTAL RECETTES (Allocations incluses)", "Valeur (€)": totalRecettes }, { "Catégorie": "TOTAL DÉPENSES", "Valeur (€)": totalDepenses }, { "Catégorie": "SOLDE DU MOIS", "Valeur (€)": totalRecettes - totalDepenses }, {}, { "Catégorie": "DÉTAIL PAR MOTIF", "Valeur (€)": "" } ];
             Object.keys(syntheseMotifs).forEach(m => resumeRows.push({ "Catégorie": m, "Valeur (€)": syntheseMotifs[m] }));
-            
-            const ws2 = XLSX.utils.json_to_sheet(resumeRows);
-            XLSX.utils.book_append_sheet(wb, ws2, "Bilan");
-
+            const ws2 = XLSX.utils.json_to_sheet(resumeRows); XLSX.utils.book_append_sheet(wb, ws2, "Bilan");
             XLSX.writeFile(wb, `SMMD_${userProfile.maisons.nom}_${moisInput}_${anneeInput}.xlsx`);
-
             if(confirm("Voulez-vous notifier la maison par email ?")) {
                 const subject = encodeURIComponent(`Bilan SMMD - ${userProfile.maisons.nom} - ${moisInput}/${anneeInput}`);
                 const body = encodeURIComponent(`Bonjour,\n\nLe bilan du mois a été généré.\nRecettes : ${totalRecettes}€\nDépenses : ${totalDepenses}€\nSolde : ${totalRecettes - totalDepenses}€\n\nConsultez le fichier Excel pour le détail.`);
@@ -301,18 +304,20 @@
         async function loadAuditGlobal() {
             const { data } = await sb.from('transactions').select('*, profiles(prenom)').eq('maison_id', userProfile.maison_id).order('created_at', { ascending: false }).limit(40);
             document.getElementById('audit-history').innerHTML = data.map(t => `
-                <div class="p-4 border-b border-gray-50 flex justify-between items-center text-xs">
-                    <div class="flex items-center gap-3">
-                        <button onclick="supprimerOperation('${t.id}')" class="text-red-300 hover:text-red-500 text-lg">×</button>
+                <div class="p-5 border-b border-slate-50 flex justify-between items-center transition-colors hover:bg-slate-50/50">
+                    <div class="flex items-center gap-4">
+                        <button onclick="supprimerOperation('${t.id}')" class="bg-red-50 text-red-300 hover:text-red-500 w-8 h-8 rounded-full flex items-center justify-center transition-all">✕</button>
                         <div>
-                            <p class="font-black uppercase text-[8px] text-gray-400">${t.profiles.prenom} • ${t.motif || 'RECETTE'}</p>
-                            <p class="text-[7px] text-gray-300 font-bold mb-1">${new Date(t.created_at).toLocaleDateString('fr-FR')}</p>
-                            <p class="font-bold text-slate-700">${t.commentaire || '-'}</p>
+                            <p class="font-black uppercase text-[9px] text-slate-400 tracking-widest">${t.profiles.prenom} • ${t.motif || 'RECETTE'}</p>
+                            <p class="text-[8px] text-slate-300 font-bold mb-1">${new Date(t.created_at).toLocaleDateString('fr-FR')}</p>
+                            <p class="font-bold text-slate-700 text-[11px]">${t.commentaire || 'Sans commentaire'}</p>
                         </div>
                     </div>
                     <div class="text-right">
-                        <p class="font-black ${t.type === 'recette' ? 'text-emerald-500' : 'text-slate-900'}">${t.type === 'recette' ? '+' : '-'}${t.montant.toFixed(2)}€</p>
-                        <p class="text-[7px] uppercase font-bold text-gray-300">${t.statut === 'attente' ? '⏳ Attente' : '✅ Validé'}</p>
+                        <p class="font-black text-sm ${t.type === 'recette' ? 'text-emerald-500' : 'text-slate-900'}">${t.type === 'recette' ? '+' : '-'}${t.montant.toFixed(2)}€</p>
+                        <p class="text-[8px] uppercase font-black px-2 py-0.5 rounded-full mt-1 inline-block ${t.statut === 'attente' ? 'bg-orange-50 text-orange-500' : 'bg-emerald-50 text-emerald-500'}">
+                            ${t.statut === 'attente' ? 'En attente' : 'Validé'}
+                        </p>
                     </div>
                 </div>
             `).join('');
@@ -325,24 +330,14 @@
             const motif = document.getElementById('tx-motif').value;
             const method = document.getElementById('tx-method').value;
             if(!amount || !date) return alert("Montant et date requis");
-
             const { error } = await sb.from('transactions').insert([{ 
-                user_id: userProfile.id, 
-                maison_id: userProfile.maison_id, 
-                montant: amount, 
-                motif: currentType === 'recette' ? 'RECETTE' : motif, 
-                commentaire: note, 
-                created_at: new Date(date).toISOString(),
-                type: currentType, 
+                user_id: userProfile.id, maison_id: userProfile.maison_id, montant: amount, 
+                motif: currentType === 'recette' ? 'RECETTE' : motif, commentaire: note, 
+                created_at: new Date(date).toISOString(), type: currentType, 
                 methode_paiement: currentType === 'recette' ? null : method, 
                 statut: (currentType === 'depense' && method.startsWith('perso_')) ? 'attente' : 'valide' 
             }]);
-
-            if(!error) {
-                document.getElementById('tx-amount').value = ''; 
-                document.getElementById('tx-note').value = ''; 
-                refreshAll();
-            }
+            if(!error) { document.getElementById('tx-amount').value = ''; document.getElementById('tx-note').value = ''; refreshAll(); }
         }
 
         async function loadMotifs() {
@@ -353,13 +348,16 @@
         async function loadMembres() {
             const { data } = await sb.from('profiles').select('*').eq('maison_id', userProfile.maison_id);
             document.getElementById('list-membres').innerHTML = data.map(m => `
-                <div class="bg-white p-4 rounded-2xl flex justify-between items-start shadow-sm">
+                <div class="bg-white p-5 rounded-[30px] flex justify-between items-center card-shadow border border-slate-50">
                     <div class="flex-1">
-                        <p class="font-black text-xs uppercase">${m.prenom} ${m.nom} ${m.role === 'chef' ? '👑' : ''}</p>
-                        <p class="text-[9px] text-gray-400 font-bold uppercase mb-2">Alloc : ${m.allocation_mensuelle || 0}€/mois</p>
-                        <div class="bg-gray-50 p-2 rounded-lg flex items-center justify-between gap-2">
-                             <p class="text-[8px] font-mono text-gray-500 truncate">${m.iban || 'IBAN NON RENSEIGNÉ'}</p>
-                             ${m.iban ? `<button onclick="copyIban('${m.iban}')" class="text-[8px] font-black text-blue-600 uppercase">Copier</button>` : ''}
+                        <div class="flex items-center gap-2 mb-1">
+                             <p class="font-black text-xs uppercase text-slate-800">${m.prenom} ${m.nom}</p>
+                             ${m.role === 'chef' ? '<span class="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-black">CHEF</span>' : ''}
+                        </div>
+                        <p class="text-[9px] text-slate-400 font-bold uppercase mb-3">Allocation : ${m.allocation_mensuelle || 0}€ / mois</p>
+                        <div class="bg-slate-50 p-3 rounded-2xl flex items-center justify-between gap-3">
+                             <p class="text-[9px] font-mono text-slate-500 truncate uppercase">${m.iban || 'IBAN NON RENSEIGNÉ'}</p>
+                             ${m.iban ? `<button onclick="copyIban('${m.iban}')" class="text-[9px] font-black text-blue-600 uppercase">Copier</button>` : ''}
                         </div>
                     </div>
                 </div>
@@ -367,12 +365,11 @@
         }
 
         function setTxType(type) { 
-            currentType = type; 
-            const isR = type === 'recette'; 
+            currentType = type; const isR = type === 'recette'; 
             document.getElementById('container-motif').classList.toggle('hidden', isR); 
             document.getElementById('container-paiement').classList.toggle('hidden', isR); 
-            document.getElementById('tab-depense').className = isR ? "flex-1 py-3 rounded-xl font-black text-[10px] bg-gray-100 text-gray-400" : "flex-1 py-3 rounded-xl font-black text-[10px] bg-blue-900 text-white tab-active"; 
-            document.getElementById('tab-recette').className = isR ? "flex-1 py-3 rounded-xl font-black text-[10px] bg-emerald-500 text-white" : "flex-1 py-3 rounded-xl font-black text-[10px] bg-gray-100 text-gray-400"; 
+            document.getElementById('tab-depense').className = isR ? "flex-1 py-3 rounded-[18px] font-black text-[10px] text-slate-400 bg-slate-100" : "flex-1 py-3 rounded-[18px] font-black text-[10px] bg-slate-900 text-white tab-active"; 
+            document.getElementById('tab-recette').className = isR ? "flex-1 py-3 rounded-[18px] font-black text-[10px] bg-emerald-500 text-white shadow-lg shadow-emerald-500/20" : "flex-1 py-3 rounded-[18px] font-black text-[10px] text-slate-400 bg-slate-100"; 
         }
 
         function openSettingsModal() { 
