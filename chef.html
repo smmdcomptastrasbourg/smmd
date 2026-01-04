@@ -208,7 +208,7 @@
                         <p class="text-[8px] font-mono text-gray-400 truncate bg-gray-50 p-1 rounded flex-1">${groups[uid].iban || 'IBAN MANQUANT'}</p>
                         <button onclick="copyIban('${groups[uid].iban}')" class="text-[8px] font-bold text-blue-600 uppercase">Copier</button>
                     </div>
-                    <button onclick="validerTout('${uid}')" class="w-full bg-orange-600 text-white py-2 rounded-xl text-[9px] font-black uppercase mb-3">Valider le virement</button>
+                    <button onclick="validerTout('${uid}', ${groups[uid].total})" class="w-full bg-orange-600 text-white py-2 rounded-xl text-[9px] font-black uppercase mb-3">Valider le virement</button>
                     <div class="space-y-1">
                         ${groups[uid].txs.map(t => `<div class="flex justify-between text-[8px] text-gray-500 border-t border-gray-50 pt-1"><span>${t.motif}</span><span>${t.montant.toFixed(2)}€</span></div>`).join('')}
                     </div>
@@ -216,10 +216,27 @@
             `).join('');
         }
 
-        async function validerTout(uid) {
+        async function validerTout(uid, montantTotal) {
             if(!confirm("Confirmer le remboursement global pour ce membre ?")) return;
-            await sb.from('transactions').update({ statut: 'valide', date_validation: new Date().toISOString() }).eq('user_id', uid).eq('statut', 'attente');
-            refreshAll();
+            
+            // 1. Mise à jour des transactions
+            const { error: errorTx } = await sb.from('transactions')
+                .update({ statut: 'valide', date_validation: new Date().toISOString() })
+                .eq('user_id', uid)
+                .eq('statut', 'attente');
+
+            if(!errorTx) {
+                // 2. Création de la notification pour le membre
+                await sb.from('notifications').insert([{
+                    user_id: uid,
+                    message: `Votre chef de maison a effectué un virement de ${montantTotal.toFixed(2)}€ pour vos avances de frais.`
+                }]);
+                
+                alert("Remboursement validé et membre notifié !");
+                refreshAll();
+            } else {
+                alert("Erreur lors de la validation.");
+            }
         }
 
         async function exportMaisonExcel() {
@@ -237,7 +254,6 @@
             let totalDepenses = 0;
             let syntheseMotifs = {};
 
-            // 1. AJOUT DES ALLOCATIONS (Amélioration Export)
             membersData.forEach(m => {
                 if(m.allocation_mensuelle > 0) {
                     finalRows.push({ "Date": `01/${moisInput}/${anneeInput}`, "Membre": `${m.prenom} ${m.nom}`, "Type": "RECETTE", "Motif": "ALLOCATION MENSUELLE", "Montant (€)": m.allocation_mensuelle, "Méthode": "VERSEMENT", "Note": "Prévu" });
@@ -245,7 +261,6 @@
                 }
             });
 
-            // 2. AJOUT DES TRANSACTIONS & CALCUL SYNTHÈSE (Amélioration Consolidation)
             filteredTx.forEach(t => {
                 const mt = t.montant;
                 finalRows.push({ "Date": new Date(t.created_at).toLocaleDateString(), "Membre": t.profiles.prenom, "Type": t.type.toUpperCase(), "Motif": t.motif || "RECETTE", "Montant (€)": mt, "Méthode": t.methode_paiement || "N/A", "Note": t.commentaire || "" });
@@ -262,7 +277,6 @@
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Journal");
 
-            // 3. ONGLET SYNTHÈSE (Amélioration Consolidation)
             let resumeRows = [
                 { "Catégorie": "TOTAL RECETTES (Allocations incluses)", "Valeur (€)": totalRecettes },
                 { "Catégorie": "TOTAL DÉPENSES", "Valeur (€)": totalDepenses },
@@ -277,7 +291,6 @@
 
             XLSX.writeFile(wb, `SMMD_${userProfile.maisons.nom}_${moisInput}_${anneeInput}.xlsx`);
 
-            // 4. AUTOMATISATION MAIL (Amélioration Automatisation)
             if(confirm("Voulez-vous notifier la maison par email ?")) {
                 const subject = encodeURIComponent(`Bilan SMMD - ${userProfile.maisons.nom} - ${moisInput}/${anneeInput}`);
                 const body = encodeURIComponent(`Bonjour,\n\nLe bilan du mois a été généré.\nRecettes : ${totalRecettes}€\nDépenses : ${totalDepenses}€\nSolde : ${totalRecettes - totalDepenses}€\n\nConsultez le fichier Excel pour le détail.`);
