@@ -53,6 +53,11 @@
             </div>
 
             <div class="space-y-4">
+                <div>
+                    <label class="text-[10px] font-black uppercase text-gray-400 ml-2">Date de l'opération</label>
+                    <input type="date" id="tx-date" class="w-full bg-gray-50 p-4 rounded-2xl font-bold mt-1 outline-none border-none">
+                </div>
+
                 <div class="relative">
                     <input type="number" id="tx-amount" placeholder="0.00" class="w-full bg-gray-50 p-6 rounded-3xl text-3xl font-black text-center outline-none border-2 border-transparent focus:border-blue-900 transition-all">
                     <span class="absolute right-6 top-1/2 -translate-y-1/2 font-black text-gray-300">€</span>
@@ -61,6 +66,11 @@
                 <div id="container-motif">
                     <label class="text-[10px] font-black uppercase text-gray-400 ml-2">Motif</label>
                     <select id="tx-motif" class="w-full bg-gray-50 p-4 rounded-2xl font-bold mt-1 outline-none border-none appearance-none"></select>
+                </div>
+
+                <div>
+                    <label class="text-[10px] font-black uppercase text-gray-400 ml-2">Commentaire</label>
+                    <input type="text" id="tx-comment" placeholder="Optionnel..." class="w-full bg-gray-50 p-4 rounded-2xl font-bold mt-1 outline-none border-none">
                 </div>
 
                 <div id="container-paiement">
@@ -122,18 +132,19 @@
             document.getElementById('user-name').innerText = `${profile.prenom} ${profile.nom}`;
             document.getElementById('maison-name').innerText = `Maison ${profile.maisons.nom}`;
             document.getElementById('user-iban').value = profile.iban || '';
+            
+            // Set default date to today
+            document.getElementById('tx-date').valueAsDate = new Date();
 
             loadMotifs();
             refreshDashboard();
         }
 
         async function refreshDashboard() {
-            // 1. Récupération globale
             const { data: members } = await sb.from('profiles').select('id, allocation_mensuelle, created_at').eq('maison_id', userProfile.maison_id);
             const { data: txs } = await sb.from('transactions').select('*').eq('maison_id', userProfile.maison_id);
             const today = new Date();
 
-            // 2. Calcul Maison
             let houseAllocTotal = 0;
             members.forEach(m => {
                 const reg = new Date(m.created_at);
@@ -144,7 +155,6 @@
             const houseRec = txs.filter(t => t.type === 'recette').reduce((s,t) => s + t.montant, 0);
             const soldeHouse = houseAllocTotal + houseRec - houseDep;
 
-            // 3. Calcul Perso
             const myReg = new Date(userProfile.created_at);
             const myMonths = (today.getFullYear() - myReg.getFullYear()) * 12 + (today.getMonth() - myReg.getMonth()) + 1;
             const myTx = txs.filter(t => t.user_id === userProfile.id);
@@ -153,18 +163,19 @@
             const soldePerso = (userProfile.allocation_mensuelle * myMonths) + myRec - myDep;
             const pending = myTx.filter(t => t.statut === 'attente').reduce((s,t) => s + t.montant, 0);
 
-            // 4. Affichage
             document.getElementById('house-balance').innerText = `${soldeHouse.toFixed(2)}€`;
             document.getElementById('balance').innerText = `${soldePerso.toFixed(2)}€`;
             document.getElementById('pending-refund').innerText = `${pending.toFixed(2)}€`;
 
-            // 5. Historique (8 derniers)
             const hist = myTx.sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).slice(0,8);
             document.getElementById('tx-history').innerHTML = hist.map(t => `
                 <div class="flex justify-between items-center p-4 bg-white rounded-2xl shadow-sm border border-gray-50">
                     <div class="flex items-center gap-3">
                         <div class="w-2.5 h-2.5 rounded-full ${t.type === 'recette' ? 'bg-emerald-500' : (t.statut === 'attente' ? 'bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]' : 'bg-blue-900')}"></div>
-                        <p class="text-[10px] font-black uppercase">${t.motif || 'RECETTE'}</p>
+                        <div>
+                            <p class="text-[10px] font-black uppercase">${t.motif || 'RECETTE'}</p>
+                            <p class="text-[8px] text-gray-400 font-bold">${new Date(t.created_at).toLocaleDateString('fr-FR')}</p>
+                        </div>
                     </div>
                     <p class="font-black text-sm">${t.type === 'recette' ? '+' : '-'}${t.montant.toFixed(2)}€</p>
                 </div>
@@ -173,21 +184,32 @@
 
         async function submitTx() {
             const amount = parseFloat(document.getElementById('tx-amount').value);
+            const date = document.getElementById('tx-date').value;
+            const comment = document.getElementById('tx-comment').value;
             if (!amount) return alert("Saisissez un montant");
+            if (!date) return alert("Saisissez une date");
+            
             const method = document.getElementById('tx-method').value;
 
-            await sb.from('transactions').insert([{
+            const { error } = await sb.from('transactions').insert([{
                 user_id: userProfile.id,
                 maison_id: userProfile.maison_id,
                 montant: amount,
                 motif: currentType === 'recette' ? 'RECETTE' : document.getElementById('tx-motif').value,
+                commentaire: comment,
+                created_at: new Date(date).toISOString(),
                 type: currentType,
                 methode_paiement: currentType === 'recette' ? null : method,
                 statut: (currentType === 'depense' && method.startsWith('perso_')) ? 'attente' : 'valide'
             }]);
 
-            document.getElementById('tx-amount').value = '';
-            refreshDashboard();
+            if (error) {
+                alert("Erreur lors de l'enregistrement");
+            } else {
+                document.getElementById('tx-amount').value = '';
+                document.getElementById('tx-comment').value = '';
+                refreshDashboard();
+            }
         }
 
         async function updatePassword() {
