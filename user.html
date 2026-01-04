@@ -133,11 +133,25 @@
             document.getElementById('maison-name').innerText = `Maison ${profile.maisons.nom}`;
             document.getElementById('user-iban').value = profile.iban || '';
             
-            // Set default date to today
             document.getElementById('tx-date').valueAsDate = new Date();
 
             loadMotifs();
             refreshDashboard();
+            checkNotifications(); // <--- Intégration Étape 3
+        }
+
+        async function checkNotifications() {
+            const { data, error } = await sb.from('notifications')
+                .select('*')
+                .eq('user_id', userProfile.id)
+                .eq('lu', false);
+
+            if (data && data.length > 0) {
+                data.forEach(n => {
+                    alert("🔔 NOTIFICATION : " + n.message);
+                    sb.from('notifications').update({ lu: true }).eq('id', n.id).then();
+                });
+            }
         }
 
         async function refreshDashboard() {
