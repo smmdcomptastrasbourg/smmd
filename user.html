@@ -8,59 +8,67 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; background: radial-gradient(circle at top, #f8fafc 0%, #f1f5f9 100%); }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,700;0,900;1,900&display=swap');
+        * { -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Inter', sans-serif; background: #f1f5f9; }
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        .active-tab { background: #1e3a8a !important; color: white !important; box-shadow: 0 10px 15px -3px rgba(30, 58, 138, 0.3); }
-        .active-recette { background: #10b981 !important; color: white !important; box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.3); }
-        .custom-input:focus { transform: translateY(-1px); box-shadow: 0 10px 20px -5px rgba(0,0,0,0.05); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
+
+        /* NAV */
+        #main-nav {
+            background: linear-gradient(160deg, #0f172a 0%, #1e3a8a 60%, #312e81 100%);
+            transition: padding 0.35s cubic-bezier(.4,0,.2,1), border-radius 0.35s cubic-bezier(.4,0,.2,1);
+        }
+        #nav-expanded {
+            transition: opacity 0.25s ease, max-height 0.35s cubic-bezier(.4,0,.2,1);
+            max-height: 500px; overflow: hidden;
+        }
+        #nav-compact { transition: opacity 0.25s ease; }
+
+        /* ANIMATIONS */
+        @keyframes slideUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+        .anim-slide { animation: slideUp 0.4s cubic-bezier(.4,0,.2,1) both; }
+        .skeleton {
+            background: linear-gradient(90deg, rgba(255,255,255,.1) 25%, rgba(255,255,255,.2) 50%, rgba(255,255,255,.1) 75%);
+            background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 10px;
+        }
+
+        /* TABS */
+        .tab-btn { transition: all 0.2s; }
+        .tab-active { background:#1e3a8a !important; color:white !important; box-shadow:0 8px 20px -4px rgba(30,58,138,.3); }
+        .tab-recette { background:#10b981 !important; color:white !important; box-shadow:0 8px 20px -4px rgba(16,185,129,.3); }
+
+        /* SECTIONS */
+        .section-panel { display: none; }
+        .section-panel.active { display: block; animation: slideUp 0.3s cubic-bezier(.4,0,.2,1) both; }
+
+        /* BOTTOM BAR */
+        #bottom-bar {
+            background: rgba(255,255,255,.95);
+            backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+            border-top: 1px solid rgba(0,0,0,.07);
+        }
+        .bar-btn { transition: all 0.2s; }
+        .bar-btn svg { stroke: #94a3b8; transition: all 0.2s; }
+        .bar-btn span { color: #94a3b8; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; transition: color 0.2s; }
+        .bar-btn.active svg { stroke: #1e3a8a; transform: translateY(-2px); }
+        .bar-btn.active span { color: #1e3a8a; }
     </style>
 </head>
-<body class="text-slate-900 pb-10 min-h-screen">
+<body class="text-slate-900 min-h-screen pb-24">
 
-    <nav class="bg-gradient-to-tr from-blue-950 via-blue-900 to-indigo-900 text-white p-6 rounded-b-[45px] shadow-2xl sticky top-0 z-50 border-b border-white/10">
-        <div class="flex justify-between items-start mb-8">
-            <div>
-                <h1 id="user-name" class="text-2xl font-black italic tracking-tighter leading-none">Chargement...</h1>
-                <p id="maison-name" class="text-[10px] uppercase tracking-[0.3em] opacity-50 font-bold italic mt-1">Maison ...</p>
-            </div>
-            <div class="flex gap-2">
-                <button onclick="openSettingsModal()" class="bg-white/10 backdrop-blur-md p-3 rounded-2xl hover:bg-white/20 transition-all border border-white/10 active:scale-90">⚙️</button>
-                <button onclick="logout()" class="bg-white/10 backdrop-blur-md p-3 rounded-2xl hover:bg-white/20 transition-all border border-white/10 active:scale-90">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                </button>
-            </div>
-        </div>
+    <div id="scroll-sentinel" class="h-px w-full absolute top-0 pointer-events-none"></div>
 
-        <div class="space-y-5">
-            <div class="bg-white/5 backdrop-blur-xl p-6 rounded-[32px] border border-white/10 text-center shadow-inner relative overflow-hidden">
-                <div class="absolute -right-4 -top-4 w-20 h-20 bg-blue-400/10 blur-3xl rounded-full"></div>
-                <p class="text-[10px] uppercase font-black opacity-50 mb-1 tracking-[0.2em] text-blue-100">Solde Commun Maison</p>
-                <h2 id="house-balance" class="text-4xl font-black text-white tracking-tight">0.00€</h2>
-            </div>
-            <div class="grid grid-cols-2 gap-4">
-                <div class="bg-white/5 backdrop-blur-md p-4 rounded-[28px] border border-white/10">
-                    <p class="text-[9px] uppercase font-black opacity-40 mb-1 tracking-wider">Mon Solde</p>
-                    <h2 id="balance" class="text-xl font-black text-blue-50">0.00€</h2>
-                    <p id="alloc-badge" class="text-[8px] text-blue-300/60 font-bold mt-1">Allocation : -- €/mois</p>
-                </div>
-                <div class="bg-orange-500/10 backdrop-blur-md p-4 rounded-[28px] border border-orange-500/20">
-                    <p class="text-[9px] uppercase font-black text-orange-300/70 mb-1 tracking-wider">À me rembourser</p>
-                    <h2 id="pending-refund" class="text-xl font-black text-orange-50">0.00€</h2>
-                </div>
-            </div>
-        </div>
-    </nav>
-
-
-    <!-- Modal rappel allocation non versée -->
+    <!-- MODAL RAPPEL ALLOCATION -->
     <div id="alloc-reminder-modal" class="hidden fixed inset-0 z-[200] flex items-end justify-center p-4 sm:items-center">
         <div class="absolute inset-0 bg-slate-900/70 backdrop-blur-sm"></div>
-        <div class="relative bg-white rounded-[40px] w-full max-w-sm shadow-2xl overflow-hidden">
-            <div class="bg-gradient-to-r from-amber-400 to-orange-500 h-2 w-full"></div>
+        <div class="relative bg-white rounded-[40px] w-full max-w-sm shadow-2xl overflow-hidden anim-slide">
+            <div class="bg-gradient-to-r from-amber-400 to-orange-500 h-1.5"></div>
             <div class="p-8">
-                <div class="flex justify-center mb-5"><div class="w-16 h-16 rounded-full bg-amber-50 border-2 border-amber-200 flex items-center justify-center text-3xl">💰</div></div>
+                <div class="flex justify-center mb-5">
+                    <div class="w-16 h-16 rounded-full bg-amber-50 border-2 border-amber-200 flex items-center justify-center text-3xl">💰</div>
+                </div>
                 <h3 class="text-xl font-black text-center text-slate-900 tracking-tight mb-2">Allocation non versée</h3>
                 <p id="alloc-reminder-text" class="text-[12px] text-slate-500 font-bold text-center leading-relaxed mb-6"></p>
                 <div class="bg-amber-50 border border-amber-100 rounded-2xl p-4 mb-6 text-center">
@@ -72,138 +80,230 @@
         </div>
     </div>
 
-    <!-- Notifications -->
-    <div id="notif-container" class="px-6 pt-4 space-y-3"></div>
+    <!-- NOTIFICATIONS -->
+    <div id="notif-container" class="fixed top-0 left-0 right-0 z-[150] px-4 pt-3 space-y-2 pointer-events-none"></div>
 
-    <main class="p-6 space-y-10">
+    <!-- NAV -->
+    <nav id="main-nav" class="sticky top-0 z-50 text-white px-6 pt-6 pb-5 rounded-b-[40px] shadow-2xl">
 
-        <!-- Formulaire transaction -->
-        <section class="bg-white/80 backdrop-blur-sm p-7 rounded-[40px] shadow-sm border border-white">
-            <div class="flex bg-slate-100/80 p-1.5 rounded-[22px] mb-8">
-                <button id="tab-depense" onclick="setTxType('depense')" class="flex-1 py-3.5 rounded-[18px] font-black text-[11px] uppercase tracking-widest active-tab transition-all duration-300">Dépense</button>
-                <button id="tab-recette" onclick="setTxType('recette')" class="flex-1 py-3.5 rounded-[18px] font-black text-[11px] uppercase tracking-widest transition-all duration-300 text-slate-400">Recette</button>
-            </div>
-            <div class="space-y-6">
+        <!-- Étendu -->
+        <div id="nav-expanded">
+            <div class="flex justify-between items-start mb-6">
                 <div>
-                    <label class="text-[10px] font-black uppercase text-slate-400 ml-3 mb-2 block tracking-widest">Date de l'opération</label>
-                    <input type="date" id="tx-date" class="w-full bg-slate-50 p-4 rounded-2xl font-bold border-2 border-slate-50 focus:bg-white focus:border-blue-100 outline-none transition-all custom-input">
+                    <h1 id="user-name" class="text-2xl font-black italic tracking-tighter leading-none">
+                        <span class="skeleton inline-block w-36 h-7">&nbsp;</span>
+                    </h1>
+                    <p id="maison-name" class="text-[10px] uppercase tracking-[.3em] opacity-50 font-bold italic mt-1">Maison ...</p>
                 </div>
-                <div class="relative group">
-                    <input type="number" id="tx-amount" placeholder="0.00" step="0.01" min="0"
-                        class="w-full bg-slate-50 p-8 rounded-[32px] text-4xl font-black text-center outline-none border-2 border-transparent focus:border-blue-900 focus:bg-white transition-all custom-input">
-                    <span class="absolute right-8 top-1/2 -translate-y-1/2 font-black text-slate-200 text-2xl group-focus-within:text-blue-900 transition-colors">€</span>
-                </div>
-                <div id="container-motif">
-                    <label class="text-[10px] font-black uppercase text-slate-400 ml-3 mb-2 block tracking-widest">Motif</label>
-                    <div class="relative">
-                        <select id="tx-motif" class="w-full bg-slate-50 p-4 rounded-2xl font-bold border-2 border-slate-50 focus:bg-white focus:border-blue-100 outline-none appearance-none custom-input"></select>
-                        <div class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-30">
-                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
-                        </div>
-                    </div>
-                </div>
-                <div>
-                    <label class="text-[10px] font-black uppercase text-slate-400 ml-3 mb-2 block tracking-widest">Commentaire</label>
-                    <input type="text" id="tx-comment" placeholder="Ajouter une note..." class="w-full bg-slate-50 p-4 rounded-2xl font-bold border-2 border-slate-50 focus:bg-white focus:border-blue-100 outline-none transition-all custom-input">
-                </div>
-                <div id="container-paiement">
-                    <label class="text-[10px] font-black uppercase text-slate-400 ml-3 mb-2 block tracking-widest">Moyen de paiement</label>
-                    <div class="relative">
-                        <select id="tx-method" class="w-full bg-slate-50 p-4 rounded-2xl font-bold border-2 border-slate-50 focus:bg-white focus:border-blue-100 outline-none appearance-none custom-input">
-                            <option value="cb_maison">💳 CB MAISON</option>
-                            <option value="perso_cb">📱 CARTE PERSO (À rembourser)</option>
-                            <option value="perso_liq">💵 ESPÈCES (À rembourser)</option>
-                        </select>
-                        <div class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-30">
-                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
-                        </div>
-                    </div>
-                </div>
-                <button onclick="submitTx()" class="w-full bg-blue-900 text-white py-6 rounded-[28px] font-black text-[12px] uppercase tracking-[0.25em] shadow-xl active:scale-[0.97] hover:bg-blue-800 transition-all duration-300">Enregistrer</button>
+                <button onclick="goToProfil()" class="bg-white/10 p-3 rounded-2xl hover:bg-white/20 transition-all border border-white/10 active:scale-90 text-base">⚙️</button>
             </div>
-        </section>
-
-        <!-- Remboursements groupés par mois -->
-        <section>
-            <div class="flex items-center gap-2 px-2 mb-4">
-                <div class="h-1 w-4 bg-orange-400 rounded-full"></div>
-                <h3 class="text-[11px] font-black uppercase tracking-[0.15em] text-slate-400 italic">Mes remboursements</h3>
-            </div>
-            <div id="refund-history" class="space-y-3"></div>
-        </section>
-
-        <!-- Historique transactions -->
-        <section>
-            <div class="flex justify-between items-center mb-5 px-2">
-                <div class="flex items-center gap-2">
-                    <div class="h-1 w-4 bg-blue-600 rounded-full"></div>
-                    <h3 class="text-[11px] font-black uppercase tracking-[0.15em] text-slate-400 italic">Dernières opérations</h3>
+            <div class="grid grid-cols-3 gap-3">
+                <div class="col-span-3 bg-white/8 backdrop-blur-xl p-5 rounded-[26px] border border-white/10 relative overflow-hidden">
+                    <div class="absolute -right-5 -top-5 w-20 h-20 bg-white/5 rounded-full pointer-events-none"></div>
+                    <p class="text-[9px] uppercase font-black opacity-50 tracking-[.2em] text-blue-100 mb-1">Trésorerie Maison</p>
+                    <h2 id="house-balance" class="text-3xl font-black tracking-tight">
+                        <span class="skeleton inline-block w-28 h-8">&nbsp;</span>
+                    </h2>
                 </div>
-                <button onclick="undoLast()" class="text-[10px] font-black text-red-400/70 uppercase hover:text-red-600 transition-colors">Annuler la dernière</button>
-            </div>
-            <div id="tx-history" class="space-y-3"></div>
-        </section>
-
-    </main>
-
-    <!-- Modal Paramètres -->
-    <div id="settings-modal" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-6 z-[100]">
-        <div class="bg-white p-8 rounded-[45px] w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar">
-            <div class="flex justify-between items-center mb-8">
-                <h3 class="text-2xl font-black italic tracking-tighter text-slate-800">Mon Profil</h3>
-                <button onclick="closeSettingsModal()" class="text-slate-300 text-2xl hover:text-slate-500 transition-colors">✕</button>
-            </div>
-            <div class="space-y-6">
-
-                <!-- Allocation -->
-                <div class="bg-blue-50 p-5 rounded-3xl border border-blue-100">
-                    <label class="text-[9px] font-black uppercase text-blue-700 ml-2 tracking-widest block mb-2">Mon Allocation Mensuelle (€)</label>
-                    <div class="flex gap-3">
-                        <input type="number" id="settings-allocation" step="0.01" min="0"
-                            class="flex-1 bg-white p-4 rounded-2xl border border-blue-100 font-black text-lg shadow-sm focus:ring-2 focus:ring-blue-300 outline-none">
-                        <button onclick="updateAllocation()" class="bg-blue-900 text-white px-5 rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all">OK</button>
-                    </div>
-                    <p class="text-[9px] text-blue-400 font-bold ml-2 mt-2">Saisir votre allocation communique à votre chef de maison votre dotation mensuelle.</p>
+                <div class="col-span-2 bg-white/8 backdrop-blur-md p-4 rounded-[22px] border border-white/10">
+                    <p class="text-[8px] uppercase font-black opacity-40 tracking-wider mb-1">Mon Solde</p>
+                    <p id="balance" class="text-xl font-black text-blue-50">--€</p>
+                    <p id="alloc-badge" class="text-[8px] text-blue-300/60 font-bold mt-1">--</p>
                 </div>
-
-                <!-- IBAN -->
-                <div class="bg-slate-50 p-5 rounded-3xl">
-                    <label class="text-[9px] font-black uppercase text-slate-400 ml-2 tracking-widest block mb-2">Mon IBAN</label>
-                    <input type="text" id="settings-iban" class="w-full bg-white p-4 rounded-2xl border border-slate-200 font-mono text-xs shadow-sm focus:ring-2 focus:ring-blue-200 outline-none uppercase" placeholder="FR76...">
-                    <p id="iban-error" class="text-[9px] text-red-500 font-bold ml-2 mt-1 hidden">Format IBAN invalide</p>
-                    <button onclick="updateIban()" class="w-full mt-3 bg-slate-800 text-white text-[9px] font-black py-3 rounded-xl uppercase tracking-widest hover:bg-slate-700 transition-all">Mettre à jour l'IBAN</button>
+                <div class="bg-amber-500/15 p-4 rounded-[22px] border border-amber-500/20">
+                    <p class="text-[8px] uppercase font-black text-amber-300/70 tracking-wider mb-1">À rembourser</p>
+                    <p id="pending-refund" class="text-xl font-black text-amber-50">--€</p>
                 </div>
-
-                <!-- Mot de passe -->
-                <div class="bg-slate-50 p-5 rounded-3xl">
-                    <label class="text-[9px] font-black uppercase text-slate-400 ml-2 tracking-widest block mb-2">Changer le mot de passe</label>
-                    <input type="password" id="settings-pass" placeholder="Nouveau mot de passe (6 car. min.)"
-                        class="w-full p-4 bg-white rounded-2xl border border-slate-200 font-bold outline-none mb-3 focus:ring-2 focus:ring-blue-200">
-                    <button onclick="updatePassword()" class="w-full bg-slate-900 text-white text-[10px] font-black py-4 rounded-2xl uppercase tracking-widest shadow-lg active:scale-95">Changer le mot de passe</button>
-                </div>
-
             </div>
         </div>
+
+        <!-- Compact -->
+        <div id="nav-compact" class="hidden">
+            <div class="flex justify-between items-center">
+                <div>
+                    <p id="compact-name" class="text-[12px] font-black uppercase tracking-widest"></p>
+                    <p id="compact-maison" class="text-[8px] opacity-40 font-bold tracking-widest uppercase"></p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="text-right">
+                        <p class="text-[8px] opacity-40 font-black uppercase tracking-wider">Mon solde</p>
+                        <p id="compact-balance" class="text-base font-black">--€</p>
+                    </div>
+                    <button onclick="goToProfil()" class="bg-white/10 p-2.5 rounded-xl border border-white/10 text-sm">⚙️</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- MAIN -->
+    <main class="px-4 pt-5">
+
+        <!-- SECTION SAISIE -->
+        <div id="section-saisie" class="section-panel active space-y-4">
+            <div class="bg-white p-1.5 rounded-[22px] flex shadow-sm border border-slate-100 anim-slide" style="animation-delay:.04s">
+                <button id="tab-depense" onclick="setTxType('depense')" class="tab-btn tab-active flex-1 py-3.5 rounded-[18px] font-black text-[11px] uppercase tracking-widest">Dépense</button>
+                <button id="tab-recette" onclick="setTxType('recette')" class="tab-btn flex-1 py-3.5 rounded-[18px] font-black text-[11px] uppercase tracking-widest text-slate-400">Recette</button>
+            </div>
+
+            <div class="bg-white rounded-[32px] shadow-sm border border-slate-100 p-6 space-y-5 anim-slide" style="animation-delay:.08s">
+                <div class="relative group">
+                    <input type="number" id="tx-amount" placeholder="0" step="0.01" min="0"
+                        class="w-full bg-slate-50 px-6 py-7 rounded-[24px] text-5xl font-black text-center outline-none border-2 border-transparent focus:border-blue-900 focus:bg-white transition-all">
+                    <span class="absolute right-6 top-1/2 -translate-y-1/2 font-black text-slate-200 text-3xl group-focus-within:text-blue-800 transition-colors pointer-events-none">€</span>
+                </div>
+                <div>
+                    <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1.5 block tracking-widest">Date</label>
+                    <input type="date" id="tx-date" class="w-full bg-slate-50 p-4 rounded-2xl font-bold border-2 border-slate-50 focus:bg-white focus:border-blue-100 outline-none transition-all text-sm">
+                </div>
+                <div id="container-motif">
+                    <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1.5 block tracking-widest">Motif</label>
+                    <div class="relative">
+                        <select id="tx-motif" class="w-full bg-slate-50 p-4 rounded-2xl font-bold border-2 border-slate-50 focus:bg-white focus:border-blue-100 outline-none appearance-none text-sm"></select>
+                        <svg class="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                    </div>
+                </div>
+                <div>
+                    <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1.5 block tracking-widest">Commentaire</label>
+                    <input type="text" id="tx-comment" placeholder="Note rapide..." class="w-full bg-slate-50 p-4 rounded-2xl font-bold border-2 border-slate-50 focus:bg-white focus:border-blue-100 outline-none transition-all text-sm">
+                </div>
+                <div id="container-paiement">
+                    <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1.5 block tracking-widest">Moyen de paiement</label>
+                    <div class="relative">
+                        <select id="tx-method" class="w-full bg-slate-50 p-4 rounded-2xl font-bold border-2 border-slate-50 focus:bg-white focus:border-blue-100 outline-none appearance-none text-sm">
+                            <option value="cb_maison">💳 CB MAISON</option>
+                            <option value="perso_cb">📱 CARTE PERSO — À rembourser</option>
+                            <option value="perso_liq">💵 ESPÈCES — À rembourser</option>
+                        </select>
+                        <svg class="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                    </div>
+                </div>
+                <button id="submit-btn" onclick="submitTx()" class="w-full bg-blue-900 text-white py-5 rounded-[22px] font-black text-[12px] uppercase tracking-[.2em] shadow-xl shadow-blue-900/20 active:scale-[.97] hover:bg-blue-800 transition-all">Enregistrer</button>
+            </div>
+
+            <div class="anim-slide" style="animation-delay:.12s">
+                <div class="flex justify-between items-center mb-3 px-1">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Dernières opérations</p>
+                    <button onclick="undoLast()" class="text-[10px] font-black text-red-400/60 uppercase hover:text-red-500 transition-colors">Annuler la dernière</button>
+                </div>
+                <div id="tx-history" class="space-y-2"></div>
+            </div>
+        </div>
+
+        <!-- SECTION REMBOURSEMENTS -->
+        <div id="section-remboursements" class="section-panel space-y-3">
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1 pt-1 mb-3">Mes remboursements</p>
+            <div id="refund-history" class="space-y-3"></div>
+        </div>
+
+        <!-- SECTION PROFIL -->
+        <div id="section-profil" class="section-panel space-y-4">
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1 pt-1 mb-1">Mon Profil</p>
+
+            <div class="bg-white rounded-[28px] border border-blue-100 p-6 anim-slide">
+                <p class="text-[9px] font-black uppercase text-blue-700 tracking-widest mb-3">Allocation mensuelle (€)</p>
+                <div class="flex gap-3">
+                    <input type="number" id="settings-allocation" step="0.01" min="0" placeholder="0.00"
+                        class="flex-1 bg-slate-50 p-4 rounded-2xl border-2 border-slate-50 font-black text-xl outline-none focus:border-blue-200 focus:bg-white transition-all">
+                    <button onclick="updateAllocation()" class="bg-blue-900 text-white px-6 rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all">OK</button>
+                </div>
+                <p class="text-[9px] text-blue-400 font-bold ml-1 mt-2 leading-relaxed">Communique votre dotation mensuelle à votre chef de maison.</p>
+            </div>
+
+            <div class="bg-white rounded-[28px] border border-slate-100 p-6 anim-slide" style="animation-delay:.05s">
+                <p class="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-3">Mon IBAN</p>
+                <input type="text" id="settings-iban" placeholder="FR76..."
+                    class="w-full bg-slate-50 p-4 rounded-2xl border-2 border-slate-50 font-mono text-xs outline-none focus:border-blue-200 focus:bg-white transition-all uppercase mb-1">
+                <p id="iban-error" class="text-[9px] text-red-500 font-bold ml-1 mb-3 hidden">Format IBAN invalide</p>
+                <button onclick="updateIban()" class="w-full bg-slate-800 text-white text-[10px] font-black py-3.5 rounded-xl uppercase tracking-widest hover:bg-slate-700 transition-all">Mettre à jour</button>
+            </div>
+
+            <div class="bg-white rounded-[28px] border border-slate-100 p-6 anim-slide" style="animation-delay:.1s">
+                <p class="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-3">Changer le mot de passe</p>
+                <input type="password" id="settings-pass" placeholder="Nouveau mot de passe (6 car. min.)"
+                    class="w-full bg-slate-50 p-4 rounded-2xl border-2 border-slate-50 font-bold outline-none focus:border-blue-200 focus:bg-white transition-all mb-3">
+                <button onclick="updatePassword()" class="w-full bg-slate-900 text-white text-[10px] font-black py-3.5 rounded-xl uppercase tracking-widest shadow-lg active:scale-95">Changer</button>
+            </div>
+
+            <button onclick="logout()" class="w-full bg-red-50 border border-red-100 text-red-500 font-black py-4 rounded-[22px] uppercase text-[11px] tracking-widest active:scale-95 transition-all anim-slide" style="animation-delay:.15s">
+                Se déconnecter
+            </button>
+        </div>
+    </main>
+
+    <!-- BOTTOM BAR -->
+    <div id="bottom-bar" class="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around px-2 py-2">
+        <button class="bar-btn active flex flex-col items-center gap-1 px-5 py-2 rounded-2xl" onclick="switchTab('saisie',this)">
+            <svg class="w-5 h-5" fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+            <span>Saisie</span>
+        </button>
+        <button class="bar-btn flex flex-col items-center gap-1 px-5 py-2 rounded-2xl" onclick="switchTab('remboursements',this)">
+            <svg class="w-5 h-5" fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            <span>Remboursements</span>
+        </button>
+        <button class="bar-btn flex flex-col items-center gap-1 px-5 py-2 rounded-2xl" onclick="switchTab('profil',this)">
+            <svg class="w-5 h-5" fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+            <span>Profil</span>
+        </button>
     </div>
 
     <script>
         const sb = supabase.createClient(SMMD_CONFIG.url, SMMD_CONFIG.key);
         let userProfile = null;
         let currentType = 'depense';
-
         const MOIS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 
+        // ── Compact nav au scroll ──
+        new IntersectionObserver(([e]) => {
+            const compact = !e.isIntersecting;
+            const navExp = document.getElementById('nav-expanded');
+            const navCmp = document.getElementById('nav-compact');
+            const nav    = document.getElementById('main-nav');
+            navExp.style.maxHeight = compact ? '0'    : '500px';
+            navExp.style.opacity   = compact ? '0'    : '1';
+            navCmp.classList.toggle('hidden', !compact);
+            nav.style.paddingTop    = compact ? '14px' : '24px';
+            nav.style.paddingBottom = compact ? '14px' : '20px';
+            nav.style.borderRadius  = compact ? '0 0 20px 20px' : '0 0 40px 40px';
+        }, { threshold: 0 }).observe(document.getElementById('scroll-sentinel'));
+
+        // ── Compteur animé ──
+        function animCounter(el, target, suffix='€', duration=550) {
+            const neg = target < 0, abs = Math.abs(target), start = performance.now();
+            const tick = now => {
+                const p = Math.min((now-start)/duration, 1);
+                const ease = 1-Math.pow(1-p, 3);
+                el.textContent = (neg?'-':'') + (abs*ease).toFixed(2) + suffix;
+                if (p < 1) requestAnimationFrame(tick);
+            };
+            requestAnimationFrame(tick);
+        }
+
+        // ── Navigation onglets ──
+        function switchTab(name, btn) {
+            document.querySelectorAll('.section-panel').forEach(s => s.classList.remove('active'));
+            document.getElementById('section-'+name).classList.add('active');
+            document.querySelectorAll('.bar-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            window.scrollTo({ top:0, behavior:'smooth' });
+        }
+        function goToProfil() { switchTab('profil', document.querySelectorAll('.bar-btn')[2]); }
+
+        // ── INIT ──
         async function init() {
             const { data: { user } } = await sb.auth.getUser();
-            if (!user) { window.location.href = "index.html"; return; }
-
-            const { data: profile, error } = await sb.from('profiles').select('*, maisons(nom)').eq('id', user.id).single();
-            if (!profile) { window.location.href = "index.html"; return; }
+            if (!user) { window.location.href="index.html"; return; }
+            const { data: profile } = await sb.from('profiles').select('*, maisons(nom)').eq('id', user.id).single();
+            if (!profile) { window.location.href="index.html"; return; }
             userProfile = profile;
 
-            document.getElementById('user-name').innerText = escapeHtml(`${profile.prenom} ${profile.nom || ''}`).trim();
-            document.getElementById('maison-name').innerText = `Maison ${escapeHtml(profile.maisons?.nom || '')}`;
+            const fullName = `${profile.prenom} ${profile.nom||''}`.trim();
+            document.getElementById('user-name').textContent = fullName;
+            document.getElementById('maison-name').textContent = `Maison ${profile.maisons?.nom||''}`;
+            document.getElementById('compact-name').textContent = fullName;
+            document.getElementById('compact-maison').textContent = profile.maisons?.nom||'';
             document.getElementById('tx-date').valueAsDate = new Date();
+            document.getElementById('settings-iban').value = profile.iban||'';
+            document.getElementById('settings-allocation').value = parseFloat(profile.allocation_mensuelle)||'';
 
             loadMotifs();
             await refreshDashboard();
@@ -213,279 +313,196 @@
         }
 
         async function checkNotifications() {
-            const { data } = await sb.from('notifications').select('*').eq('user_id', userProfile.id).eq('lu', false).order('created_at', { ascending: false });
-            if (!data || data.length === 0) return;
-
-            const container = document.getElementById('notif-container');
-            container.innerHTML = data.map(n => `
-                <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex justify-between items-start gap-3" data-notif="${escapeHtml(n.id)}">
-                    <div class="flex gap-3 items-start">
-                        <span class="text-lg mt-0.5">🔔</span>
-                        <p class="text-[11px] font-bold text-emerald-800">${escapeHtml(n.message)}</p>
-                    </div>
-                    <button onclick="markNotifRead('${escapeHtml(n.id)}')" class="text-emerald-400 hover:text-emerald-700 font-black text-lg leading-none flex-shrink-0 transition-colors">✓</button>
-                </div>
-            `).join('');
+            const { data } = await sb.from('notifications').select('*').eq('user_id',userProfile.id).eq('lu',false).order('created_at',{ascending:false});
+            if (!data||!data.length) return;
+            const c = document.getElementById('notif-container');
+            c.innerHTML = data.map(n=>`
+                <div class="pointer-events-auto bg-emerald-600 text-white rounded-2xl px-4 py-3 flex justify-between items-center gap-3 shadow-lg anim-slide" data-notif="${escapeHtml(n.id)}">
+                    <p class="text-[11px] font-bold leading-snug flex-1">🔔 ${escapeHtml(n.message)}</p>
+                    <button onclick="markNotifRead('${escapeHtml(n.id)}')" class="text-white/70 hover:text-white font-black text-lg leading-none flex-shrink-0">✓</button>
+                </div>`).join('');
         }
 
         async function markNotifRead(id) {
-            await sb.from('notifications').update({ lu: true }).eq('id', id);
+            await sb.from('notifications').update({lu:true}).eq('id',id);
             const el = document.querySelector(`[data-notif="${id}"]`);
-            if (el) el.remove();
+            if (el) { el.style.cssText='opacity:0;transform:translateY(-8px);transition:all .2s'; setTimeout(()=>el.remove(),200); }
         }
 
         async function refreshDashboard() {
-            const { data: txs } = await sb.from('transactions').select('*').eq('maison_id', userProfile.maison_id);
-            // Solde basé sur les allocations réellement versées
-            const { data: allocVersees } = await sb.from('allocations_versees').select('*').eq('maison_id', userProfile.maison_id);
+            const { data: txs } = await sb.from('transactions').select('*').eq('maison_id',userProfile.maison_id);
+            const { data: avs } = await sb.from('allocations_versees').select('*').eq('maison_id',userProfile.maison_id);
 
-            const houseAlloc = (allocVersees || []).reduce((s, a) => s + parseFloat(a.montant), 0);
-            const houseDep = (txs || []).filter(t => t.type === 'depense').reduce((s, t) => s + parseFloat(t.montant), 0);
-            const houseRec = (txs || []).filter(t => t.type === 'recette').reduce((s, t) => s + parseFloat(t.montant), 0);
-            document.getElementById('house-balance').innerText = `${(houseAlloc + houseRec - houseDep).toFixed(2)}€`;
+            const houseAlloc = (avs||[]).reduce((s,a)=>s+parseFloat(a.montant),0);
+            const houseDep   = (txs||[]).filter(t=>t.type==='depense').reduce((s,t)=>s+parseFloat(t.montant),0);
+            const houseRec   = (txs||[]).filter(t=>t.type==='recette').reduce((s,t)=>s+parseFloat(t.montant),0);
+            const myAvs      = (avs||[]).filter(a=>a.user_id===userProfile.id).reduce((s,a)=>s+parseFloat(a.montant),0);
+            const myTx       = (txs||[]).filter(t=>t.user_id===userProfile.id);
+            const myDep      = myTx.filter(t=>t.type==='depense').reduce((s,t)=>s+parseFloat(t.montant),0);
+            const myRec      = myTx.filter(t=>t.type==='recette').reduce((s,t)=>s+parseFloat(t.montant),0);
+            const pending    = myTx.filter(t=>t.statut==='attente').reduce((s,t)=>s+parseFloat(t.montant),0);
+            const myAlloc    = parseFloat(userProfile.allocation_mensuelle)||0;
 
-            // Solde perso basé sur mes allocations versées
-            const myAllocVersees = (allocVersees || []).filter(a => a.user_id === userProfile.id);
-            const myAllocTotal = myAllocVersees.reduce((s, a) => s + parseFloat(a.montant), 0);
-            const myAlloc = parseFloat(userProfile.allocation_mensuelle) || 0;
-            const myTx = (txs || []).filter(t => t.user_id === userProfile.id);
-            const myDep = myTx.filter(t => t.type === 'depense').reduce((s, t) => s + parseFloat(t.montant), 0);
-            const myRec = myTx.filter(t => t.type === 'recette').reduce((s, t) => s + parseFloat(t.montant), 0);
-            const pending = myTx.filter(t => t.statut === 'attente').reduce((s, t) => s + parseFloat(t.montant), 0);
+            animCounter(document.getElementById('house-balance'), houseAlloc+houseRec-houseDep);
+            animCounter(document.getElementById('balance'), myAvs+myRec-myDep);
+            animCounter(document.getElementById('pending-refund'), pending);
+            document.getElementById('compact-balance').textContent = (myAvs+myRec-myDep).toFixed(2)+'€';
+            document.getElementById('alloc-badge').textContent = myAlloc>0 ? `${myAlloc.toFixed(2)}€/mois` : 'Allocation non définie';
 
-            document.getElementById('balance').innerText = `${(myAllocTotal + myRec - myDep).toFixed(2)}€`;
-            document.getElementById('pending-refund').innerText = `${pending.toFixed(2)}€`;
-            document.getElementById('alloc-badge').innerText = `Allocation : ${myAlloc > 0 ? myAlloc.toFixed(2) + '€/mois' : 'non définie'}`;
-
-            // Historique
-            const hist = [...myTx].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 10);
-            document.getElementById('tx-history').innerHTML = hist.length === 0
-                ? `<p class="text-center text-slate-300 text-[11px] font-bold uppercase py-8">Aucune opération enregistrée</p>`
-                : hist.map(t => `
-                    <div class="flex justify-between items-center p-5 bg-white rounded-[24px] shadow-sm border border-slate-100 hover:scale-[1.01] transition-transform">
-                        <div class="flex items-center gap-4">
-                            <div class="w-3 h-3 rounded-full flex-shrink-0 ${t.type === 'recette' ? 'bg-emerald-500' : (t.statut === 'attente' ? 'bg-orange-500' : 'bg-blue-900')}"></div>
-                            <div>
-                                <p class="text-[11px] font-black uppercase tracking-wider text-slate-700">${escapeHtml(t.motif || 'RECETTE')}</p>
-                                <p class="text-[9px] text-slate-400 font-bold">${new Date(t.created_at).toLocaleDateString('fr-FR')}</p>
-                                ${t.commentaire ? `<p class="text-[9px] text-slate-400 italic">${escapeHtml(t.commentaire)}</p>` : ''}
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <p class="font-black text-base ${t.type === 'recette' ? 'text-emerald-600' : 'text-slate-900'}">${t.type === 'recette' ? '+' : '-'}${parseFloat(t.montant).toFixed(2)}€</p>
-                            <p class="text-[8px] uppercase font-black px-2 py-0.5 rounded-full mt-1 inline-block ${t.statut === 'attente' ? 'bg-orange-50 text-orange-500' : 'bg-emerald-50 text-emerald-600'}">${t.statut === 'attente' ? 'En attente' : 'Validé'}</p>
+            const hist = [...myTx].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,8);
+            document.getElementById('tx-history').innerHTML = hist.length===0
+                ? `<div class="text-center py-10"><svg class="w-10 h-10 mx-auto mb-2 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg><p class="text-slate-300 text-[11px] font-black uppercase tracking-widest">Aucune opération</p></div>`
+                : hist.map((t,i)=>`
+                <div class="flex justify-between items-center p-4 bg-white rounded-[20px] border border-slate-100 anim-slide" style="animation-delay:${i*.04}s">
+                    <div class="flex items-center gap-3">
+                        <div class="w-2.5 h-2.5 rounded-full flex-shrink-0 ${t.type==='recette'?'bg-emerald-400':t.statut==='attente'?'bg-amber-400':'bg-blue-900'}"></div>
+                        <div>
+                            <p class="text-[11px] font-black uppercase tracking-wide text-slate-800">${escapeHtml(t.motif||'RECETTE')}</p>
+                            <p class="text-[9px] text-slate-400 font-bold">${new Date(t.created_at).toLocaleDateString('fr-FR')}${t.commentaire?' · '+escapeHtml(t.commentaire):''}</p>
                         </div>
                     </div>
-                `).join('');
+                    <div class="text-right">
+                        <p class="font-black text-sm ${t.type==='recette'?'text-emerald-500':'text-slate-900'}">${t.type==='recette'?'+':'-'}${parseFloat(t.montant).toFixed(2)}€</p>
+                        <span class="text-[8px] uppercase font-black px-2 py-0.5 rounded-full ${t.statut==='attente'?'bg-amber-50 text-amber-500':'bg-emerald-50 text-emerald-600'}">${t.statut==='attente'?'En attente':'Validé'}</span>
+                    </div>
+                </div>`).join('');
         }
 
         async function loadRefundHistory() {
-            // Récupérer toutes les notifications de remboursement (lues et non lues)
-            const { data: notifs } = await sb.from('notifications')
-                .select('*')
-                .eq('user_id', userProfile.id)
-                .order('created_at', { ascending: false });
-
-            const { data: txs } = await sb.from('transactions')
-                .select('*')
-                .eq('user_id', userProfile.id)
-                .eq('type', 'depense')
-                .order('created_at', { ascending: false });
-
-            if (!txs || txs.length === 0) {
-                document.getElementById('refund-history').innerHTML =
-                    `<p class="text-center text-slate-300 text-[11px] font-bold uppercase py-4">Aucun remboursement</p>`;
+            const { data: notifs } = await sb.from('notifications').select('*').eq('user_id',userProfile.id).order('created_at',{ascending:false});
+            const { data: txs }   = await sb.from('transactions').select('*').eq('user_id',userProfile.id).eq('type','depense').order('created_at',{ascending:false});
+            if (!txs||!txs.length) {
+                document.getElementById('refund-history').innerHTML=`<div class="text-center py-12"><svg class="w-10 h-10 mx-auto mb-2 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg><p class="text-slate-300 text-[11px] font-black uppercase tracking-widest">Aucun remboursement</p></div>`;
                 return;
             }
-
-            // Grouper les dépenses par mois
-            const byMonth = {};
-            txs.forEach(t => {
-                const d = new Date(t.created_at);
-                const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-                if (!byMonth[key]) byMonth[key] = { label: `${MOIS_FR[d.getMonth()]} ${d.getFullYear()}`, attente: [], valide: [] };
-                if (t.statut === 'attente') byMonth[key].attente.push(t);
-                else byMonth[key].valide.push(t);
+            const byMonth={};
+            txs.forEach(t=>{
+                const d=new Date(t.created_at), key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+                if(!byMonth[key]) byMonth[key]={label:`${MOIS_FR[d.getMonth()]} ${d.getFullYear()}`,attente:[],valide:[]};
+                if(t.statut==='attente') byMonth[key].attente.push(t); else byMonth[key].valide.push(t);
             });
-
-            const html = Object.entries(byMonth).sort((a, b) => b[0].localeCompare(a[0])).map(([key, month]) => {
-                const totalAttente = month.attente.reduce((s, t) => s + parseFloat(t.montant), 0);
-                const totalValide = month.valide.reduce((s, t) => s + parseFloat(t.montant), 0);
-                const allTx = [...month.attente, ...month.valide];
-
-                // Trouver la notification de remboursement correspondante à ce mois
-                const notifMois = (notifs || []).filter(n => {
-                    const nd = new Date(n.created_at);
-                    const nKey = `${nd.getFullYear()}-${String(nd.getMonth() + 1).padStart(2, '0')}`;
-                    return nKey === key;
-                });
-
-                return `
-                <div class="bg-white rounded-[28px] border border-slate-100 shadow-sm overflow-hidden">
-                    <div class="p-4 flex justify-between items-center border-b border-slate-50">
+            document.getElementById('refund-history').innerHTML = Object.entries(byMonth).sort((a,b)=>b[0].localeCompare(a[0])).map(([key,month],i)=>{
+                const tA=month.attente.reduce((s,t)=>s+parseFloat(t.montant),0);
+                const tV=month.valide.reduce((s,t)=>s+parseFloat(t.montant),0);
+                const nM=(notifs||[]).filter(n=>{const nd=new Date(n.created_at);return`${nd.getFullYear()}-${String(nd.getMonth()+1).padStart(2,'0')}`===key;});
+                return`<div class="bg-white rounded-[24px] border border-slate-100 overflow-hidden anim-slide" style="animation-delay:${i*.05}s">
+                    <div class="px-5 py-4 flex justify-between items-center border-b border-slate-50">
                         <div>
-                            <p class="font-black text-[11px] uppercase tracking-widest text-slate-700">${escapeHtml(month.label)}</p>
-                            ${notifMois.length > 0 ? `<p class="text-[9px] text-emerald-600 font-bold mt-0.5">✓ Virement reçu · ${new Date(notifMois[0].created_at).toLocaleDateString('fr-FR')}</p>` : ''}
+                            <p class="font-black text-[12px] uppercase tracking-widest text-slate-800">${escapeHtml(month.label)}</p>
+                            ${nM.length?`<p class="text-[9px] text-emerald-600 font-bold mt-0.5">✓ Virement reçu · ${new Date(nM[0].created_at).toLocaleDateString('fr-FR')}</p>`:''}
                         </div>
                         <div class="text-right">
-                            ${totalAttente > 0 ? `<p class="text-[10px] font-black text-orange-500">${totalAttente.toFixed(2)}€ en attente</p>` : ''}
-                            ${totalValide > 0 ? `<p class="text-[10px] font-black text-emerald-500">${totalValide.toFixed(2)}€ remboursé</p>` : ''}
+                            ${tA>0?`<p class="text-[10px] font-black text-amber-500">${tA.toFixed(2)}€ en attente</p>`:''}
+                            ${tV>0?`<p class="text-[10px] font-black text-emerald-500">${tV.toFixed(2)}€ remboursé</p>`:''}
                         </div>
                     </div>
                     <div class="divide-y divide-slate-50">
-                        ${allTx.map(t => `
-                            <div class="px-4 py-3 flex justify-between items-center">
-                                <div class="flex items-center gap-3">
-                                    <span class="w-2 h-2 rounded-full flex-shrink-0 ${t.statut === 'attente' ? 'bg-orange-400' : 'bg-emerald-400'}"></span>
-                                    <div>
-                                        <p class="text-[10px] font-bold text-slate-700">${escapeHtml(t.motif || '-')}</p>
-                                        <p class="text-[8px] text-slate-400">${new Date(t.created_at).toLocaleDateString('fr-FR')}${t.commentaire ? ' · ' + escapeHtml(t.commentaire) : ''}</p>
-                                    </div>
+                        ${[...month.attente,...month.valide].map(t=>`
+                        <div class="px-5 py-3 flex justify-between items-center">
+                            <div class="flex items-center gap-3">
+                                <span class="w-2 h-2 rounded-full flex-shrink-0 ${t.statut==='attente'?'bg-amber-400':'bg-emerald-400'}"></span>
+                                <div>
+                                    <p class="text-[10px] font-bold text-slate-700">${escapeHtml(t.motif||'-')}</p>
+                                    <p class="text-[8px] text-slate-400">${new Date(t.created_at).toLocaleDateString('fr-FR')}${t.commentaire?' · '+escapeHtml(t.commentaire):''}</p>
                                 </div>
-                                <p class="font-black text-[11px] text-slate-800">${parseFloat(t.montant).toFixed(2)}€</p>
                             </div>
-                        `).join('')}
+                            <p class="font-black text-[12px] text-slate-800">${parseFloat(t.montant).toFixed(2)}€</p>
+                        </div>`).join('')}
                     </div>
                 </div>`;
             }).join('');
-
-            document.getElementById('refund-history').innerHTML = html || `<p class="text-center text-slate-300 text-[11px] font-bold uppercase py-4">Aucun remboursement</p>`;
         }
 
         async function submitTx() {
-            const amount = parseFloat(document.getElementById('tx-amount').value);
-            const date = document.getElementById('tx-date').value;
-            const comment = document.getElementById('tx-comment').value.trim();
-            const motif = document.getElementById('tx-motif').value;
-            const method = document.getElementById('tx-method').value;
-
-            if (!amount || amount <= 0) return showToast("Saisissez un montant valide", "error");
-            if (!date) return showToast("Saisissez une date", "error");
-
-            const { error } = await sb.from('transactions').insert([{
-                user_id: userProfile.id,
-                maison_id: userProfile.maison_id,
-                montant: amount,
-                motif: currentType === 'recette' ? 'RECETTE' : motif,
-                commentaire: comment || null,
-                created_at: new Date(date).toISOString(),
-                type: currentType,
-                methode_paiement: currentType === 'recette' ? null : method,
-                statut: (currentType === 'depense' && method.startsWith('perso_')) ? 'attente' : 'valide'
+            const amount=parseFloat(document.getElementById('tx-amount').value);
+            const date=document.getElementById('tx-date').value;
+            const comment=document.getElementById('tx-comment').value.trim();
+            const motif=document.getElementById('tx-motif').value;
+            const method=document.getElementById('tx-method').value;
+            if(!amount||amount<=0) return showToast("Saisissez un montant valide","error");
+            if(!date) return showToast("Saisissez une date","error");
+            const btn=document.getElementById('submit-btn');
+            btn.textContent='...'; btn.disabled=true;
+            const {error}=await sb.from('transactions').insert([{
+                user_id:userProfile.id, maison_id:userProfile.maison_id, montant:amount,
+                motif:currentType==='recette'?'RECETTE':motif, commentaire:comment||null,
+                created_at:new Date(date).toISOString(), type:currentType,
+                methode_paiement:currentType==='recette'?null:method,
+                statut:(currentType==='depense'&&method.startsWith('perso_'))?'attente':'valide'
             }]);
-
-            if (error) {
-                showToast("Erreur lors de l'enregistrement", "error");
-            } else {
-                document.getElementById('tx-amount').value = '';
-                document.getElementById('tx-comment').value = '';
-                showToast("Opération enregistrée !", "success");
-                await refreshDashboard();
-                await loadRefundHistory();
-            }
+            btn.textContent='Enregistrer'; btn.disabled=false;
+            if(error){showToast("Erreur","error");return;}
+            document.getElementById('tx-amount').value='';
+            document.getElementById('tx-comment').value='';
+            showToast("Opération enregistrée !","success");
+            await refreshDashboard(); await loadRefundHistory();
         }
 
         async function undoLast() {
-            const { data } = await sb.from('transactions').select('id, created_at').eq('user_id', userProfile.id).order('created_at', { ascending: false }).limit(1);
-            if (!data || !data[0]) return showToast("Aucune opération à annuler", "warning");
-            const age = Date.now() - new Date(data[0].created_at).getTime();
-            if (age > 24 * 60 * 60 * 1000) return showToast("Annulation impossible après 24h", "error");
-            showConfirm('Annuler la dernière saisie ?', async () => {
-                const { error } = await sb.from('transactions').delete().eq('id', data[0].id);
-                if (error) showToast("Erreur lors de l'annulation", "error");
-                else { showToast("Opération annulée", "info"); await refreshDashboard(); await loadRefundHistory(); }
-            }, 'Annuler', true);
+            const {data}=await sb.from('transactions').select('id,created_at').eq('user_id',userProfile.id).order('created_at',{ascending:false}).limit(1);
+            if(!data||!data[0]) return showToast("Aucune opération à annuler","warning");
+            if(Date.now()-new Date(data[0].created_at).getTime()>86400000) return showToast("Annulation impossible après 24h","error");
+            showConfirm('Annuler la dernière saisie ?',async()=>{
+                const{error}=await sb.from('transactions').delete().eq('id',data[0].id);
+                if(error) showToast("Erreur","error");
+                else{showToast("Annulée","info");await refreshDashboard();await loadRefundHistory();}
+            },'Annuler',true);
         }
 
         async function loadMotifs() {
-            const { data } = await sb.from('motifs').select('*').order('nom');
-            document.getElementById('tx-motif').innerHTML = (data || []).map(m => `<option value="${escapeHtml(m.nom)}">${escapeHtml(m.nom.toUpperCase())}</option>`).join('');
+            const {data}=await sb.from('motifs').select('*').order('nom');
+            document.getElementById('tx-motif').innerHTML=(data||[]).map(m=>`<option value="${escapeHtml(m.nom)}">${escapeHtml(m.nom.toUpperCase())}</option>`).join('');
         }
 
         function setTxType(type) {
-            currentType = type;
-            const isR = type === 'recette';
-            document.getElementById('container-motif').classList.toggle('hidden', isR);
-            document.getElementById('container-paiement').classList.toggle('hidden', isR);
-            document.getElementById('tab-depense').className = isR
-                ? "flex-1 py-3.5 rounded-[18px] font-black text-[11px] bg-slate-100 text-slate-400"
-                : "flex-1 py-3.5 rounded-[18px] font-black text-[11px] active-tab";
-            document.getElementById('tab-recette').className = isR
-                ? "flex-1 py-3.5 rounded-[18px] font-black text-[11px] active-recette"
-                : "flex-1 py-3.5 rounded-[18px] font-black text-[11px] bg-slate-100 text-slate-400";
+            currentType=type; const isR=type==='recette';
+            document.getElementById('container-motif').classList.toggle('hidden',isR);
+            document.getElementById('container-paiement').classList.toggle('hidden',isR);
+            document.getElementById('tab-depense').className=`tab-btn ${isR?'':'tab-active'} flex-1 py-3.5 rounded-[18px] font-black text-[11px] uppercase tracking-widest ${isR?'text-slate-400':''}`;
+            document.getElementById('tab-recette').className=`tab-btn ${isR?'tab-recette':''} flex-1 py-3.5 rounded-[18px] font-black text-[11px] uppercase tracking-widest ${isR?'':'text-slate-400'}`;
         }
-
-        function openSettingsModal() {
-            document.getElementById('settings-modal').classList.remove('hidden');
-            document.getElementById('settings-iban').value = userProfile.iban || '';
-            document.getElementById('settings-allocation').value = parseFloat(userProfile.allocation_mensuelle) || '';
-        }
-        function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
 
         async function updateAllocation() {
-            const val = parseFloat(document.getElementById('settings-allocation').value);
-            if (isNaN(val) || val < 0) return showToast("Montant invalide", "error");
-            const { error } = await sb.from('profiles').update({ allocation_mensuelle: val }).eq('id', userProfile.id);
-            if (error) { showToast("Erreur de mise à jour", "error"); return; }
-            userProfile.allocation_mensuelle = val;
-            showToast("Allocation mise à jour !", "success");
-            await refreshDashboard();
+            const val=parseFloat(document.getElementById('settings-allocation').value);
+            if(isNaN(val)||val<0) return showToast("Montant invalide","error");
+            const{error}=await sb.from('profiles').update({allocation_mensuelle:val}).eq('id',userProfile.id);
+            if(error){showToast("Erreur","error");return;}
+            userProfile.allocation_mensuelle=val; showToast("Allocation mise à jour !","success"); await refreshDashboard();
         }
 
         async function updateIban() {
-            const raw = document.getElementById('settings-iban').value.trim();
-            const errEl = document.getElementById('iban-error');
-            if (raw && !validateIban(raw)) {
-                errEl.classList.remove('hidden');
-                return;
-            }
+            const raw=document.getElementById('settings-iban').value.trim();
+            const errEl=document.getElementById('iban-error');
+            if(raw&&!validateIban(raw)){errEl.classList.remove('hidden');return;}
             errEl.classList.add('hidden');
-            const normalized = raw ? normalizeIban(raw) : null;
-            const { error } = await sb.from('profiles').update({ iban: normalized }).eq('id', userProfile.id);
-            if (error) { showToast("Erreur de mise à jour", "error"); return; }
-            userProfile.iban = normalized;
-            document.getElementById('settings-iban').value = normalized || '';
-            showToast("IBAN mis à jour !", "success");
+            const normalized=raw?normalizeIban(raw):null;
+            const{error}=await sb.from('profiles').update({iban:normalized}).eq('id',userProfile.id);
+            if(error){showToast("Erreur","error");return;}
+            userProfile.iban=normalized; showToast("IBAN mis à jour !","success");
         }
 
         async function updatePassword() {
-            const p = document.getElementById('settings-pass').value;
-            if (p.length < 6) return showToast("6 caractères minimum", "error");
-            const { error } = await sb.auth.updateUser({ password: p });
-            if (error) showToast(error.message, "error");
-            else { showToast("Mot de passe modifié !", "success"); document.getElementById('settings-pass').value = ''; closeSettingsModal(); }
+            const p=document.getElementById('settings-pass').value;
+            if(p.length<6) return showToast("6 caractères minimum","error");
+            const{error}=await sb.auth.updateUser({password:p});
+            if(error) showToast(error.message,"error");
+            else{showToast("Mot de passe modifié !","success");document.getElementById('settings-pass').value='';}
         }
 
         async function checkAllocVersee() {
-            const alloc = parseFloat(userProfile.allocation_mensuelle) || 0;
-            if (alloc <= 0) return; // Pas d'allocation définie, pas de rappel
-
-            const now = new Date();
-            const mois = now.getMonth() + 1;
-            const annee = now.getFullYear();
-            const MOIS_LABELS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-
-            const { data } = await sb.from('allocations_versees')
-                .select('id')
-                .eq('user_id', userProfile.id)
-                .eq('mois', mois)
-                .eq('annee', annee)
-                .maybeSingle();
-
-            if (!data) {
-                // Pas encore versé ce mois
-                document.getElementById('alloc-reminder-text').innerText =
-                    `Votre allocation de ${MOIS_LABELS[mois-1]} ${annee} n'a pas encore été versée par votre chef de maison. Ce rappel disparaîtra dès qu'elle sera validée.`;
-                document.getElementById('alloc-reminder-montant').innerText = alloc.toFixed(2) + '€';
+            const alloc=parseFloat(userProfile.allocation_mensuelle)||0;
+            if(alloc<=0) return;
+            const now=new Date(),mois=now.getMonth()+1,annee=now.getFullYear();
+            const{data}=await sb.from('allocations_versees').select('id').eq('user_id',userProfile.id).eq('mois',mois).eq('annee',annee).maybeSingle();
+            if(!data){
+                document.getElementById('alloc-reminder-text').textContent=`Votre allocation de ${MOIS_FR[mois-1]} ${annee} n'a pas encore été versée. Ce rappel disparaîtra dès qu'elle sera validée par votre chef de maison.`;
+                document.getElementById('alloc-reminder-montant').textContent=alloc.toFixed(2)+'€';
                 document.getElementById('alloc-reminder-modal').classList.remove('hidden');
             }
         }
 
-        function closeAllocReminder() {
-            document.getElementById('alloc-reminder-modal').classList.add('hidden');
-        }
-
-        function logout() { sb.auth.signOut().then(() => window.location.href = "index.html"); }
+        function closeAllocReminder(){document.getElementById('alloc-reminder-modal').classList.add('hidden');}
+        function logout(){sb.auth.signOut().then(()=>window.location.href="index.html");}
         init();
     </script>
 </body>
