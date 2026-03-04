@@ -3,221 +3,336 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SMMD - Console Chef de Maison</title>
+    <title>SMMD - Chef de Maison</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="config.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,700;0,900;1,900&display=swap');
+        * { -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Inter', sans-serif; background: #f1f5f9; }
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        .tab-active { background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%) !important; color: white !important; box-shadow: 0 10px 15px -3px rgba(30, 58, 138, 0.2); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        @keyframes pulse-orange {
-            0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); transform: scale(1); }
-            70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); transform: scale(1.1); }
-            100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); transform: scale(1); }
+
+        /* NAV */
+        #main-nav {
+            background: linear-gradient(160deg, #0f172a 0%, #1e3a8a 55%, #312e81 100%);
+            transition: padding .35s cubic-bezier(.4,0,.2,1), border-radius .35s cubic-bezier(.4,0,.2,1);
         }
-        .blink-alert { animation: pulse-orange 2s infinite ease-in-out; background-color: #f59e0b; }
-        .glass-nav { background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); }
+        #nav-expanded { transition: opacity .25s ease, max-height .35s cubic-bezier(.4,0,.2,1); max-height: 500px; overflow: hidden; }
+        #nav-compact   { transition: opacity .25s ease; }
+
+        /* ANIMATIONS */
+        @keyframes slideUp   { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes shimmer   { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+        @keyframes pulseAmber{ 0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.5)} 50%{box-shadow:0 0 0 8px rgba(245,158,11,0)} }
+        .anim-slide { animation: slideUp .4s cubic-bezier(.4,0,.2,1) both; }
+        .skeleton {
+            background: linear-gradient(90deg,rgba(255,255,255,.1) 25%,rgba(255,255,255,.2) 50%,rgba(255,255,255,.1) 75%);
+            background-size:200% 100%; animation:shimmer 1.4s infinite; border-radius:10px;
+        }
+        .pulse-amber { animation: pulseAmber 2s infinite; }
+
+        /* SECTIONS */
+        .section-panel { display: none; }
+        .section-panel.active { display: block; animation: slideUp .3s cubic-bezier(.4,0,.2,1) both; }
+
+        /* BOTTOM BAR */
+        #bottom-bar {
+            background: rgba(255,255,255,.95);
+            backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+            border-top: 1px solid rgba(0,0,0,.07);
+        }
+        .bar-btn svg   { stroke: #94a3b8; transition: all .2s; }
+        .bar-btn span  { color:#94a3b8; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; transition:color .2s; }
+        .bar-btn.active svg  { stroke:#1e3a8a; transform:translateY(-2px); }
+        .bar-btn.active span { color:#1e3a8a; }
+
+        /* TOGGLE CHECK */
+        .check-toggle { transition: all .15s; }
+        .check-toggle.checked { background:#f59e0b; border-color:#f59e0b; }
+        .check-toggle.checked svg { display:block; }
+        .check-toggle svg { display:none; }
+
+        /* TABS */
+        .tab-btn { transition: all .2s; }
+        .tab-active      { background:#1e3a8a!important; color:white!important; box-shadow:0 8px 20px -4px rgba(30,58,138,.3); }
+        .tab-recette-act { background:#10b981!important; color:white!important; box-shadow:0 8px 20px -4px rgba(16,185,129,.3); }
     </style>
 </head>
-<body class="text-slate-900 pb-20">
+<body class="text-slate-900 min-h-screen pb-24">
 
-    <!-- Modal rappel allocation non versée (chef) -->
+    <div id="scroll-sentinel" class="h-px w-full absolute top-0 pointer-events-none"></div>
+
+    <!-- MODAL RAPPEL ALLOCATION -->
     <div id="alloc-reminder-modal" class="hidden fixed inset-0 z-[200] flex items-end justify-center p-4 sm:items-center">
         <div class="absolute inset-0 bg-slate-900/70 backdrop-blur-sm"></div>
-        <div class="relative bg-white rounded-[40px] w-full max-w-sm shadow-2xl overflow-hidden">
-            <div class="bg-gradient-to-r from-amber-400 to-orange-500 h-2 w-full"></div>
+        <div class="relative bg-white rounded-[40px] w-full max-w-sm shadow-2xl overflow-hidden anim-slide">
+            <div class="bg-gradient-to-r from-amber-400 to-orange-500 h-1.5"></div>
             <div class="p-8">
-                <div class="flex justify-center mb-5"><div class="w-16 h-16 rounded-full bg-amber-50 border-2 border-amber-200 flex items-center justify-center text-3xl">💰</div></div>
-                <h3 class="text-xl font-black text-center text-slate-900 tracking-tight mb-2">Versements en attente</h3>
+                <div class="flex justify-center mb-5">
+                    <div class="w-16 h-16 rounded-full bg-amber-50 border-2 border-amber-200 flex items-center justify-center text-3xl">💰</div>
+                </div>
+                <h3 class="text-xl font-black text-center tracking-tight mb-2">Versements en attente</h3>
                 <p id="alloc-reminder-text" class="text-[12px] text-slate-500 font-bold text-center leading-relaxed mb-6"></p>
                 <button onclick="closeAllocReminder()" class="w-full bg-slate-900 text-white font-black py-4 rounded-2xl uppercase text-[11px] tracking-widest active:scale-95 transition-all">Voir les versements</button>
             </div>
         </div>
     </div>
 
-    <nav class="glass-nav text-white p-6 rounded-b-[45px] shadow-2xl sticky top-0 z-50 border-b border-white/10">
-        <div class="flex justify-between items-start mb-8">
-            <div>
-                <h1 id="user-name" class="text-2xl font-black italic tracking-tighter bg-gradient-to-r from-white to-blue-300 bg-clip-text text-transparent">Chef de Maison</h1>
-                <p id="maison-name" class="text-[10px] uppercase tracking-[0.3em] text-blue-400/80 font-bold italic">Chargement...</p>
+    <!-- NOTIFICATIONS -->
+    <div id="notif-container" class="fixed top-0 left-0 right-0 z-[150] px-4 pt-3 space-y-2 pointer-events-none"></div>
+
+    <!-- NAV -->
+    <nav id="main-nav" class="sticky top-0 z-50 text-white px-6 pt-6 pb-5 rounded-b-[40px] shadow-2xl">
+
+        <!-- Étendu -->
+        <div id="nav-expanded">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <h1 id="user-name" class="text-2xl font-black italic tracking-tighter leading-none">
+                        <span class="skeleton inline-block w-40 h-7">&nbsp;</span>
+                    </h1>
+                    <p id="maison-name" class="text-[10px] uppercase tracking-[.3em] opacity-50 font-bold italic mt-1">Maison ...</p>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="goToProfil()" class="bg-white/10 p-3 rounded-2xl hover:bg-white/20 transition-all border border-white/10 active:scale-90">⚙️</button>
+                    <button onclick="exportMaisonExcel()" class="bg-emerald-500/20 text-emerald-300 px-4 py-3 rounded-2xl border border-emerald-500/20 font-black text-[10px] uppercase tracking-widest hover:bg-emerald-500/30 transition-all">Bilan</button>
+                </div>
             </div>
-            <div class="flex gap-2">
-                <button onclick="openSettingsModal()" class="bg-white/10 hover:bg-white/20 p-2.5 rounded-2xl transition-all">⚙️</button>
-                <button onclick="exportMaisonExcel()" class="bg-emerald-500/20 text-emerald-400 p-2.5 rounded-2xl border border-emerald-500/20 font-black text-[10px] uppercase">Bilan</button>
-                <button onclick="logout()" class="bg-red-500/10 text-red-400 p-2.5 rounded-2xl border border-red-500/20 font-black text-[10px] uppercase">Sortir</button>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-white/8 backdrop-blur-xl p-5 rounded-[24px] border border-white/10 relative overflow-hidden">
+                    <div class="absolute -right-4 -top-4 w-16 h-16 bg-white/5 rounded-full pointer-events-none"></div>
+                    <p class="text-[8px] uppercase font-black opacity-50 tracking-[.2em] text-blue-100 mb-1">Trésorerie Maison</p>
+                    <p id="solde-maison" class="text-2xl font-black tracking-tight">
+                        <span class="skeleton inline-block w-24 h-7">&nbsp;</span>
+                    </p>
+                </div>
+                <div class="bg-white/8 backdrop-blur-md p-5 rounded-[24px] border border-white/10">
+                    <p class="text-[8px] uppercase font-black opacity-40 tracking-wider mb-1">Mon Solde</p>
+                    <p id="solde-perso" class="text-2xl font-black text-blue-50">--€</p>
+                    <p id="alloc-badge" class="text-[8px] text-blue-300/60 font-bold mt-1">--</p>
+                </div>
             </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-4 mb-8">
-            <div class="bg-white/5 backdrop-blur-md p-5 rounded-[30px] border border-white/10">
-                <p class="text-[8px] font-black uppercase tracking-widest mb-2 opacity-60">Mon Solde Perso</p>
-                <p id="solde-perso" class="text-2xl font-black tracking-tight">-- €</p>
-                <p id="alloc-badge" class="text-[8px] text-blue-300/60 font-bold mt-1">Allocation : --</p>
+        <!-- Compact -->
+        <div id="nav-compact" class="hidden">
+            <div class="flex justify-between items-center">
+                <div>
+                    <p id="compact-name" class="text-[12px] font-black uppercase tracking-widest"></p>
+                    <p id="compact-maison" class="text-[8px] opacity-40 font-bold tracking-widest uppercase"></p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="text-right">
+                        <p class="text-[8px] opacity-40 font-black uppercase tracking-wider">Trésorerie</p>
+                        <p id="compact-maison-solde" class="text-base font-black">--€</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="goToProfil()" class="bg-white/10 p-2.5 rounded-xl border border-white/10">⚙️</button>
+                        <button onclick="exportMaisonExcel()" class="bg-emerald-500/20 text-emerald-300 px-3 py-2.5 rounded-xl font-black text-[9px] uppercase">Bilan</button>
+                    </div>
+                </div>
             </div>
-            <div class="bg-emerald-500/10 backdrop-blur-md p-5 rounded-[30px] border border-emerald-500/20">
-                <p class="text-[8px] font-black uppercase tracking-widest mb-2 text-emerald-400">Trésorerie Maison</p>
-                <p id="solde-maison" class="text-2xl font-black tracking-tight text-emerald-50">-- €</p>
-            </div>
-        </div>
-
-        <div class="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-            <a href="#section-perso" class="bg-white/10 px-5 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap border border-white/5">Dépenses</a>
-            <a href="#section-validation" class="bg-white/10 px-5 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap border border-white/5 flex items-center gap-2">
-                Remboursements <span id="alert-dot" class="hidden h-2.5 w-2.5 rounded-full blink-alert"></span>
-            </a>
-            <a href="#section-membres" class="bg-white/10 px-5 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap border border-white/5">Membres</a>
-            <a href="#section-versements" class="bg-white/10 px-5 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap border border-white/5 flex items-center gap-2">Versements <span id="nav-versements-dot" class="hidden h-2.5 w-2.5 rounded-full blink-alert"></span></a>
-            <a href="#section-audit" class="bg-white/10 px-5 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap border border-white/5">Audit</a>
         </div>
     </nav>
 
-    <main class="p-6 space-y-10">
+    <!-- MAIN -->
+    <main class="px-4 pt-5">
 
-        <!-- Formulaire dépense -->
-        <section id="section-perso" class="space-y-4">
-            <div class="flex items-center gap-2 px-2">
-                <div class="h-1 w-4 bg-blue-600 rounded-full"></div>
-                <h2 class="text-[11px] font-black uppercase text-slate-400 tracking-[0.2em]">Ma Gestion Perso</h2>
+        <!-- ── SECTION SAISIE ── -->
+        <div id="section-saisie" class="section-panel active space-y-4">
+            <div class="bg-white p-1.5 rounded-[22px] flex shadow-sm border border-slate-100 anim-slide" style="animation-delay:.04s">
+                <button id="tab-depense" onclick="setTxType('depense')" class="tab-btn tab-active flex-1 py-3.5 rounded-[18px] font-black text-[11px] uppercase tracking-widest">Dépense</button>
+                <button id="tab-recette" onclick="setTxType('recette')" class="tab-btn flex-1 py-3.5 rounded-[18px] font-black text-[11px] uppercase tracking-widest text-slate-400">Recette</button>
             </div>
-            <div class="bg-white p-7 rounded-[40px] shadow-sm border border-slate-100">
-                <div class="flex gap-3 mb-8 bg-slate-100 p-1.5 rounded-[22px]">
-                    <button onclick="setTxType('depense')" id="tab-depense" class="flex-1 py-3 rounded-[18px] font-black text-[10px] uppercase transition-all tab-active">Dépense</button>
-                    <button onclick="setTxType('recette')" id="tab-recette" class="flex-1 py-3 rounded-[18px] font-black text-[10px] uppercase transition-all text-slate-400">Recette</button>
+
+            <div class="bg-white rounded-[32px] shadow-sm border border-slate-100 p-6 space-y-5 anim-slide" style="animation-delay:.08s">
+                <div class="relative group">
+                    <input type="number" id="tx-amount" placeholder="0" step="0.01" min="0"
+                        class="w-full bg-slate-50 px-6 py-7 rounded-[24px] text-5xl font-black text-center outline-none border-2 border-transparent focus:border-blue-900 focus:bg-white transition-all">
+                    <span class="absolute right-6 top-1/2 -translate-y-1/2 font-black text-slate-200 text-3xl group-focus-within:text-blue-800 transition-colors pointer-events-none">€</span>
                 </div>
-                <div class="space-y-5">
-                    <div>
-                        <label class="text-[9px] font-black uppercase text-slate-400 ml-4 mb-1 block tracking-widest">Date de l'opération</label>
-                        <input type="date" id="tx-date" class="w-full p-4 bg-slate-50 rounded-2xl border-transparent font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500/20">
+                <div>
+                    <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1.5 block tracking-widest">Date</label>
+                    <input type="date" id="tx-date" class="w-full bg-slate-50 p-4 rounded-2xl font-bold border-2 border-slate-50 focus:bg-white focus:border-blue-100 outline-none transition-all text-sm">
+                </div>
+                <div id="container-motif">
+                    <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1.5 block tracking-widest">Motif</label>
+                    <div class="relative">
+                        <select id="tx-motif" class="w-full bg-slate-50 p-4 rounded-2xl font-bold border-2 border-slate-50 focus:bg-white focus:border-blue-100 outline-none appearance-none text-sm"></select>
+                        <svg class="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
                     </div>
-                    <div>
-                        <label class="text-[9px] font-black uppercase text-slate-400 ml-4 mb-1 block tracking-widest">Montant</label>
-                        <input type="number" id="tx-amount" step="0.01" min="0" placeholder="0.00 €" class="w-full p-5 bg-slate-50 rounded-2xl border-transparent font-black text-2xl outline-none focus:ring-2 focus:ring-blue-500/20">
-                    </div>
-                    <div id="container-motif">
-                        <label class="text-[9px] font-black uppercase text-slate-400 ml-4 mb-1 block tracking-widest">Motif</label>
-                        <select id="tx-motif" class="w-full p-4 bg-slate-50 rounded-2xl border-transparent font-bold outline-none text-sm focus:ring-2 focus:ring-blue-500/20"></select>
-                    </div>
-                    <div id="container-paiement">
-                        <label class="text-[9px] font-black uppercase text-slate-400 ml-4 mb-1 block tracking-widest">Moyen de paiement</label>
-                        <select id="tx-method" class="w-full p-4 bg-slate-50 rounded-2xl border-transparent font-bold outline-none text-sm focus:ring-2 focus:ring-blue-500/20">
+                </div>
+                <div id="container-paiement">
+                    <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1.5 block tracking-widest">Moyen de paiement</label>
+                    <div class="relative">
+                        <select id="tx-method" class="w-full bg-slate-50 p-4 rounded-2xl font-bold border-2 border-slate-50 focus:bg-white focus:border-blue-100 outline-none appearance-none text-sm">
                             <option value="cb_maison">💳 CB MAISON</option>
-                            <option value="perso_cb">📱 PERSO - CB</option>
-                            <option value="perso_liq">💵 PERSO - Liquide</option>
+                            <option value="perso_cb">📱 PERSO — CB</option>
+                            <option value="perso_liq">💵 PERSO — Liquide</option>
                         </select>
+                        <svg class="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
                     </div>
-                    <div>
-                        <label class="text-[9px] font-black uppercase text-slate-400 ml-4 mb-1 block tracking-widest">Commentaire</label>
-                        <input type="text" id="tx-note" placeholder="Note rapide..." class="w-full p-4 bg-slate-50 rounded-2xl border-transparent font-bold outline-none text-sm focus:ring-2 focus:ring-blue-500/20">
-                    </div>
-                    <button onclick="submitTransaction()" class="w-full bg-slate-900 text-white font-black py-5 rounded-[22px] uppercase tracking-[0.2em] shadow-xl active:scale-[0.98] transition-all mt-4">Enregistrer</button>
                 </div>
-            </div>
-        </section>
-
-        <!-- Remboursements groupés par mois -->
-        <section id="section-validation" class="space-y-4">
-            <div class="flex items-center justify-between px-2">
-                <div class="flex items-center gap-2">
-                    <div class="h-1 w-4 bg-orange-500 rounded-full"></div>
-                    <h2 class="text-[11px] font-black uppercase text-slate-400 tracking-[0.2em]">Remboursements par mois</h2>
+                <div>
+                    <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1.5 block tracking-widest">Commentaire</label>
+                    <input type="text" id="tx-note" placeholder="Note rapide..." class="w-full bg-slate-50 p-4 rounded-2xl font-bold border-2 border-slate-50 focus:bg-white focus:border-blue-100 outline-none transition-all text-sm">
                 </div>
-                <div id="total-dettes" class="bg-orange-500 text-white px-4 py-1.5 rounded-full text-[10px] font-black shadow-lg shadow-orange-500/20">Total : 0€</div>
+                <button id="submit-btn" onclick="submitTransaction()" class="w-full bg-slate-900 text-white py-5 rounded-[22px] font-black text-[12px] uppercase tracking-[.2em] shadow-xl active:scale-[.97] hover:bg-slate-800 transition-all">Enregistrer</button>
             </div>
-            <div id="list-avances-attente" class="space-y-6"></div>
-        </section>
 
-        <!-- Versements allocations du mois -->
-        <section id="section-versements" class="space-y-4">
-            <div class="flex items-center justify-between px-2">
-                <div class="flex items-center gap-2">
-                    <div class="h-1 w-4 bg-amber-400 rounded-full"></div>
-                    <h2 class="text-[11px] font-black uppercase text-slate-400 tracking-[0.2em]">Versements du mois</h2>
-                </div>
-                <div id="versements-badge" class="hidden bg-amber-500 text-white px-4 py-1.5 rounded-full text-[10px] font-black shadow-lg shadow-amber-500/20"></div>
+            <!-- Journal rapide -->
+            <div class="anim-slide" style="animation-delay:.12s">
+                <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1 mb-3">Journal Maison</p>
+                <div id="audit-history" class="space-y-2"></div>
             </div>
-            <div id="list-versements" class="space-y-3"></div>
-        </section>
+        </div>
 
-        <!-- Membres -->
-        <section id="section-membres" class="space-y-4">
-            <div class="flex items-center gap-2 px-2">
-                <div class="h-1 w-4 bg-indigo-500 rounded-full"></div>
-                <h2 class="text-[11px] font-black uppercase text-slate-400 tracking-[0.2em]">Annuaire & IBAN</h2>
+        <!-- ── SECTION REMBOURSEMENTS ── -->
+        <div id="section-remboursements" class="section-panel space-y-3">
+            <div class="flex justify-between items-center px-1 pt-1 mb-3">
+                <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Remboursements</p>
+                <div id="total-dettes" class="hidden bg-amber-500 text-white px-4 py-1.5 rounded-full text-[10px] font-black shadow-md">0€</div>
             </div>
+            <div id="list-avances-attente" class="space-y-4"></div>
+        </div>
+
+        <!-- ── SECTION VERSEMENTS ── -->
+        <div id="section-versements" class="section-panel space-y-3">
+            <div class="flex justify-between items-center px-1 pt-1 mb-3">
+                <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Versements allocations</p>
+                <div id="versements-badge" class="hidden bg-amber-500 text-white px-4 py-1.5 rounded-full text-[10px] font-black shadow-md pulse-amber"></div>
+            </div>
+            <div id="list-versements" class="space-y-4"></div>
+        </div>
+
+        <!-- ── SECTION MEMBRES ── -->
+        <div id="section-membres" class="section-panel space-y-3">
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1 pt-1 mb-3">Annuaire & IBAN</p>
             <div id="list-membres" class="space-y-3"></div>
-        </section>
+        </div>
 
-        <!-- Audit -->
-        <section id="section-audit" class="space-y-4">
-            <div class="flex items-center gap-2 px-2">
-                <div class="h-1 w-4 bg-emerald-500 rounded-full"></div>
-                <h2 class="text-[11px] font-black uppercase text-slate-400 tracking-[0.2em]">Journal Maison</h2>
+        <!-- ── SECTION PROFIL ── -->
+        <div id="section-profil" class="section-panel space-y-4">
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1 pt-1 mb-1">Mon Profil</p>
+
+            <div class="bg-white rounded-[28px] border border-blue-100 p-6 anim-slide">
+                <p class="text-[9px] font-black uppercase text-blue-700 tracking-widest mb-3">Allocation mensuelle (€)</p>
+                <div class="flex gap-3">
+                    <input type="number" id="settings-allocation" step="0.01" min="0" placeholder="0.00"
+                        class="flex-1 bg-slate-50 p-4 rounded-2xl border-2 border-slate-50 font-black text-xl outline-none focus:border-blue-200 focus:bg-white transition-all">
+                    <button onclick="updateAllocation()" class="bg-blue-900 text-white px-6 rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95">OK</button>
+                </div>
             </div>
-            <div id="audit-history" class="bg-white rounded-[40px] border border-slate-100 overflow-hidden shadow-sm"></div>
-        </section>
+
+            <div class="bg-white rounded-[28px] border border-slate-100 p-6 anim-slide" style="animation-delay:.05s">
+                <p class="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-3">Mon IBAN</p>
+                <input type="text" id="settings-iban" placeholder="FR76..."
+                    class="w-full bg-slate-50 p-4 rounded-2xl border-2 border-slate-50 font-mono text-xs outline-none focus:border-blue-200 focus:bg-white transition-all uppercase mb-1">
+                <p id="iban-error" class="text-[9px] text-red-500 font-bold ml-1 mb-3 hidden">Format IBAN invalide</p>
+                <button onclick="updateIban()" class="w-full bg-slate-800 text-white text-[10px] font-black py-3.5 rounded-xl uppercase tracking-widest hover:bg-slate-700 transition-all">Mettre à jour</button>
+            </div>
+
+            <div class="bg-white rounded-[28px] border border-slate-100 p-6 anim-slide" style="animation-delay:.1s">
+                <p class="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-3">Changer le mot de passe</p>
+                <input type="password" id="settings-pass" placeholder="Nouveau mot de passe (6 car. min.)"
+                    class="w-full bg-slate-50 p-4 rounded-2xl border-2 border-slate-50 font-bold outline-none focus:border-blue-200 focus:bg-white transition-all mb-3">
+                <button onclick="updatePassword()" class="w-full bg-slate-900 text-white text-[10px] font-black py-3.5 rounded-xl uppercase tracking-widest shadow-lg active:scale-95">Changer</button>
+            </div>
+
+            <button onclick="logout()" class="w-full bg-red-50 border border-red-100 text-red-500 font-black py-4 rounded-[22px] uppercase text-[11px] tracking-widest active:scale-95 transition-all anim-slide" style="animation-delay:.15s">
+                Se déconnecter
+            </button>
+        </div>
 
     </main>
 
-    <!-- Modal Paramètres -->
-    <div id="settings-modal" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-6 z-[100]">
-        <div class="bg-white p-8 rounded-[45px] w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar border border-white/20">
-            <div class="flex justify-between items-center mb-8">
-                <h3 class="text-2xl font-black italic tracking-tighter text-slate-800">Mon Profil</h3>
-                <button onclick="closeSettingsModal()" class="text-slate-300 text-2xl hover:text-slate-500 transition-colors">✕</button>
-            </div>
-            <div class="space-y-6">
-
-                <!-- Allocation -->
-                <div class="bg-blue-50 p-5 rounded-3xl border border-blue-100">
-                    <label class="text-[9px] font-black uppercase text-blue-700 ml-2 tracking-widest block mb-2">Mon Allocation Mensuelle (€)</label>
-                    <div class="flex gap-3">
-                        <input type="number" id="settings-allocation" step="0.01" min="0"
-                            class="flex-1 bg-white p-4 rounded-2xl border border-blue-100 font-black text-lg shadow-sm focus:ring-2 focus:ring-blue-300 outline-none">
-                        <button onclick="updateAllocation()" class="bg-blue-900 text-white px-5 rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all">OK</button>
-                    </div>
-                </div>
-
-                <!-- IBAN -->
-                <div class="bg-slate-50 p-5 rounded-3xl">
-                    <label class="text-[9px] font-black uppercase text-slate-400 ml-2 tracking-widest block mb-2">Mon IBAN</label>
-                    <input type="text" id="settings-iban" class="w-full bg-white p-4 rounded-2xl border border-slate-200 font-mono text-xs shadow-sm focus:ring-2 focus:ring-blue-200 outline-none uppercase" placeholder="FR76...">
-                    <p id="iban-error" class="text-[9px] text-red-500 font-bold ml-2 mt-1 hidden">Format IBAN invalide</p>
-                    <button onclick="updateIban()" class="w-full mt-3 bg-slate-800 text-white text-[9px] font-black py-3 rounded-xl uppercase tracking-widest hover:bg-slate-700 transition-all">Mettre à jour l'IBAN</button>
-                </div>
-
-                <!-- Mot de passe -->
-                <div class="bg-slate-50 p-5 rounded-3xl">
-                    <label class="text-[9px] font-black uppercase text-slate-400 ml-2 tracking-widest block mb-2">Changer le mot de passe</label>
-                    <input type="password" id="settings-pass" placeholder="Nouveau mot de passe (6 car. min.)"
-                        class="w-full p-4 bg-white rounded-2xl border border-slate-200 font-bold outline-none mb-3 focus:ring-2 focus:ring-blue-200">
-                    <button onclick="updatePassword()" class="w-full bg-slate-900 text-white text-[10px] font-black py-4 rounded-2xl uppercase tracking-widest shadow-lg active:scale-95">Changer le mot de passe</button>
-                </div>
-
-            </div>
-        </div>
+    <!-- BOTTOM BAR -->
+    <div id="bottom-bar" class="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around px-1 py-2">
+        <button class="bar-btn active flex flex-col items-center gap-1 px-3 py-2 rounded-2xl" onclick="switchTab('saisie',this)">
+            <svg class="w-5 h-5" fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+            <span>Saisie</span>
+        </button>
+        <button class="bar-btn flex flex-col items-center gap-1 px-3 py-2 rounded-2xl" onclick="switchTab('remboursements',this)">
+            <svg class="w-5 h-5" fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            <span>Remboursements</span>
+        </button>
+        <button id="bar-versements" class="bar-btn flex flex-col items-center gap-1 px-3 py-2 rounded-2xl relative" onclick="switchTab('versements',this)">
+            <svg class="w-5 h-5" fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span>Versements</span>
+            <span id="bar-dot" class="hidden absolute top-1.5 right-2.5 w-2 h-2 bg-amber-500 rounded-full pulse-amber"></span>
+        </button>
+        <button class="bar-btn flex flex-col items-center gap-1 px-3 py-2 rounded-2xl" onclick="switchTab('membres',this)">
+            <svg class="w-5 h-5" fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span>Membres</span>
+        </button>
+        <button class="bar-btn flex flex-col items-center gap-1 px-3 py-2 rounded-2xl" onclick="switchTab('profil',this)">
+            <svg class="w-5 h-5" fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+            <span>Profil</span>
+        </button>
     </div>
 
     <script>
         const sb = supabase.createClient(SMMD_CONFIG.url, SMMD_CONFIG.key);
-        let userProfile = null;
-        let currentType = 'depense';
+        let userProfile = null, currentType = 'depense';
         const MOIS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 
+        // ── Compact nav au scroll ──
+        new IntersectionObserver(([e]) => {
+            const compact = !e.isIntersecting;
+            const exp = document.getElementById('nav-expanded');
+            const cmp = document.getElementById('nav-compact');
+            const nav = document.getElementById('main-nav');
+            exp.style.maxHeight = compact ? '0'    : '500px';
+            exp.style.opacity   = compact ? '0'    : '1';
+            cmp.classList.toggle('hidden', !compact);
+            nav.style.paddingTop    = compact ? '14px' : '24px';
+            nav.style.paddingBottom = compact ? '14px' : '20px';
+            nav.style.borderRadius  = compact ? '0 0 20px 20px' : '0 0 40px 40px';
+        }, { threshold: 0 }).observe(document.getElementById('scroll-sentinel'));
+
+        // ── Compteur animé ──
+        function animCounter(el, target, suffix='€', duration=550) {
+            const neg=target<0, abs=Math.abs(target), start=performance.now();
+            const tick = now => {
+                const p=Math.min((now-start)/duration,1), ease=1-Math.pow(1-p,3);
+                el.textContent=(neg?'-':'')+(abs*ease).toFixed(2)+suffix;
+                if(p<1) requestAnimationFrame(tick);
+            };
+            requestAnimationFrame(tick);
+        }
+
+        // ── Tab switch ──
+        function switchTab(name, btn) {
+            document.querySelectorAll('.section-panel').forEach(s=>s.classList.remove('active'));
+            document.getElementById('section-'+name).classList.add('active');
+            document.querySelectorAll('.bar-btn').forEach(b=>b.classList.remove('active'));
+            btn.classList.add('active');
+            window.scrollTo({top:0,behavior:'smooth'});
+        }
+        function goToProfil() { switchTab('profil', document.querySelectorAll('.bar-btn')[4]); }
+
+        // ── INIT ──
         async function checkAuth() {
             const { data: { user } } = await sb.auth.getUser();
-            if (!user) { window.location.href = "index.html"; return; }
+            if (!user) { window.location.href="index.html"; return; }
             const { data: profile } = await sb.from('profiles').select('*, maisons(*)').eq('id', user.id).single();
-            if (!profile || profile.role !== 'chef') { window.location.href = "user.html"; return; }
+            if (!profile || profile.role !== 'chef') { window.location.href="user.html"; return; }
             userProfile = profile;
-            document.getElementById('user-name').innerText = `${escapeHtml(profile.prenom)} ${escapeHtml(profile.nom || '')}`.trim();
-            document.getElementById('maison-name').innerText = `Maison ${escapeHtml(profile.maisons?.nom || '')}`;
+
+            const fullName = `${profile.prenom} ${profile.nom||''}`.trim();
+            document.getElementById('user-name').textContent = fullName;
+            document.getElementById('maison-name').textContent = `Maison ${profile.maisons?.nom||''}`;
+            document.getElementById('compact-name').textContent = fullName;
+            document.getElementById('compact-maison').textContent = profile.maisons?.nom||'';
             document.getElementById('tx-date').valueAsDate = new Date();
+            document.getElementById('settings-iban').value = profile.iban||'';
+            document.getElementById('settings-allocation').value = parseFloat(profile.allocation_mensuelle)||'';
+
             loadMotifs();
-            refreshAll();
+            await refreshAll();
             checkAllocVersee();
         }
 
@@ -227,26 +342,23 @@
 
         async function refreshSoldes() {
             const { data: txs } = await sb.from('transactions').select('*').eq('maison_id', userProfile.maison_id);
-            const { data: allocVersees } = await sb.from('allocations_versees').select('*').eq('maison_id', userProfile.maison_id);
+            const { data: avs } = await sb.from('allocations_versees').select('*').eq('maison_id', userProfile.maison_id);
 
-            // Totaux maison basés sur les allocations réellement versées
-            const houseAlloc = (allocVersees || []).reduce((s, a) => s + parseFloat(a.montant), 0);
-            const houseDep = (txs || []).filter(t => t.type === 'depense').reduce((s, t) => s + parseFloat(t.montant), 0);
-            const houseRec = (txs || []).filter(t => t.type === 'recette').reduce((s, t) => s + parseFloat(t.montant), 0);
-            const totalMaison = houseAlloc + houseRec - houseDep;
+            const houseAlloc = (avs||[]).reduce((s,a)=>s+parseFloat(a.montant),0);
+            const houseDep   = (txs||[]).filter(t=>t.type==='depense').reduce((s,t)=>s+parseFloat(t.montant),0);
+            const houseRec   = (txs||[]).filter(t=>t.type==='recette').reduce((s,t)=>s+parseFloat(t.montant),0);
+            const myAvs      = (avs||[]).filter(a=>a.user_id===userProfile.id).reduce((s,a)=>s+parseFloat(a.montant),0);
+            const myTx       = (txs||[]).filter(t=>t.user_id===userProfile.id);
+            const myDep      = myTx.filter(t=>t.type==='depense').reduce((s,t)=>s+parseFloat(t.montant),0);
+            const myRec      = myTx.filter(t=>t.type==='recette').reduce((s,t)=>s+parseFloat(t.montant),0);
+            const maisTotal  = houseAlloc+houseRec-houseDep;
+            const perso      = myAvs+myRec-myDep;
+            const alloc      = parseFloat(userProfile.allocation_mensuelle)||0;
 
-            // Solde perso
-            const myAllocVersees = (allocVersees || []).filter(a => a.user_id === userProfile.id);
-            const myAllocTotal = myAllocVersees.reduce((s, a) => s + parseFloat(a.montant), 0);
-            const myTx = (txs || []).filter(t => t.user_id === userProfile.id);
-            const myDep = myTx.filter(t => t.type === 'depense').reduce((s, t) => s + parseFloat(t.montant), 0);
-            const myRec = myTx.filter(t => t.type === 'recette').reduce((s, t) => s + parseFloat(t.montant), 0);
-            const monPerso = myAllocTotal + myRec - myDep;
-
-            document.getElementById('solde-maison').innerText = totalMaison.toFixed(2) + " €";
-            document.getElementById('solde-perso').innerText = monPerso.toFixed(2) + " €";
-            const alloc = parseFloat(userProfile.allocation_mensuelle) || 0;
-            document.getElementById('alloc-badge').innerText = `Allocation : ${alloc > 0 ? alloc.toFixed(2) + '€/mois' : 'non définie'}`;
+            animCounter(document.getElementById('solde-maison'), maisTotal);
+            animCounter(document.getElementById('solde-perso'),  perso);
+            document.getElementById('compact-maison-solde').textContent = maisTotal.toFixed(2)+'€';
+            document.getElementById('alloc-badge').textContent = alloc>0 ? `${alloc.toFixed(2)}€/mois` : 'Allocation non définie';
         }
 
         async function loadAvancesChef() {
@@ -256,432 +368,176 @@
                 .eq('statut', 'attente')
                 .order('created_at', { ascending: true });
 
-            let dettesSum = 0;
-
             if (!data || data.length === 0) {
-                document.getElementById('alert-dot').classList.add('hidden');
-                document.getElementById('total-dettes').innerText = 'Total : 0€';
-                document.getElementById('list-avances-attente').innerHTML = `<p class="text-center text-slate-300 text-[11px] font-bold uppercase py-6">Aucun remboursement en attente</p>`;
+                document.getElementById('total-dettes').classList.add('hidden');
+                document.getElementById('list-avances-attente').innerHTML =
+                    `<div class="text-center py-12"><svg class="w-10 h-10 mx-auto mb-2 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><p class="text-slate-300 text-[11px] font-black uppercase tracking-widest">Aucun remboursement en attente</p></div>`;
                 return;
             }
 
-            document.getElementById('alert-dot').classList.remove('hidden');
+            const totalDettes = data.reduce((s,t)=>s+parseFloat(t.montant),0);
+            const badge = document.getElementById('total-dettes');
+            badge.classList.remove('hidden');
+            badge.textContent = `Total : ${totalDettes.toFixed(2)}€`;
 
-            // Grouper par membre puis par mois
+            // Grouper par membre → puis par mois
             const byMember = {};
             data.forEach(t => {
-                dettesSum += parseFloat(t.montant);
-                if (!byMember[t.user_id]) {
-                    byMember[t.user_id] = {
-                        name: `${escapeHtml(t.profiles?.prenom || '')} ${escapeHtml(t.profiles?.nom || '')}`.trim(),
-                        iban: t.profiles?.iban || null,
-                        months: {}
-                    };
-                }
+                if (!byMember[t.user_id]) byMember[t.user_id] = {
+                    name: `${escapeHtml(t.profiles?.prenom||'')} ${escapeHtml(t.profiles?.nom||'')}`.trim(),
+                    iban: t.profiles?.iban||null, months: {}
+                };
                 const d = new Date(t.created_at);
-                const mKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-                const mLabel = `${MOIS_FR[d.getMonth()]} ${d.getFullYear()}`;
-                if (!byMember[t.user_id].months[mKey]) byMember[t.user_id].months[mKey] = { label: mLabel, txs: [], total: 0 };
+                const mKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+                if (!byMember[t.user_id].months[mKey]) byMember[t.user_id].months[mKey] = { label:`${MOIS_FR[d.getMonth()]} ${d.getFullYear()}`, txs:[], total:0 };
                 byMember[t.user_id].months[mKey].txs.push(t);
                 byMember[t.user_id].months[mKey].total += parseFloat(t.montant);
             });
 
-            document.getElementById('total-dettes').innerText = `Total : ${dettesSum.toFixed(2)}€`;
-
-            document.getElementById('list-avances-attente').innerHTML = Object.entries(byMember).map(([uid, member]) => {
-                const totalMember = Object.values(member.months).reduce((s, m) => s + m.total, 0);
-                const monthsHtml = Object.entries(member.months).sort((a, b) => a[0].localeCompare(b[0])).map(([mKey, month]) => `
-                    <div class="bg-orange-50/50 rounded-2xl border border-orange-100 overflow-hidden mb-3">
-                        <div class="flex justify-between items-center px-4 py-3 border-b border-orange-100">
-                            <p class="text-[10px] font-black uppercase text-orange-700 tracking-wider">${escapeHtml(month.label)}</p>
-                            <p class="text-[11px] font-black text-slate-800">${month.total.toFixed(2)}€</p>
+            document.getElementById('list-avances-attente').innerHTML = Object.entries(byMember).map(([uid, member], mi) => {
+                const totalMember = Object.values(member.months).reduce((s,m)=>s+m.total,0);
+                const monthsHtml = Object.entries(member.months).sort((a,b)=>a[0].localeCompare(b[0])).map(([mKey, month]) => `
+                    <div class="bg-amber-50 rounded-2xl border border-amber-100 overflow-hidden mb-3">
+                        <div class="flex justify-between items-center px-4 py-3 border-b border-amber-100/60">
+                            <p class="text-[10px] font-black uppercase text-amber-700 tracking-wider">${escapeHtml(month.label)}</p>
+                            <p class="text-[12px] font-black text-slate-800">${month.total.toFixed(2)}€</p>
                         </div>
-                        <div class="divide-y divide-orange-50/80">
-                            ${month.txs.map(t => `
-                                <div class="px-4 py-2 flex justify-between items-center">
-                                    <div>
-                                        <p class="text-[10px] font-bold text-slate-600">${escapeHtml(t.motif || '-')}</p>
-                                        <p class="text-[8px] text-slate-400">${new Date(t.created_at).toLocaleDateString('fr-FR')}${t.commentaire ? ' · ' + escapeHtml(t.commentaire) : ''}</p>
-                                    </div>
-                                    <p class="text-[11px] font-black text-slate-700">${parseFloat(t.montant).toFixed(2)}€</p>
+                        <div class="divide-y divide-amber-50">
+                            ${month.txs.map(t=>`
+                            <div class="px-4 py-2.5 flex justify-between items-center">
+                                <div>
+                                    <p class="text-[10px] font-bold text-slate-700">${escapeHtml(t.motif||'-')}</p>
+                                    <p class="text-[8px] text-slate-400">${new Date(t.created_at).toLocaleDateString('fr-FR')}${t.commentaire?' · '+escapeHtml(t.commentaire):''}</p>
                                 </div>
-                            `).join('')}
+                                <p class="text-[11px] font-black text-slate-700">${parseFloat(t.montant).toFixed(2)}€</p>
+                            </div>`).join('')}
                         </div>
                         <div class="px-4 pb-3 pt-2">
-                            <button onclick="validerMois('${escapeHtml(uid)}', '${escapeHtml(mKey)}', ${month.total.toFixed(2)})"
-                                class="w-full bg-orange-500 text-white py-2.5 rounded-xl text-[10px] font-black uppercase shadow-md active:scale-95 transition-all">
-                                Valider virement ${month.total.toFixed(2)}€ — ${escapeHtml(month.label)}
+                            <button onclick="validerMois('${escapeHtml(uid)}','${escapeHtml(mKey)}',${month.total.toFixed(2)})"
+                                class="w-full bg-amber-500 text-white py-2.5 rounded-xl text-[10px] font-black uppercase shadow-md active:scale-95 transition-all">
+                                Valider virement ${month.total.toFixed(2)}€
                             </button>
                         </div>
-                    </div>
-                `).join('');
+                    </div>`).join('');
 
-                return `
-                    <div class="bg-white p-5 rounded-[30px] border border-orange-200 shadow-sm">
-                        <div class="flex justify-between items-center mb-4">
-                            <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-black text-xs">${member.name.charAt(0)}</div>
-                                <p class="font-black text-[12px] text-slate-800 uppercase tracking-widest">${member.name}</p>
-                            </div>
-                            <p class="font-black text-base text-slate-900">${totalMember.toFixed(2)}€</p>
+                return `<div class="bg-white p-5 rounded-[28px] border border-amber-100 shadow-sm anim-slide" style="animation-delay:${mi*.06}s">
+                    <div class="flex justify-between items-center mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-black text-xs flex-shrink-0">${member.name.charAt(0)}</div>
+                            <p class="font-black text-[12px] uppercase tracking-wider text-slate-800">${member.name}</p>
                         </div>
-                        <div class="bg-slate-50 p-3 rounded-2xl flex items-center justify-between gap-3 mb-4">
-                            <p class="text-[9px] font-mono text-slate-400 truncate flex-1">${member.iban ? escapeHtml(member.iban) : 'IBAN MANQUANT'}</p>
-                            ${member.iban ? `<button onclick="copyIban('${escapeHtml(member.iban)}')" class="text-[9px] font-black text-blue-600 uppercase flex-shrink-0">Copier</button>` : ''}
-                        </div>
-                        ${monthsHtml}
-                        <button onclick="validerTout('${escapeHtml(uid)}', ${totalMember.toFixed(2)})"
-                            class="w-full bg-slate-900 text-white py-3 rounded-2xl text-[10px] font-black uppercase shadow-lg active:scale-95 transition-all mt-2">
-                            Tout valider — ${totalMember.toFixed(2)}€
-                        </button>
+                        <p class="font-black text-base text-slate-900">${totalMember.toFixed(2)}€</p>
                     </div>
-                `;
+                    <div class="bg-slate-50 p-3 rounded-2xl flex items-center justify-between gap-3 mb-4">
+                        <p class="text-[9px] font-mono text-slate-500 truncate flex-1 uppercase">${member.iban?escapeHtml(member.iban):'IBAN MANQUANT'}</p>
+                        ${member.iban?`<button onclick="copyIban('${escapeHtml(member.iban)}')" class="text-[9px] font-black text-blue-600 uppercase flex-shrink-0 hover:text-blue-800 transition-colors">Copier</button>`:''}
+                    </div>
+                    ${monthsHtml}
+                    <button onclick="validerTout('${escapeHtml(uid)}',${totalMember.toFixed(2)})"
+                        class="w-full bg-slate-900 text-white py-3.5 rounded-2xl text-[10px] font-black uppercase shadow-lg active:scale-95 transition-all">
+                        Tout valider — ${totalMember.toFixed(2)}€
+                    </button>
+                </div>`;
             }).join('');
         }
 
-        async function validerMois(uid, moisKey, montant) {
-            showConfirm(`Confirmer le virement de ${montant}€ pour ce mois ?`, () => _doValiderMois(uid, moisKey, montant), 'Valider');
+        function validerMois(uid, moisKey, montant) {
+            showConfirm(`Confirmer le virement de ${montant}€ pour ce mois ?`, ()=>_doValiderMois(uid, moisKey, montant), 'Valider');
         }
         async function _doValiderMois(uid, moisKey, montant) {
             const [year, month] = moisKey.split('-');
-            const startDate = `${year}-${month}-01T00:00:00+00:00`;
             const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
-            const endDate = `${year}-${month}-${lastDay}T23:59:59+00:00`;
-
             const { error } = await sb.from('transactions')
-                .update({ statut: 'valide', date_validation: new Date().toISOString() })
-                .eq('user_id', uid)
-                .eq('statut', 'attente')
-                .gte('created_at', startDate)
-                .lte('created_at', endDate);
-
-            if (error) { showToast("Erreur lors de la validation", "error"); return; }
-
+                .update({ statut:'valide', date_validation:new Date().toISOString() })
+                .eq('user_id', uid).eq('statut','attente')
+                .gte('created_at', `${year}-${month}-01T00:00:00+00:00`)
+                .lte('created_at', `${year}-${month}-${lastDay}T23:59:59+00:00`);
+            if (error) { showToast("Erreur","error"); return; }
             await sb.from('notifications').insert([{
-                user_id: uid,
-                message: `Votre chef de maison a effectué un virement de ${montant.toFixed(2)}€ pour vos avances du mois de ${MOIS_FR[parseInt(month) - 1]} ${year}.`,
-                type: 'remboursement',
-                lu: false
+                user_id:uid, lu:false, type:'remboursement',
+                message:`Votre chef de maison a effectué un virement de ${parseFloat(montant).toFixed(2)}€ pour vos avances du mois de ${MOIS_FR[parseInt(month)-1]} ${year}.`
             }]);
-
-            showToast("Virement validé et membre notifié !", "success");
-            refreshAll();
+            showToast("Virement validé !","success"); refreshAll();
         }
 
-        async function validerTout(uid, montantTotal) {
-            showConfirm(`Confirmer le virement global de ${montantTotal.toFixed(2)}€ pour ce membre ?`, () => _doValiderTout(uid, montantTotal), 'Valider');
+        function validerTout(uid, montantTotal) {
+            showConfirm(`Confirmer le virement global de ${montantTotal.toFixed(2)}€ ?`, ()=>_doValiderTout(uid, montantTotal), 'Valider');
         }
         async function _doValiderTout(uid, montantTotal) {
             const { error } = await sb.from('transactions')
-                .update({ statut: 'valide', date_validation: new Date().toISOString() })
-                .eq('user_id', uid)
-                .eq('statut', 'attente')
-                .eq('maison_id', userProfile.maison_id);
-
-            if (error) { showToast("Erreur lors de la validation", "error"); return; }
-
+                .update({ statut:'valide', date_validation:new Date().toISOString() })
+                .eq('user_id', uid).eq('statut','attente').eq('maison_id', userProfile.maison_id);
+            if (error) { showToast("Erreur","error"); return; }
             await sb.from('notifications').insert([{
-                user_id: uid,
-                message: `Votre chef de maison a effectué un virement global de ${montantTotal.toFixed(2)}€ pour toutes vos avances de frais.`,
-                type: 'remboursement',
-                lu: false
+                user_id:uid, lu:false, type:'remboursement',
+                message:`Votre chef de maison a effectué un virement global de ${montantTotal.toFixed(2)}€ pour toutes vos avances de frais.`
             }]);
-
-            showToast("Remboursement validé et membre notifié !", "success");
-            refreshAll();
+            showToast("Remboursement validé !","success"); refreshAll();
         }
 
-        async function loadAuditGlobal() {
-            const { data, error } = await sb.from('transactions')
-                .select('*, profiles(prenom, nom)')
-                .eq('maison_id', userProfile.maison_id)
-                .order('created_at', { ascending: false })
-                .limit(40);
-
-            if (error || !data) return;
-
-            document.getElementById('audit-history').innerHTML = data.length === 0
-                ? `<p class="text-center text-slate-300 text-[11px] font-bold uppercase py-8">Aucune opération</p>`
-                : data.map(t => `
-                    <div class="p-5 border-b border-slate-50 flex justify-between items-center hover:bg-slate-50/50 transition-colors">
-                        <div class="flex items-center gap-4">
-                            <button onclick="supprimerOperation('${escapeHtml(t.id)}')" class="bg-red-50 text-red-300 hover:text-red-500 w-8 h-8 rounded-full flex items-center justify-center transition-all flex-shrink-0">✕</button>
-                            <div>
-                                <p class="font-black uppercase text-[9px] text-slate-400 tracking-widest">${escapeHtml(t.profiles?.prenom || '')} ${escapeHtml(t.profiles?.nom || '')} · ${escapeHtml(t.motif || 'RECETTE')}</p>
-                                <p class="text-[8px] text-slate-300 font-bold mb-1">${new Date(t.created_at).toLocaleDateString('fr-FR')}</p>
-                                <p class="font-bold text-slate-700 text-[11px]">${escapeHtml(t.commentaire || 'Sans commentaire')}</p>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <p class="font-black text-sm ${t.type === 'recette' ? 'text-emerald-500' : 'text-slate-900'}">${t.type === 'recette' ? '+' : '-'}${parseFloat(t.montant).toFixed(2)}€</p>
-                            <p class="text-[8px] uppercase font-black px-2 py-0.5 rounded-full mt-1 inline-block ${t.statut === 'attente' ? 'bg-orange-50 text-orange-500' : 'bg-emerald-50 text-emerald-500'}">${t.statut === 'attente' ? 'En attente' : 'Validé'}</p>
-                        </div>
-                    </div>
-                `).join('');
-        }
-
-        async function submitTransaction() {
-            const amount = parseFloat(document.getElementById('tx-amount').value);
-            const date = document.getElementById('tx-date').value;
-            const note = document.getElementById('tx-note').value.trim();
-            const motif = document.getElementById('tx-motif').value;
-            const method = document.getElementById('tx-method').value;
-            if (!amount || amount <= 0) return showToast("Montant invalide", "error");
-            if (!date) return showToast("Date requise", "error");
-
-            const { error } = await sb.from('transactions').insert([{
-                user_id: userProfile.id,
-                maison_id: userProfile.maison_id,
-                montant: amount,
-                motif: currentType === 'recette' ? 'RECETTE' : motif,
-                commentaire: note || null,
-                created_at: new Date(date).toISOString(),
-                type: currentType,
-                methode_paiement: currentType === 'recette' ? null : method,
-                statut: (currentType === 'depense' && method.startsWith('perso_')) ? 'attente' : 'valide'
-            }]);
-
-            if (error) showToast("Erreur : " + error.message, "error");
-            else {
-                document.getElementById('tx-amount').value = '';
-                document.getElementById('tx-note').value = '';
-                showToast("Opération enregistrée !", "success");
-                refreshAll();
-            }
-        }
-
-        async function loadMotifs() {
-            const { data } = await sb.from('motifs').select('nom').order('nom');
-            document.getElementById('tx-motif').innerHTML = (data || []).map(m => `<option value="${escapeHtml(m.nom)}">${escapeHtml(m.nom.toUpperCase())}</option>`).join('');
-        }
-
-        async function loadMembres() {
-            const { data, error } = await sb.from('profiles').select('*').eq('maison_id', userProfile.maison_id);
-            if (error || !data) return;
-            document.getElementById('list-membres').innerHTML = data.map(m => `
-                <div class="bg-white p-5 rounded-[30px] flex justify-between items-center shadow-sm border border-slate-50">
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2 mb-1">
-                            <p class="font-black text-xs uppercase text-slate-800">${escapeHtml(m.prenom)} ${escapeHtml(m.nom || '')}</p>
-                            ${m.role === 'chef' ? '<span class="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-black flex-shrink-0">CHEF</span>' : ''}
-                        </div>
-                        <p class="text-[9px] text-slate-400 font-bold uppercase mb-2">Allocation : ${parseFloat(m.allocation_mensuelle || 0) > 0 ? parseFloat(m.allocation_mensuelle).toFixed(2) + '€/mois' : 'non définie'}</p>
-                        <div class="bg-slate-50 p-3 rounded-2xl flex items-center justify-between gap-3">
-                            <p class="text-[9px] font-mono text-slate-500 truncate uppercase">${m.iban ? escapeHtml(m.iban) : 'IBAN NON RENSEIGNÉ'}</p>
-                            ${m.iban ? `<button onclick="copyIban('${escapeHtml(m.iban)}')" class="text-[9px] font-black text-blue-600 uppercase flex-shrink-0">Copier</button>` : ''}
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function exportMaisonExcel() {
-            showPromptDouble('Mois', 'Année', new Date().getFullYear(), (moisInput, anneeInput) => _doExportExcel(moisInput, anneeInput));
-        }
-        async function _doExportExcel(mois, anneeInput) {
-
-            const { data: txData, error: txErr } = await sb.from('transactions')
-                .select('*, profiles(prenom, nom)')
-                .eq('maison_id', userProfile.maison_id);
-            const { data: membersData } = await sb.from('profiles')
-                .select('prenom, nom, allocation_mensuelle')
-                .eq('maison_id', userProfile.maison_id);
-
-            if (txErr || !txData) return showToast("Erreur lors de la récupération des données", "error");
-
-            const filteredTx = txData.filter(t => t.created_at.includes(`${anneeInput}-${mois}-`));
-            let finalRows = [], totalRecettes = 0, totalDepenses = 0, syntheseMotifs = {};
-
-            (membersData || []).forEach(m => {
-                const alloc = parseFloat(m.allocation_mensuelle) || 0;
-                if (alloc > 0) {
-                    finalRows.push({ "Date": `01/${mois}/${anneeInput}`, "Membre": `${m.prenom} ${m.nom || ''}`.trim(), "Type": "RECETTE", "Motif": "ALLOCATION MENSUELLE", "Montant (€)": alloc, "Méthode": "VERSEMENT", "Note": "Prévu", "Statut": "Validé" });
-                    totalRecettes += alloc;
-                }
-            });
-
-            filteredTx.forEach(t => {
-                const mt = parseFloat(t.montant);
-                finalRows.push({ "Date": new Date(t.created_at).toLocaleDateString('fr-FR'), "Membre": `${t.profiles?.prenom || ''} ${t.profiles?.nom || ''}`.trim(), "Type": t.type.toUpperCase(), "Motif": t.motif || 'RECETTE', "Montant (€)": mt, "Méthode": t.methode_paiement || 'N/A', "Note": t.commentaire || '', "Statut": t.statut === 'attente' ? 'En attente' : 'Validé' });
-                if (t.type === 'recette') { totalRecettes += mt; } else { totalDepenses += mt; syntheseMotifs[t.motif] = (syntheseMotifs[t.motif] || 0) + mt; }
-            });
-
-            const ws = XLSX.utils.json_to_sheet(finalRows);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Journal");
-
-            let resumeRows = [
-                { "Catégorie": "TOTAL RECETTES (Allocations incluses)", "Valeur (€)": totalRecettes },
-                { "Catégorie": "TOTAL DÉPENSES", "Valeur (€)": totalDepenses },
-                { "Catégorie": "SOLDE DU MOIS", "Valeur (€)": totalRecettes - totalDepenses },
-                { "Catégorie": "", "Valeur (€)": "" },
-                { "Catégorie": "DÉTAIL PAR MOTIF", "Valeur (€)": "" }
-            ];
-            Object.entries(syntheseMotifs).forEach(([motif, val]) => resumeRows.push({ "Catégorie": motif, "Valeur (€)": val }));
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumeRows), "Bilan");
-            XLSX.writeFile(wb, `SMMD_${userProfile.maisons?.nom || 'Maison'}_${mois}_${anneeInput}.xlsx`);
-            showToast("Fichier Excel exporté !", "success");
-        }
-
-        function setTxType(type) {
-            currentType = type;
-            const isR = type === 'recette';
-            document.getElementById('container-motif').classList.toggle('hidden', isR);
-            document.getElementById('container-paiement').classList.toggle('hidden', isR);
-            document.getElementById('tab-depense').className = isR
-                ? "flex-1 py-3 rounded-[18px] font-black text-[10px] uppercase transition-all text-slate-400"
-                : "flex-1 py-3 rounded-[18px] font-black text-[10px] uppercase transition-all tab-active";
-            document.getElementById('tab-recette').className = isR
-                ? "flex-1 py-3 rounded-[18px] font-black text-[10px] uppercase transition-all bg-emerald-500 text-white shadow-lg"
-                : "flex-1 py-3 rounded-[18px] font-black text-[10px] uppercase transition-all text-slate-400";
-        }
-
-        function openSettingsModal() {
-            document.getElementById('settings-modal').classList.remove('hidden');
-            document.getElementById('settings-iban').value = userProfile.iban || '';
-            document.getElementById('settings-allocation').value = parseFloat(userProfile.allocation_mensuelle) || '';
-        }
-        function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
-
-        async function updateAllocation() {
-            const val = parseFloat(document.getElementById('settings-allocation').value);
-            if (isNaN(val) || val < 0) return showToast("Montant invalide", "error");
-            const { error } = await sb.from('profiles').update({ allocation_mensuelle: val }).eq('id', userProfile.id);
-            if (error) { showToast("Erreur de mise à jour", "error"); return; }
-            userProfile.allocation_mensuelle = val;
-            showToast("Allocation mise à jour !", "success");
-            refreshAll();
-        }
-
-        async function updateIban() {
-            const raw = document.getElementById('settings-iban').value.trim();
-            const errEl = document.getElementById('iban-error');
-            if (raw && !validateIban(raw)) { errEl.classList.remove('hidden'); return; }
-            errEl.classList.add('hidden');
-            const normalized = raw ? normalizeIban(raw) : null;
-            const { error } = await sb.from('profiles').update({ iban: normalized }).eq('id', userProfile.id);
-            if (error) { showToast("Erreur de mise à jour", "error"); return; }
-            userProfile.iban = normalized;
-            document.getElementById('settings-iban').value = normalized || '';
-            showToast("IBAN mis à jour !", "success");
-            loadMembres();
-        }
-
-        async function updatePassword() {
-            const newPass = document.getElementById('settings-pass').value;
-            if (newPass.length < 6) return showToast("6 caractères minimum", "error");
-            const { error } = await sb.auth.updateUser({ password: newPass });
-            if (error) showToast(error.message, "error");
-            else { showToast("Mot de passe modifié !", "success"); closeSettingsModal(); }
-        }
-
-        function supprimerOperation(id) {
-            showConfirm('Supprimer cette opération ?', () => _doSupprimer(id), 'Supprimer', true);
-        }
-        async function _doSupprimer(id) {
-            const { error } = await sb.from('transactions').delete().eq('id', id).eq('maison_id', userProfile.maison_id);
-            if (error) showToast("Erreur lors de la suppression", "error");
-            else { showToast("Opération supprimée", "info"); refreshAll(); }
-        }
-
-        function copyIban(iban) {
-            if (!iban) return;
-            navigator.clipboard.writeText(iban).then(() => showToast("IBAN copié !", "success")).catch(() => showToast("Impossible de copier", "error"));
-        }
-
-        // --- Génère la liste des mois depuis jan. 2026 jusqu'au mois courant ---
+        // ── VERSEMENTS TIMELINE ──
         function getMoisDepuis2026() {
-            const liste = [];
-            const debut = new Date(2026, 0, 1);
-            const now = new Date();
-            let cur = new Date(debut);
-            while (cur <= now) {
-                liste.push({ mois: cur.getMonth() + 1, annee: cur.getFullYear() });
-                cur.setMonth(cur.getMonth() + 1);
-            }
-            return liste.reverse(); // Plus récent en premier
+            const liste=[], debut=new Date(2026,0,1), now=new Date();
+            let cur=new Date(debut);
+            while(cur<=now){ liste.push({mois:cur.getMonth()+1, annee:cur.getFullYear()}); cur.setMonth(cur.getMonth()+1); }
+            return liste.reverse();
         }
 
         async function loadVersements() {
-            const MOIS_LABELS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-            const now = new Date();
-            const moisCourant = now.getMonth() + 1;
-            const anneeCourante = now.getFullYear();
-
-            // Tous les membres de la maison
-            const { data: membres } = await sb.from('profiles')
-                .select('*')
-                .eq('maison_id', userProfile.maison_id)
-                .order('prenom');
-
-            // Tous les versements de la maison (tous mois confondus)
-            const { data: tousVersements } = await sb.from('allocations_versees')
-                .select('*')
-                .eq('maison_id', userProfile.maison_id);
-
-            const versements = tousVersements || [];
+            const { data: membres } = await sb.from('profiles').select('*').eq('maison_id', userProfile.maison_id).order('prenom');
+            const { data: tousVers } = await sb.from('allocations_versees').select('*').eq('maison_id', userProfile.maison_id);
+            const vers = tousVers||[];
             const allMois = getMoisDepuis2026();
+            const now = new Date(), moisCur=now.getMonth()+1, anneeCur=now.getFullYear();
 
-            // Badge nav : combien de mois ont au moins un membre non versé
-            let totalNonVerses = 0;
-            allMois.forEach(({ mois, annee }) => {
-                (membres || []).forEach(m => {
-                    const alloc = parseFloat(m.allocation_mensuelle) || 0;
-                    if (alloc <= 0) return;
-                    const deja = versements.find(v => v.user_id === m.id && v.mois === mois && v.annee === annee);
-                    if (!deja) totalNonVerses++;
+            let totalNV = 0;
+            allMois.forEach(({mois,annee}) => {
+                (membres||[]).forEach(m => {
+                    if (parseFloat(m.allocation_mensuelle)>0 && !vers.find(v=>v.user_id===m.id&&v.mois===mois&&v.annee===annee)) totalNV++;
                 });
             });
 
-            const dot = document.getElementById('nav-versements-dot');
+            const dot = document.getElementById('bar-dot');
             const badge = document.getElementById('versements-badge');
-            if (totalNonVerses > 0) {
-                dot.classList.remove('hidden');
-                badge.classList.remove('hidden');
-                badge.innerText = `${totalNonVerses} versement${totalNonVerses > 1 ? 's' : ''} en attente`;
-            } else {
-                dot.classList.add('hidden');
-                badge.classList.add('hidden');
-            }
+            if (totalNV>0) { dot.classList.remove('hidden'); badge.classList.remove('hidden'); badge.textContent=`${totalNV} en attente`; }
+            else           { dot.classList.add('hidden');    badge.classList.add('hidden'); }
 
-            // Rendu HTML : une carte par mois
-            const html = allMois.map(({ mois, annee }) => {
-                const isCurrent = mois === moisCourant && annee === anneeCourante;
-                const moisLabel = `${MOIS_LABELS[mois-1]} ${annee}`;
-                const membresAvecAlloc = (membres || []).filter(m => parseFloat(m.allocation_mensuelle) > 0);
-                const membresZeroAlloc = (membres || []).filter(m => !(parseFloat(m.allocation_mensuelle) > 0));
+            document.getElementById('list-versements').innerHTML = allMois.map(({mois, annee}, idx) => {
+                const isCur = mois===moisCur && annee===anneeCur;
+                const moisLabel = `${MOIS_FR[mois-1]} ${annee}`;
+                const withAlloc = (membres||[]).filter(m=>parseFloat(m.allocation_mensuelle)>0);
+                const noAlloc   = (membres||[]).filter(m=>!(parseFloat(m.allocation_mensuelle)>0));
+                const nonVerses = withAlloc.filter(m=>!vers.find(v=>v.user_id===m.id&&v.mois===mois&&v.annee===annee));
+                const totalMois = withAlloc.reduce((s,m)=>s+parseFloat(m.allocation_mensuelle),0);
 
-                if (membresAvecAlloc.length === 0 && membresZeroAlloc.length === 0) return '';
-
-                const rows = membresAvecAlloc.map(m => {
+                const rowsOk = withAlloc.map(m => {
+                    const v = vers.find(v=>v.user_id===m.id&&v.mois===mois&&v.annee===annee);
                     const alloc = parseFloat(m.allocation_mensuelle);
-                    const verse = versements.find(v => v.user_id === m.id && v.mois === mois && v.annee === annee);
-                    const uid = `chk-${mois}-${annee}-${m.id}`;
-                    return `
-                        <div class="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
-                            <div class="flex items-center gap-3">
-                                ${!verse ? `<button type="button" id="${uid}" data-uid="${m.id}" data-alloc="${alloc}" data-nom="${escapeHtml(m.prenom)} ${escapeHtml(m.nom||'')}" data-mois="${mois}" data-annee="${annee}" data-checked="false"
-                                        onclick="toggleCheck(this)"
-                                        class="w-6 h-6 rounded-lg border-2 border-slate-200 flex-shrink-0 flex items-center justify-center transition-all bg-white hover:border-amber-300">
-                                    <svg class="w-3.5 h-3.5 text-white hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                                </button>` : `<span class="w-6 h-6 rounded-lg bg-emerald-500 flex items-center justify-center flex-shrink-0">
+                    const btnId = `chk-${mois}-${annee}-${m.id}`;
+                    return `<div class="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
+                        <div class="flex items-center gap-3">
+                            ${!v
+                                ? `<button type="button" id="${btnId}" onclick="toggleCheck(this)"
+                                    data-uid="${m.id}" data-alloc="${alloc}" data-nom="${escapeHtml(m.prenom)} ${escapeHtml(m.nom||'')}" data-mois="${mois}" data-annee="${annee}" data-checked="false"
+                                    class="check-toggle w-6 h-6 rounded-lg border-2 border-slate-200 flex-shrink-0 flex items-center justify-center bg-white hover:border-amber-300">
                                     <svg class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                                </span>`}
-                                <div>
-                                    <p class="text-[11px] font-black uppercase text-slate-800">${escapeHtml(m.prenom)} ${escapeHtml(m.nom||'')}</p>
-                                    <p class="text-[9px] font-bold ${verse ? 'text-emerald-600' : 'text-slate-400'}">
-                                        ${verse ? '✓ Versé le ' + new Date(verse.created_at).toLocaleDateString('fr-FR') : 'En attente'}
-                                    </p>
-                                </div>
+                                  </button>`
+                                : `<span class="w-6 h-6 rounded-lg bg-emerald-500 flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                   </span>`}
+                            <div>
+                                <p class="text-[11px] font-black uppercase text-slate-800">${escapeHtml(m.prenom)} ${escapeHtml(m.nom||'')}</p>
+                                <p class="text-[9px] font-bold ${v?'text-emerald-600':'text-slate-400'}">${v?'✓ Versé le '+new Date(v.created_at).toLocaleDateString('fr-FR'):'En attente'}</p>
                             </div>
-                            <p class="font-black text-[13px] ${verse ? 'text-emerald-600' : 'text-slate-700'}">${alloc.toFixed(2)}€</p>
-                        </div>`;
+                        </div>
+                        <p class="font-black text-[13px] ${v?'text-emerald-600':'text-slate-700'}">${alloc.toFixed(2)}€</p>
+                    </div>`;
                 }).join('');
 
-                const rowsBlocked = membresZeroAlloc.map(m => `
-                    <div class="flex items-center justify-between py-3 border-b border-slate-50 last:border-0 opacity-40">
+                const rowsBlocked = noAlloc.map(m=>`
+                    <div class="flex items-center justify-between py-2.5 border-b border-slate-50 last:border-0 opacity-40">
                         <div class="flex items-center gap-3">
-                            <span class="w-5 h-5 rounded-md border-2 border-red-200 bg-red-50 flex items-center justify-center flex-shrink-0 text-[9px]">!</span>
+                            <span class="w-6 h-6 rounded-lg border-2 border-red-200 bg-red-50 flex items-center justify-center text-red-400 text-[10px] font-black flex-shrink-0">!</span>
                             <div>
                                 <p class="text-[11px] font-black uppercase text-slate-500">${escapeHtml(m.prenom)} ${escapeHtml(m.nom||'')}</p>
                                 <p class="text-[9px] font-bold text-red-400">Allocation non définie</p>
@@ -690,155 +546,223 @@
                         <p class="text-[10px] font-black text-red-300">--</p>
                     </div>`).join('');
 
-                const nonVersesCount = membresAvecAlloc.filter(m => !versements.find(v => v.user_id === m.id && v.mois === mois && v.annee === annee)).length;
-                const totalMois = membresAvecAlloc.reduce((s, m) => s + parseFloat(m.allocation_mensuelle), 0);
-
-                return `
-                <div class="bg-white rounded-[32px] border ${isCurrent ? 'border-amber-200 shadow-md shadow-amber-50' : 'border-slate-100 shadow-sm'} overflow-hidden">
-                    <div class="px-6 pt-5 pb-4 flex justify-between items-center border-b border-slate-50">
-                        <div class="flex items-center gap-3">
-                            ${isCurrent ? '<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>' : '<span class="w-2 h-2 rounded-full bg-slate-200"></span>'}
+                return `<div class="bg-white rounded-[28px] border ${isCur?'border-amber-200 shadow-md':'border-slate-100 shadow-sm'} overflow-hidden anim-slide" style="animation-delay:${idx*.03}s">
+                    <div class="px-5 py-4 flex justify-between items-center border-b border-slate-50">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-2 h-2 rounded-full ${isCur?'bg-amber-400 pulse-amber':'bg-slate-200'}"></span>
                             <p class="font-black text-[13px] uppercase tracking-widest text-slate-800">${moisLabel}</p>
                         </div>
                         <div class="flex items-center gap-3">
-                            ${nonVersesCount > 0 ? `
-                                <button onclick="toutCocher(${mois}, ${annee})" class="text-[9px] font-black text-amber-600 uppercase tracking-widest hover:text-amber-800 transition-colors">
-                                    Tout cocher
-                                </button>
-                                <button onclick="validerSelection(${mois}, ${annee})" class="bg-amber-500 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase shadow-md active:scale-95 transition-all">
-                                    Valider (${nonVersesCount})
-                                </button>` : `<span class="text-[10px] font-black text-emerald-600 uppercase tracking-widest">✓ Complet</span>`}
+                            ${nonVerses.length>0
+                                ? `<button onclick="toutCocher(${mois},${annee})" class="text-[9px] font-black text-amber-600 uppercase hover:text-amber-800 transition-colors">Tout cocher</button>
+                                   <button onclick="validerSelection(${mois},${annee})" class="bg-amber-500 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase shadow-md active:scale-95 transition-all">Valider (${nonVerses.length})</button>`
+                                : `<span class="text-[10px] font-black text-emerald-600 uppercase tracking-widest">✓ Complet</span>`}
                         </div>
                     </div>
-                    <div class="px-6 py-2">
-                        ${rows}
-                        ${rowsBlocked}
-                    </div>
-                    <div class="px-6 pb-4 pt-2 flex justify-between items-center">
-                        <p class="text-[9px] text-slate-300 font-bold uppercase tracking-widest">${membresAvecAlloc.length} membre${membresAvecAlloc.length > 1 ? 's' : ''}</p>
+                    <div class="px-5 py-1">${rowsOk}${rowsBlocked}</div>
+                    <div class="px-5 pb-4 pt-2 flex justify-between items-center">
+                        <p class="text-[9px] text-slate-300 font-bold uppercase tracking-widest">${withAlloc.length} membre${withAlloc.length>1?'s':''}</p>
                         <p class="text-[11px] font-black text-slate-500">Total : ${totalMois.toFixed(2)}€</p>
                     </div>
                 </div>`;
             }).join('');
-
-            document.getElementById('list-versements').innerHTML = html ||
-                `<p class="text-center text-slate-300 text-[11px] font-bold uppercase py-6">Aucun membre dans cette maison</p>`;
         }
 
         function toggleCheck(btn) {
-            const checked = btn.dataset.checked === 'true';
-            btn.dataset.checked = (!checked).toString();
-            const svg = btn.querySelector('svg');
-            if (!checked) {
-                btn.classList.remove('border-slate-200', 'bg-white');
-                btn.classList.add('bg-amber-500', 'border-amber-500');
-                svg.classList.remove('hidden');
-            } else {
-                btn.classList.add('border-slate-200', 'bg-white');
-                btn.classList.remove('bg-amber-500', 'border-amber-500');
-                svg.classList.add('hidden');
-            }
+            const on = btn.dataset.checked==='true';
+            btn.dataset.checked = (!on).toString();
+            btn.classList.toggle('checked', !on);
         }
-
         function toutCocher(mois, annee) {
-            const btns = document.querySelectorAll(`button[data-mois="${mois}"][data-annee="${annee}"]`);
-            btns.forEach(btn => {
-                btn.dataset.checked = 'true';
-                btn.classList.remove('border-slate-200', 'bg-white');
-                btn.classList.add('bg-amber-500', 'border-amber-500');
-                btn.querySelector('svg').classList.remove('hidden');
+            document.querySelectorAll(`button[data-mois="${mois}"][data-annee="${annee}"]`).forEach(btn=>{
+                btn.dataset.checked='true'; btn.classList.add('checked');
             });
         }
-
         async function validerSelection(mois, annee) {
-            const MOIS_LABELS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-            const checkboxes = document.querySelectorAll(`button[data-mois="${mois}"][data-annee="${annee}"][data-checked="true"]`);
-
-            if (checkboxes.length === 0) {
-                showToast("Cochez au moins un membre à valider", "warning");
-                return;
-            }
-
-            // Vérifier qu'aucun membre coché n'a une allocation à 0
-            let blocage = false;
-            checkboxes.forEach(cb => {
-                const alloc = parseFloat(cb.dataset.alloc);
-                if (!alloc || alloc <= 0) {
-                    showToast(`${cb.dataset.nom} n'a pas d'allocation définie — définissez-la d'abord dans l'annuaire`, "error");
-                    blocage = true;
-                }
-            });
+            const btns = document.querySelectorAll(`button[data-mois="${mois}"][data-annee="${annee}"][data-checked="true"]`);
+            if (!btns.length) return showToast("Cochez au moins un membre","warning");
+            let blocage=false;
+            btns.forEach(b=>{ if(!parseFloat(b.dataset.alloc)||parseFloat(b.dataset.alloc)<=0){ showToast(`${b.dataset.nom} n'a pas d'allocation définie`,"error"); blocage=true; } });
             if (blocage) return;
-
-            const inserts = [];
-            const notifs = [];
-            checkboxes.forEach(cb => {
-                inserts.push({
-                    user_id: cb.dataset.uid,
-                    maison_id: userProfile.maison_id,
-                    mois: parseInt(mois),
-                    annee: parseInt(annee),
-                    montant: parseFloat(cb.dataset.alloc),
-                    valide_par: userProfile.id
-                });
-                notifs.push({
-                    user_id: cb.dataset.uid,
-                    message: `Votre allocation de ${MOIS_LABELS[mois-1]} ${annee} (${parseFloat(cb.dataset.alloc).toFixed(2)}€) a été versée par votre chef de maison.`,
-                    type: 'allocation',
-                    lu: false
-                });
+            const inserts=[], notifs=[];
+            btns.forEach(b=>{
+                inserts.push({ user_id:b.dataset.uid, maison_id:userProfile.maison_id, mois:parseInt(mois), annee:parseInt(annee), montant:parseFloat(b.dataset.alloc), valide_par:userProfile.id });
+                notifs.push({ user_id:b.dataset.uid, lu:false, type:'allocation', message:`Votre allocation de ${MOIS_FR[mois-1]} ${annee} (${parseFloat(b.dataset.alloc).toFixed(2)}€) a été versée par votre chef de maison.` });
             });
-
             const { error } = await sb.from('allocations_versees').insert(inserts);
-            if (error) {
-                showToast("Erreur lors de la validation : " + error.message, "error");
-                return;
-            }
+            if (error) { showToast("Erreur : "+error.message,"error"); return; }
+            if (notifs.length) await sb.from('notifications').insert(notifs);
+            showToast(`${inserts.length} versement${inserts.length>1?'s':''} validé${inserts.length>1?'s':''} !`,"success");
+            await loadVersements(); refreshSoldes();
+        }
 
-            if (notifs.length > 0) await sb.from('notifications').insert(notifs);
+        async function loadAuditGlobal() {
+            const { data } = await sb.from('transactions')
+                .select('*, profiles(prenom, nom)').eq('maison_id', userProfile.maison_id)
+                .order('created_at',{ascending:false}).limit(30);
+            document.getElementById('audit-history').innerHTML = !data||!data.length
+                ? `<div class="text-center py-10"><svg class="w-10 h-10 mx-auto mb-2 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg><p class="text-slate-300 text-[11px] font-black uppercase tracking-widest">Aucune opération</p></div>`
+                : data.map((t,i)=>`
+                <div class="flex justify-between items-center p-4 bg-white rounded-[20px] border border-slate-100 anim-slide" style="animation-delay:${i*.03}s">
+                    <div class="flex items-center gap-3">
+                        <button onclick="supprimerOperation('${escapeHtml(t.id)}')" class="bg-red-50 text-red-300 hover:text-red-500 w-8 h-8 rounded-full flex items-center justify-center transition-all flex-shrink-0 text-sm">✕</button>
+                        <div>
+                            <p class="text-[10px] font-black uppercase text-slate-500 tracking-wide">${escapeHtml(t.profiles?.prenom||'')} ${escapeHtml(t.profiles?.nom||'')} · ${escapeHtml(t.motif||'RECETTE')}</p>
+                            <p class="text-[9px] text-slate-300 font-bold">${new Date(t.created_at).toLocaleDateString('fr-FR')}</p>
+                            ${t.commentaire?`<p class="text-[10px] font-bold text-slate-700">${escapeHtml(t.commentaire)}</p>`:''}
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-black text-sm ${t.type==='recette'?'text-emerald-500':'text-slate-900'}">${t.type==='recette'?'+':'-'}${parseFloat(t.montant).toFixed(2)}€</p>
+                        <span class="text-[8px] uppercase font-black px-2 py-0.5 rounded-full ${t.statut==='attente'?'bg-amber-50 text-amber-500':'bg-emerald-50 text-emerald-500'}">${t.statut==='attente'?'En attente':'Validé'}</span>
+                    </div>
+                </div>`).join('');
+        }
 
-            showToast(`${inserts.length} versement${inserts.length > 1 ? 's' : ''} validé${inserts.length > 1 ? 's' : ''} pour ${MOIS_LABELS[mois-1]} ${annee} !`, "success");
-            await loadVersements();
-            refreshSoldes();
+        async function loadMembres() {
+            const { data } = await sb.from('profiles').select('*').eq('maison_id', userProfile.maison_id);
+            document.getElementById('list-membres').innerHTML = (data||[]).map((m,i)=>`
+                <div class="bg-white p-5 rounded-[26px] border border-slate-100 shadow-sm anim-slide" style="animation-delay:${i*.04}s">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-9 h-9 rounded-full bg-blue-900 text-white flex items-center justify-center font-black text-xs flex-shrink-0 italic">${escapeHtml((m.prenom||'?')[0])}</div>
+                        <div>
+                            <p class="font-black text-[12px] uppercase tracking-wider text-slate-800">${escapeHtml(m.prenom)} ${escapeHtml(m.nom||'')}</p>
+                            <p class="text-[9px] font-bold text-slate-400 uppercase">${m.role==='chef'?'Chef de Maison':'Membre'} · ${parseFloat(m.allocation_mensuelle||0)>0?parseFloat(m.allocation_mensuelle).toFixed(2)+'€/mois':'Allocation non définie'}</p>
+                        </div>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-2xl flex items-center justify-between gap-3">
+                        <p class="text-[9px] font-mono text-slate-500 truncate uppercase">${m.iban?escapeHtml(m.iban):'IBAN NON RENSEIGNÉ'}</p>
+                        ${m.iban?`<button onclick="copyIban('${escapeHtml(m.iban)}')" class="text-[9px] font-black text-blue-600 uppercase flex-shrink-0 hover:text-blue-800 transition-colors">Copier</button>`:''}
+                    </div>
+                </div>`).join('');
+        }
+
+        async function submitTransaction() {
+            const amount=parseFloat(document.getElementById('tx-amount').value);
+            const date=document.getElementById('tx-date').value;
+            const note=document.getElementById('tx-note').value.trim();
+            const motif=document.getElementById('tx-motif').value;
+            const method=document.getElementById('tx-method').value;
+            if(!amount||amount<=0) return showToast("Montant invalide","error");
+            if(!date) return showToast("Date requise","error");
+            const btn=document.getElementById('submit-btn');
+            btn.textContent='...'; btn.disabled=true;
+            const {error}=await sb.from('transactions').insert([{
+                user_id:userProfile.id, maison_id:userProfile.maison_id, montant:amount,
+                motif:currentType==='recette'?'RECETTE':motif, commentaire:note||null,
+                created_at:new Date(date).toISOString(), type:currentType,
+                methode_paiement:currentType==='recette'?null:method,
+                statut:(currentType==='depense'&&method.startsWith('perso_'))?'attente':'valide'
+            }]);
+            btn.textContent='Enregistrer'; btn.disabled=false;
+            if(error){showToast("Erreur : "+error.message,"error");return;}
+            document.getElementById('tx-amount').value='';
+            document.getElementById('tx-note').value='';
+            showToast("Opération enregistrée !","success");
+            refreshAll();
+        }
+
+        async function loadMotifs() {
+            const {data}=await sb.from('motifs').select('nom').order('nom');
+            document.getElementById('tx-motif').innerHTML=(data||[]).map(m=>`<option value="${escapeHtml(m.nom)}">${escapeHtml(m.nom.toUpperCase())}</option>`).join('');
+        }
+
+        function setTxType(type) {
+            currentType=type; const isR=type==='recette';
+            document.getElementById('container-motif').classList.toggle('hidden',isR);
+            document.getElementById('container-paiement').classList.toggle('hidden',isR);
+            document.getElementById('tab-depense').className=`tab-btn ${isR?'':'tab-active'} flex-1 py-3.5 rounded-[18px] font-black text-[11px] uppercase tracking-widest ${isR?'text-slate-400':''}`;
+            document.getElementById('tab-recette').className=`tab-btn ${isR?'tab-recette-act':''} flex-1 py-3.5 rounded-[18px] font-black text-[11px] uppercase tracking-widest ${isR?'':'text-slate-400'}`;
+        }
+
+        function exportMaisonExcel() {
+            showPromptDouble('Mois','Année',new Date().getFullYear(),(mois,annee)=>_doExportExcel(mois,annee));
+        }
+        async function _doExportExcel(mois, annee) {
+            const { data: txData } = await sb.from('transactions').select('*, profiles(prenom,nom)').eq('maison_id', userProfile.maison_id);
+            const { data: avData } = await sb.from('allocations_versees').select('*, profiles(prenom,nom)').eq('maison_id', userProfile.maison_id).eq('mois',parseInt(mois)).eq('annee',parseInt(annee));
+            const filteredTx = (txData||[]).filter(t=>t.created_at.includes(`${annee}-${mois}-`));
+            let rows=[], totalR=0, totalD=0, motifMap={};
+            (avData||[]).forEach(a=>{
+                const mt=parseFloat(a.montant);
+                rows.push({"Date":`01/${mois}/${annee}`,"Membre":`${a.profiles?.prenom||''} ${a.profiles?.nom||''}`.trim(),"Type":"RECETTE","Motif":"ALLOCATION VERSÉE","Montant (€)":mt,"Méthode":"VIREMENT","Statut":"Validé","Note":""});
+                totalR+=mt;
+            });
+            filteredTx.forEach(t=>{
+                const mt=parseFloat(t.montant);
+                rows.push({"Date":new Date(t.created_at).toLocaleDateString('fr-FR'),"Membre":`${t.profiles?.prenom||''} ${t.profiles?.nom||''}`.trim(),"Type":t.type.toUpperCase(),"Motif":t.motif||'RECETTE',"Montant (€)":mt,"Méthode":t.methode_paiement||'N/A',"Statut":t.statut==='attente'?'En attente':'Validé',"Note":t.commentaire||''});
+                if(t.type==='recette') totalR+=mt; else { totalD+=mt; motifMap[t.motif]=(motifMap[t.motif]||0)+mt; }
+            });
+            const ws=XLSX.utils.json_to_sheet(rows);
+            const wb=XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb,ws,"Journal");
+            const resume=[
+                {"Catégorie":"TOTAL RECETTES","Valeur (€)":totalR},
+                {"Catégorie":"TOTAL DÉPENSES","Valeur (€)":totalD},
+                {"Catégorie":"SOLDE DU MOIS","Valeur (€)":totalR-totalD},
+                {"Catégorie":"","Valeur (€)":""},
+                {"Catégorie":"DÉTAIL PAR MOTIF","Valeur (€)":""},
+                ...Object.entries(motifMap).map(([k,v])=>({"Catégorie":k,"Valeur (€)":v}))
+            ];
+            XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(resume),"Bilan");
+            XLSX.writeFile(wb,`SMMD_${userProfile.maisons?.nom||'Maison'}_${mois}_${annee}.xlsx`);
+            showToast("Export Excel prêt !","success");
+        }
+
+        async function updateAllocation() {
+            const val=parseFloat(document.getElementById('settings-allocation').value);
+            if(isNaN(val)||val<0) return showToast("Montant invalide","error");
+            const{error}=await sb.from('profiles').update({allocation_mensuelle:val}).eq('id',userProfile.id);
+            if(error){showToast("Erreur","error");return;}
+            userProfile.allocation_mensuelle=val; showToast("Allocation mise à jour !","success"); refreshSoldes(); loadVersements();
+        }
+        async function updateIban() {
+            const raw=document.getElementById('settings-iban').value.trim();
+            const errEl=document.getElementById('iban-error');
+            if(raw&&!validateIban(raw)){errEl.classList.remove('hidden');return;}
+            errEl.classList.add('hidden');
+            const normalized=raw?normalizeIban(raw):null;
+            const{error}=await sb.from('profiles').update({iban:normalized}).eq('id',userProfile.id);
+            if(error){showToast("Erreur","error");return;}
+            userProfile.iban=normalized; showToast("IBAN mis à jour !","success"); loadMembres();
+        }
+        async function updatePassword() {
+            const p=document.getElementById('settings-pass').value;
+            if(p.length<6) return showToast("6 caractères minimum","error");
+            const{error}=await sb.auth.updateUser({password:p});
+            if(error) showToast(error.message,"error");
+            else{showToast("Mot de passe modifié !","success");document.getElementById('settings-pass').value='';}
+        }
+
+        function supprimerOperation(id) {
+            showConfirm('Supprimer cette opération ?',()=>_doSupprimer(id),'Supprimer',true);
+        }
+        async function _doSupprimer(id) {
+            const{error}=await sb.from('transactions').delete().eq('id',id).eq('maison_id',userProfile.maison_id);
+            if(error) showToast("Erreur","error"); else{showToast("Supprimé","info");refreshAll();}
+        }
+
+        function copyIban(iban) {
+            navigator.clipboard.writeText(iban).then(()=>showToast("IBAN copié !","success")).catch(()=>showToast("Impossible de copier","error"));
         }
 
         async function checkAllocVersee() {
-            const alloc = parseFloat(userProfile.allocation_mensuelle) || 0;
-            if (alloc <= 0) return;
-            const now = new Date();
-            const mois = now.getMonth() + 1;
-            const annee = now.getFullYear();
-            const MOIS_LABELS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-
-            const { data } = await sb.from('allocations_versees')
-                .select('id')
-                .eq('user_id', userProfile.id)
-                .eq('mois', mois)
-                .eq('annee', annee)
-                .maybeSingle();
-
-            if (!data) {
-                // Vérifier combien de membres non versés dans la maison
-                const { data: membres } = await sb.from('profiles').select('id, allocation_mensuelle').eq('maison_id', userProfile.maison_id);
-                const { data: verses } = await sb.from('allocations_versees').select('user_id').eq('maison_id', userProfile.maison_id).eq('mois', mois).eq('annee', annee);
-                const versesIds = new Set((verses || []).map(v => v.user_id));
-                const nonVerses = (membres || []).filter(m => parseFloat(m.allocation_mensuelle) > 0 && !versesIds.has(m.id));
-
-                if (nonVerses.length > 0) {
-                    document.getElementById('alloc-reminder-text').innerText =
-                        `${nonVerses.length} membre(s) de votre maison n'ont pas encore reçu leur allocation de ${MOIS_LABELS[mois-1]} ${annee}. Pensez à effectuer les versements dès que possible.`;
-                    document.getElementById('alloc-reminder-modal').classList.remove('hidden');
-                }
+            const now=new Date(), mois=now.getMonth()+1, annee=now.getFullYear();
+            const {data:membres}=await sb.from('profiles').select('id,allocation_mensuelle').eq('maison_id',userProfile.maison_id);
+            const {data:vers}=await sb.from('allocations_versees').select('user_id').eq('maison_id',userProfile.maison_id).eq('mois',mois).eq('annee',annee);
+            const versIds=new Set((vers||[]).map(v=>v.user_id));
+            const nv=(membres||[]).filter(m=>parseFloat(m.allocation_mensuelle)>0&&!versIds.has(m.id));
+            if(nv.length>0){
+                document.getElementById('alloc-reminder-text').textContent=`${nv.length} membre${nv.length>1?'s':''} n'ont pas encore reçu leur allocation de ${MOIS_FR[mois-1]} ${annee}.`;
+                document.getElementById('alloc-reminder-modal').classList.remove('hidden');
             }
         }
-
         function closeAllocReminder() {
             document.getElementById('alloc-reminder-modal').classList.add('hidden');
-            // Scroll vers la section versements
-            document.getElementById('section-versements').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            switchTab('versements', document.getElementById('bar-versements'));
         }
 
-        function logout() { sb.auth.signOut().then(() => location.href = "index.html"); }
+        function logout(){sb.auth.signOut().then(()=>location.href="index.html");}
         checkAuth();
     </script>
 </body>
