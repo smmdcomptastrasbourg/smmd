@@ -6,19 +6,21 @@
     <title>SMMD - Master Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
 </head>
 <body class="bg-slate-50 text-slate-900 font-sans pb-20">
 
-    <nav class="bg-white border-b p-6 flex justify-between items-center sticky top-0 z-50">
+    <nav class="bg-white border-b p-6 flex justify-between items-center sticky top-0 z-50 shadow-sm">
         <h1 class="text-2xl font-black italic tracking-tighter text-blue-900">SMMD. <span class="text-xs opacity-30 not-italic font-bold uppercase tracking-widest ml-2">Console Master</span></h1>
         <button onclick="logout()" class="bg-red-50 text-red-600 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-100 transition-all">Déconnexion</button>
     </nav>
 
     <main class="p-6 max-w-6xl mx-auto space-y-10">
-        
+
+        <!-- Export CSV -->
         <section class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
             <h2 class="text-xs font-black uppercase tracking-widest text-blue-900 mb-6 italic">Extraction Compta (Transactions + Allocations)</h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <select id="export-maison" class="p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none text-sm"></select>
                 <select id="export-month" class="p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none text-sm">
                     <option value="01">Janvier</option><option value="02">Février</option><option value="03">Mars</option>
@@ -26,38 +28,60 @@
                     <option value="07">Juillet</option><option value="08">Août</option><option value="09">Septembre</option>
                     <option value="10">Octobre</option><option value="11">Novembre</option><option value="12">Décembre</option>
                 </select>
+                <select id="export-year" class="p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none text-sm"></select>
                 <button onclick="exportData()" class="bg-blue-900 text-white font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest shadow-lg hover:scale-[1.02] transition-all">Télécharger CSV</button>
             </div>
         </section>
 
+        <!-- Créer un membre -->
         <section class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
             <h2 class="text-xs font-black uppercase tracking-widest text-gray-400 mb-6">Enregistrer un nouveau membre</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                <input type="email" id="user-email" placeholder="Email" class="p-4 bg-gray-50 rounded-2xl border-none font-bold text-sm outline-none">
-                <input type="password" id="user-pass" placeholder="Password" class="p-4 bg-gray-50 rounded-2xl border-none font-bold text-sm outline-none">
-                <input type="text" id="user-prenom" placeholder="Prénom" class="p-4 bg-gray-50 rounded-2xl border-none font-bold text-sm outline-none">
-                <input type="text" id="user-nom" placeholder="Nom" class="p-4 bg-gray-50 rounded-2xl border-none font-bold text-sm outline-none">
-                <select id="user-maison" class="p-4 bg-gray-50 rounded-2xl border-none font-bold text-sm outline-none"></select>
-                <select id="user-role" class="p-4 bg-gray-50 rounded-2xl border-none font-bold text-sm outline-none">
-                    <option value="user">Utilisateur</option>
-                    <option value="chef">Chef de Maison</option>
-                    <option value="admin">Master Admin</option>
-                </select>
-                <button onclick="registerUser()" class="lg:col-span-2 bg-blue-600 text-white font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest shadow-lg">Créer le compte</button>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                <div>
+                    <label class="text-[9px] font-black uppercase text-gray-400 ml-2 mb-1 block tracking-widest">Prénom</label>
+                    <input type="text" id="user-prenom" placeholder="Prénom" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold text-sm outline-none focus:ring-2 focus:ring-blue-300">
+                </div>
+                <div>
+                    <label class="text-[9px] font-black uppercase text-gray-400 ml-2 mb-1 block tracking-widest">Nom</label>
+                    <input type="text" id="user-nom" placeholder="NOM" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold text-sm outline-none focus:ring-2 focus:ring-blue-300 uppercase">
+                </div>
+                <div>
+                    <label class="text-[9px] font-black uppercase text-gray-400 ml-2 mb-1 block tracking-widest">Email (identifiant)</label>
+                    <input type="email" id="user-email" placeholder="prenom.nom@smmd.fr" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold text-sm outline-none focus:ring-2 focus:ring-blue-300">
+                </div>
+                <div>
+                    <label class="text-[9px] font-black uppercase text-gray-400 ml-2 mb-1 block tracking-widest">Mot de passe initial</label>
+                    <input type="password" id="user-pass" placeholder="••••••••" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold text-sm outline-none focus:ring-2 focus:ring-blue-300">
+                </div>
+                <div>
+                    <label class="text-[9px] font-black uppercase text-gray-400 ml-2 mb-1 block tracking-widest">Maison</label>
+                    <select id="user-maison" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold text-sm outline-none focus:ring-2 focus:ring-blue-300"></select>
+                </div>
+                <div>
+                    <label class="text-[9px] font-black uppercase text-gray-400 ml-2 mb-1 block tracking-widest">Rôle</label>
+                    <select id="user-role" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold text-sm outline-none focus:ring-2 focus:ring-blue-300">
+                        <option value="user">Utilisateur</option>
+                        <option value="chef">Chef de Maison</option>
+                        <option value="admin">Master Admin</option>
+                    </select>
+                </div>
             </div>
+            <button onclick="registerUser()" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest shadow-lg hover:bg-blue-700 transition-all">Créer le compte</button>
         </section>
 
+        <!-- Annuaire & Allocations -->
         <section class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
             <h2 class="text-xs font-black uppercase tracking-widest text-gray-400 mb-6 italic">Gestion de l'Annuaire & Allocations</h2>
             <div id="users-list" class="space-y-4"></div>
         </section>
 
+        <!-- Maisons & Motifs -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
             <section class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
                 <h2 class="text-xs font-black uppercase tracking-widest text-gray-400 mb-6">Maisons</h2>
                 <div class="flex gap-2 mb-4">
-                    <input type="text" id="new-maison-name" placeholder="Nom..." class="flex-1 p-3 bg-gray-50 rounded-xl border-none font-bold text-sm outline-none">
-                    <button onclick="addMaison()" class="bg-slate-900 text-white px-4 rounded-xl font-black text-[10px] uppercase">Ajouter</button>
+                    <input type="text" id="new-maison-name" placeholder="Nom de la maison..." class="flex-1 p-3 bg-gray-50 rounded-xl border-none font-bold text-sm outline-none focus:ring-2 focus:ring-blue-300">
+                    <button onclick="addMaison()" class="bg-slate-900 text-white px-4 rounded-xl font-black text-[10px] uppercase hover:bg-slate-700 transition-all">Ajouter</button>
                 </div>
                 <div id="maisons-list" class="space-y-2"></div>
             </section>
@@ -65,8 +89,8 @@
             <section class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
                 <h2 class="text-xs font-black uppercase tracking-widest text-gray-400 mb-6">Motifs de dépense</h2>
                 <div class="flex gap-2 mb-4">
-                    <input type="text" id="new-motif" placeholder="Motif..." class="flex-1 p-3 bg-gray-50 rounded-xl border-none font-bold text-sm outline-none">
-                    <button onclick="addMotif()" class="bg-slate-900 text-white px-4 rounded-xl font-black text-[10px] uppercase">Ajouter</button>
+                    <input type="text" id="new-motif" placeholder="Nouveau motif..." class="flex-1 p-3 bg-gray-50 rounded-xl border-none font-bold text-sm outline-none focus:ring-2 focus:ring-blue-300">
+                    <button onclick="addMotif()" class="bg-slate-900 text-white px-4 rounded-xl font-black text-[10px] uppercase hover:bg-slate-700 transition-all">Ajouter</button>
                 </div>
                 <div id="motifs-list" class="flex flex-wrap gap-2"></div>
             </section>
@@ -75,52 +99,72 @@
     </main>
 
     <script>
-        const SUPABASE_URL = "https://xccnnckuphxloxfrqtkf.supabase.co";
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjY25uY2t1cGh4bG94ZnJxdGtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODA3NjEsImV4cCI6MjA4Mjc1Njc2MX0.1mIEhKfS5OSsaw78f1_Iatni39y8CoIurAd5IXP6n6g";
-        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const sb = supabase.createClient(SMMD_CONFIG.url, SMMD_CONFIG.key);
+        let allMaisonsCache = [];
 
         async function init() {
             const { data: { session } } = await sb.auth.getSession();
             if (!session) { window.location.href = "index.html"; return; }
-            
+
+            // Pré-sélectionner le mois courant
+            const now = new Date();
+            document.getElementById('export-month').value = String(now.getMonth() + 1).padStart(2, '0');
+
+            // Remplir les années
+            const yearSelect = document.getElementById('export-year');
+            for (let y = now.getFullYear(); y >= 2025; y--) {
+                yearSelect.innerHTML += `<option value="${y}">${y}</option>`;
+            }
+
             await loadMaisons();
             await loadUsers();
             await loadMotifs();
         }
 
         async function loadMaisons() {
-            const { data } = await sb.from('maisons').select('*').order('nom');
-            if(!data) return;
-            document.getElementById('export-maison').innerHTML = `<option value="all">Toutes les maisons</option>` + data.map(m => `<option value="${m.id}">${m.nom}</option>`).join('');
-            document.getElementById('user-maison').innerHTML = data.map(m => `<option value="${m.id}">${m.nom}</option>`).join('');
+            const { data, error } = await sb.from('maisons').select('*').order('nom');
+            if (error || !data) return;
+            allMaisonsCache = data;
+
+            document.getElementById('export-maison').innerHTML =
+                `<option value="all">Toutes les maisons</option>` +
+                data.map(m => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.nom)}</option>`).join('');
+
+            document.getElementById('user-maison').innerHTML =
+                data.filter(m => m.nom !== 'ADMINISTRATION')
+                    .map(m => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.nom)}</option>`).join('');
+
             document.getElementById('maisons-list').innerHTML = data.map(m => `
                 <div class="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
-                    <span class="text-xs font-bold uppercase italic text-blue-900">${m.nom}</span>
-                    <button onclick="deleteMaison('${m.id}')" class="text-red-400 text-[10px] font-black uppercase">Supprimer</button>
+                    <span class="text-xs font-bold uppercase italic text-blue-900">${escapeHtml(m.nom)}</span>
+                    <button onclick="deleteMaison('${escapeHtml(m.id)}')" class="text-red-400 text-[10px] font-black uppercase hover:text-red-600 transition-colors">Supprimer</button>
                 </div>
             `).join('');
         }
 
         async function loadUsers() {
-            const { data: users } = await sb.from('profiles').select('*, maisons(id, nom)').order('prenom');
-            const { data: allMaisons } = await sb.from('maisons').select('*').order('nom');
-            if(!users) return;
+            const { data: users, error: usersErr } = await sb.from('profiles')
+                .select('*, maisons(id, nom)')
+                .order('prenom');
+            if (usersErr || !users) return;
 
             document.getElementById('users-list').innerHTML = users.map(u => `
                 <div class="p-5 bg-gray-50 rounded-[30px] border border-transparent hover:border-blue-200 hover:bg-white transition-all grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-center">
                     <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full bg-blue-900 text-white flex items-center justify-center font-black text-xs italic">${u.prenom ? u.prenom[0] : '?'}${u.nom ? u.nom[0] : '?'}</div>
-                        <div>
-                            <p class="text-[11px] font-black uppercase leading-none">${u.prenom} ${u.nom}</p>
-                            <p class="text-[9px] text-gray-400 font-bold lowercase">${u.email || ''}</p>
+                        <div class="w-10 h-10 rounded-full bg-blue-900 text-white flex items-center justify-center font-black text-xs italic flex-shrink-0">
+                            ${escapeHtml((u.prenom || '?')[0])}${escapeHtml((u.nom || '?')[0])}
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-[11px] font-black uppercase leading-none truncate">${escapeHtml(u.prenom || '')} ${escapeHtml(u.nom || '')}</p>
+                            <p class="text-[9px] text-gray-400 font-bold lowercase truncate">${escapeHtml(u.email || u.id)}</p>
                         </div>
                     </div>
-                    
+
                     <div class="flex gap-2">
-                        <select onchange="updateUserMaison('${u.id}', this.value)" class="flex-1 bg-white p-2 rounded-lg text-[10px] font-bold uppercase border border-gray-100 outline-none">
-                            ${allMaisons.map(m => `<option value="${m.id}" ${u.maison_id === m.id ? 'selected' : ''}>${m.nom}</option>`).join('')}
+                        <select onchange="updateUserMaison('${escapeHtml(u.id)}', this.value)" class="flex-1 bg-white p-2 rounded-lg text-[10px] font-bold uppercase border border-gray-100 outline-none focus:ring-1 focus:ring-blue-300">
+                            ${allMaisonsCache.map(m => `<option value="${escapeHtml(m.id)}" ${u.maison_id === m.id ? 'selected' : ''}>${escapeHtml(m.nom)}</option>`).join('')}
                         </select>
-                        <select onchange="updateUserRole('${u.id}', this.value)" class="w-24 bg-white p-2 rounded-lg text-[10px] font-bold uppercase border border-gray-100 outline-none">
+                        <select onchange="updateUserRole('${escapeHtml(u.id)}', this.value)" class="w-24 bg-white p-2 rounded-lg text-[10px] font-bold uppercase border border-gray-100 outline-none focus:ring-1 focus:ring-blue-300">
                             <option value="user" ${u.role === 'user' ? 'selected' : ''}>User</option>
                             <option value="chef" ${u.role === 'chef' ? 'selected' : ''}>Chef</option>
                             <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option>
@@ -128,106 +172,174 @@
                     </div>
 
                     <div class="flex items-center gap-2 bg-blue-50 p-2 rounded-xl">
-                        <span class="text-[9px] font-black text-blue-900 uppercase">Alloc:</span>
-                        <input type="number" value="${u.allocation_mensuelle || 0}" 
-                               onchange="updateUserAlloc('${u.id}', this.value)"
-                               class="w-full bg-transparent border-none text-[10px] font-black text-blue-600 outline-none">
-                        <span class="text-[9px] font-black text-blue-900">€</span>
+                        <span class="text-[9px] font-black text-blue-900 uppercase flex-shrink-0">Alloc :</span>
+                        <input type="number" value="${parseFloat(u.allocation_mensuelle) || 0}" step="0.01" min="0"
+                            onchange="updateUserAlloc('${escapeHtml(u.id)}', this.value)"
+                            class="w-full bg-transparent border-none text-[10px] font-black text-blue-600 outline-none min-w-0">
+                        <span class="text-[9px] font-black text-blue-900 flex-shrink-0">€</span>
                     </div>
 
                     <div class="flex justify-end gap-2">
-                        <button onclick="resetPassword('${u.email}')" class="bg-blue-100 text-blue-700 px-3 py-2 rounded-lg text-[10px] font-black uppercase" title="Reset Password">Clé</button>
-                        <button onclick="deleteUser('${u.id}')" class="bg-red-100 text-red-600 px-3 py-2 rounded-lg text-[10px] font-black uppercase">X</button>
+                        <button onclick="resetPassword('${escapeHtml(u.email || '')}')" class="bg-blue-100 text-blue-700 px-3 py-2 rounded-lg text-[10px] font-black uppercase hover:bg-blue-200 transition-all" title="Envoyer lien reset">🔑</button>
+                        <button onclick="deleteUser('${escapeHtml(u.id)}')" class="bg-red-100 text-red-600 px-3 py-2 rounded-lg text-[10px] font-black uppercase hover:bg-red-200 transition-all">✕</button>
                     </div>
                 </div>
             `).join('');
         }
 
-        async function updateUserMaison(userId, maisonId) { await sb.from('profiles').update({ maison_id: maisonId }).eq('id', userId); }
-        async function updateUserRole(userId, role) { await sb.from('profiles').update({ role: role }).eq('id', userId); }
-        async function updateUserAlloc(userId, val) { await sb.from('profiles').update({ allocation_mensuelle: parseFloat(val) }).eq('id', userId); }
+        async function updateUserMaison(userId, maisonId) {
+            const { error } = await sb.from('profiles').update({ maison_id: maisonId }).eq('id', userId);
+            if (error) showToast("Erreur de mise à jour", "error");
+            else showToast("Maison mise à jour", "success");
+        }
+
+        async function updateUserRole(userId, role) {
+            const { error } = await sb.from('profiles').update({ role }).eq('id', userId);
+            if (error) showToast("Erreur de mise à jour", "error");
+            else showToast("Rôle mis à jour", "success");
+        }
+
+        async function updateUserAlloc(userId, val) {
+            const parsed = parseFloat(val);
+            if (isNaN(parsed) || parsed < 0) return showToast("Valeur invalide", "error");
+            const { error } = await sb.from('profiles').update({ allocation_mensuelle: parsed }).eq('id', userId);
+            if (error) showToast("Erreur de mise à jour", "error");
+            else showToast("Allocation mise à jour", "success");
+        }
 
         async function resetPassword(email) {
-            if(!email) return alert("Email absent");
+            if (!email) return showToast("Email absent pour cet utilisateur", "error");
             const { error } = await sb.auth.resetPasswordForEmail(email);
-            if(error) alert(error.message); else alert("Email de récupération envoyé !");
+            if (error) showToast(error.message, "error");
+            else showToast("Email de récupération envoyé !", "success");
         }
 
         async function deleteUser(id) {
-            if(!confirm("Supprimer définitivement ce profil ?")) return;
-            await sb.from('profiles').delete().eq('id', id);
-            loadUsers();
+            if (!confirm("Supprimer définitivement ce profil ? Cette action est irréversible.")) return;
+            const { error } = await sb.from('profiles').delete().eq('id', id);
+            if (error) showToast("Erreur lors de la suppression", "error");
+            else { showToast("Profil supprimé", "info"); loadUsers(); }
         }
 
         async function registerUser() {
-            const email = document.getElementById('user-email').value;
+            const email = document.getElementById('user-email').value.trim();
             const pass = document.getElementById('user-pass').value;
-            const prenom = document.getElementById('user-prenom').value;
-            const nom = document.getElementById('user-nom').value;
+            const prenom = document.getElementById('user-prenom').value.trim();
+            const nom = document.getElementById('user-nom').value.trim().toUpperCase();
             const maison = document.getElementById('user-maison').value;
             const role = document.getElementById('user-role').value;
 
-            const { data, error } = await sb.auth.signUp({ email, password: pass });
-            if(error) return alert(error.message);
+            if (!email || !pass || !prenom || !nom) return showToast("Tous les champs sont requis", "error");
+            if (pass.length < 6) return showToast("Mot de passe : 6 caractères minimum", "error");
 
-            await sb.from('profiles').insert([{ id: data.user.id, prenom, nom, maison_id: maison, role: role, email: email, allocation_mensuelle: 0 }]);
-            alert("Compte activé !");
-            loadUsers();
+            const { data, error } = await sb.auth.signUp({ email, password: pass });
+            if (error) return showToast(error.message, "error");
+
+            const { error: profileError } = await sb.from('profiles').insert([{
+                id: data.user.id,
+                prenom,
+                nom,
+                nom_complet: `${prenom} ${nom}`,
+                email,
+                maison_id: maison,
+                role,
+                allocation_mensuelle: 0
+            }]);
+
+            if (profileError) showToast("Compte créé mais erreur profil : " + profileError.message, "warning");
+            else { showToast("Compte créé avec succès !", "success"); loadUsers(); }
         }
 
         async function exportData() {
             const month = document.getElementById('export-month').value;
+            const year = document.getElementById('export-year').value;
             const maisonId = document.getElementById('export-maison').value;
-            const year = new Date().getFullYear();
 
-            const { data: transactions } = await sb.from('transactions').select('created_at, type, montant, motif, commentaire, methode_paiement, profiles(prenom, nom), maisons(nom)').order('created_at', { ascending: true });
-            const { data: members } = await sb.from('profiles').select('prenom, nom, allocation_mensuelle, maison_id, maisons(nom)');
+            // Récupérer les transactions AVEC maison_id
+            let txQuery = sb.from('transactions')
+                .select('created_at, type, montant, motif, commentaire, methode_paiement, statut, maison_id, profiles(prenom, nom), maisons(nom)')
+                .order('created_at', { ascending: true });
 
-            let csv = "\uFEFFDate;Maison;Membre;Type;Motif;Montant;Méthode;Commentaire\n";
+            if (maisonId !== 'all') txQuery = txQuery.eq('maison_id', maisonId);
 
-            // 1. Filtrer et ajouter Allocations
-            members.forEach(m => {
-                if (m.allocation_mensuelle > 0 && (maisonId === 'all' || m.maison_id === maisonId)) {
-                    csv += `01/${month}/${year};${m.maisons?.nom || '-'};${m.prenom} ${m.nom};REVENU;ALLOCATION;${m.allocation_mensuelle.toString().replace('.', ',')};AUTO;Versement mensuel\n`;
+            const { data: transactions, error: txErr } = await txQuery;
+            if (txErr) return showToast("Erreur lors de la récupération", "error");
+
+            let membersQuery = sb.from('profiles').select('prenom, nom, allocation_mensuelle, maison_id, maisons(nom)');
+            if (maisonId !== 'all') membersQuery = membersQuery.eq('maison_id', maisonId);
+            const { data: members } = await membersQuery;
+
+            let csv = "\uFEFFDate;Maison;Membre;Type;Motif;Montant;Méthode;Statut;Commentaire\n";
+
+            // Allocations
+            (members || []).forEach(m => {
+                const alloc = parseFloat(m.allocation_mensuelle) || 0;
+                if (alloc > 0) {
+                    csv += `01/${month}/${year};${m.maisons?.nom || '-'};${m.prenom} ${m.nom || ''};REVENU;ALLOCATION;${alloc.toFixed(2).replace('.', ',')};AUTO;Validé;Versement mensuel\n`;
                 }
             });
 
-            // 2. Filtrer et ajouter Transactions
+            // Transactions filtrées par mois ET année
             const filteredTx = (transactions || []).filter(t => {
-                const matchMaison = maisonId === 'all' || t.maison_id === maisonId;
-                const matchMonth = t.created_at.includes(`-${month}-`);
-                return matchMaison && matchMonth;
+                return t.created_at.includes(`${year}-${month}-`);
             });
 
             filteredTx.forEach(t => {
                 const d = new Date(t.created_at).toLocaleDateString('fr-FR');
-                csv += `${d};${t.maisons?.nom || '-'};${t.profiles?.prenom} ${t.profiles?.nom};${t.type.toUpperCase()};${t.motif || 'RECETTE'};${t.montant.toString().replace('.', ',')};${t.methode_paiement || '-'};${(t.commentaire || '').replace(/;/g, ',')}\n`;
+                const montant = parseFloat(t.montant).toFixed(2).replace('.', ',');
+                const commentaire = (t.commentaire || '').replace(/;/g, ',').replace(/\n/g, ' ');
+                csv += `${d};${t.maisons?.nom || '-'};${t.profiles?.prenom || ''} ${t.profiles?.nom || ''};${t.type.toUpperCase()};${t.motif || 'RECETTE'};${montant};${t.methode_paiement || '-'};${t.statut === 'attente' ? 'En attente' : 'Validé'};${commentaire}\n`;
             });
 
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
-            link.download = `SMMD_MasterCompta_${month}.csv`;
+            link.download = `SMMD_Compta_${month}_${year}.csv`;
             link.click();
+            showToast("Export CSV téléchargé !", "success");
         }
 
         async function loadMotifs() {
-            const { data } = await sb.from('motifs').select('*').order('nom');
-            if(!data) return;
+            const { data, error } = await sb.from('motifs').select('*').order('nom');
+            if (error || !data) return;
             document.getElementById('motifs-list').innerHTML = data.map(m => `
                 <div class="bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-full flex items-center gap-2">
-                    <span class="text-[10px] font-black uppercase text-blue-900">${m.nom}</span>
-                    <button onclick="deleteMotif('${m.id}')" class="text-blue-300 hover:text-red-500 font-bold">×</button>
+                    <span class="text-[10px] font-black uppercase text-blue-900">${escapeHtml(m.nom)}</span>
+                    <button onclick="deleteMotif('${escapeHtml(m.id)}')" class="text-blue-300 hover:text-red-500 font-bold transition-colors">×</button>
                 </div>
             `).join('');
         }
 
-        async function addMaison() { const nom = document.getElementById('new-maison-name').value.trim(); if(nom) { await sb.from('maisons').insert([{ nom }]); loadMaisons(); } }
-        async function deleteMaison(id) { if(confirm("Supprimer ?")) { await sb.from('maisons').delete().eq('id', id); loadMaisons(); } }
-        async function addMotif() { const nom = document.getElementById('new-motif').value.trim(); if(nom) { await sb.from('motifs').insert([{ nom }]); loadMotifs(); } }
-        async function deleteMotif(id) { await sb.from('motifs').delete().eq('id', id); loadMotifs(); }
-        function logout() { sb.auth.signOut().then(() => location.href = 'index.html'); }
+        async function addMaison() {
+            const nom = document.getElementById('new-maison-name').value.trim().toUpperCase();
+            if (!nom) return showToast("Saisissez un nom", "error");
+            const { error } = await sb.from('maisons').insert([{ nom }]);
+            if (error) showToast("Erreur : " + error.message, "error");
+            else { document.getElementById('new-maison-name').value = ''; showToast("Maison ajoutée !", "success"); loadMaisons(); }
+        }
 
+        async function deleteMaison(id) {
+            if (!confirm("Supprimer cette maison ? Les membres associés ne seront plus rattachés.")) return;
+            const { error } = await sb.from('maisons').delete().eq('id', id);
+            if (error) showToast("Erreur : " + error.message, "error");
+            else { showToast("Maison supprimée", "info"); loadMaisons(); }
+        }
+
+        async function addMotif() {
+            const nom = document.getElementById('new-motif').value.trim();
+            if (!nom) return showToast("Saisissez un motif", "error");
+            const { error } = await sb.from('motifs').insert([{ nom }]);
+            if (error) showToast("Erreur : " + error.message, "error");
+            else { document.getElementById('new-motif').value = ''; showToast("Motif ajouté !", "success"); loadMotifs(); }
+        }
+
+        async function deleteMotif(id) {
+            const { error } = await sb.from('motifs').delete().eq('id', id);
+            if (error) showToast("Erreur : " + error.message, "error");
+            else loadMotifs();
+        }
+
+        function logout() { sb.auth.signOut().then(() => location.href = 'index.html'); }
         init();
     </script>
 </body>
