@@ -333,14 +333,38 @@
         }
 
         async function checkNotifications() {
-            const { data } = await sb.from('notifications').select('*').eq('user_id',userProfile.id).eq('lu',false).order('created_at',{ascending:false});
-            if (!data||!data.length) return;
-            const c = document.getElementById('notif-container');
-            c.innerHTML = data.map(n=>`
-                <div class="pointer-events-auto bg-emerald-600 text-white rounded-2xl px-4 py-3 flex justify-between items-center gap-3 shadow-lg anim-slide" data-notif="${escapeHtml(n.id)}">
-                    <p class="text-[11px] font-bold leading-snug flex-1">🔔 ${escapeHtml(n.message)}</p>
-                    <button onclick="markNotifRead('${escapeHtml(n.id)}')" class="text-white/70 hover:text-white font-black text-lg leading-none flex-shrink-0">✓</button>
-                </div>`).join('');
+            // Charger les notifs non lues existantes
+            const { data } = await sb.from('notifications').select('*')
+                .eq('user_id', userProfile.id).eq('lu', false)
+                .order('created_at', { ascending: false });
+            if (data && data.length) {
+                data.forEach(n => afficherNotif(n));
+            }
+
+            // Écoute Realtime : nouvelles notifs en temps réel
+            sb.channel('notifs-user-' + userProfile.id)
+                .on('postgres_changes', {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'notifications',
+                    filter: `user_id=eq.${userProfile.id}`
+                }, payload => {
+                    afficherNotif(payload.new);
+                })
+                .subscribe();
+        }
+
+        function afficherNotif(n) {
+            const container = document.getElementById('notif-container');
+            // Éviter les doublons
+            if (document.querySelector(`[data-notif="${n.id}"]`)) return;
+            const el = document.createElement('div');
+            el.className = 'pointer-events-auto bg-emerald-600 text-white rounded-2xl px-4 py-3 flex justify-between items-center gap-3 shadow-lg anim-slide';
+            el.dataset.notif = n.id;
+            el.innerHTML = `
+                <p class="text-[11px] font-bold leading-snug flex-1">🔔 ${escapeHtml(n.message)}</p>
+                <button onclick="markNotifRead('${escapeHtml(n.id)}')" class="text-white/70 hover:text-white font-black text-lg leading-none flex-shrink-0">✓</button>`;
+            container.prepend(el);
         }
 
         async function markNotifRead(id) {
