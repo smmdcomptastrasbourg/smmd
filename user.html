@@ -67,15 +67,16 @@
             <div class="bg-gradient-to-r from-amber-400 to-orange-500 h-1.5"></div>
             <div class="p-8">
                 <div class="flex justify-center mb-5">
-                    <div class="w-16 h-16 rounded-full bg-amber-50 border-2 border-amber-200 flex items-center justify-center text-3xl">💰</div>
+                    <div class="w-16 h-16 rounded-full bg-amber-50 border-2 border-amber-200 flex items-center justify-center text-3xl">🏠</div>
                 </div>
-                <h3 class="text-xl font-black text-center text-slate-900 tracking-tight mb-2">Allocation non versée</h3>
+                <h3 class="text-xl font-black text-center text-slate-900 tracking-tight mb-2">Allocation non déclarée</h3>
                 <p id="alloc-reminder-text" class="text-[12px] text-slate-500 font-bold text-center leading-relaxed mb-6"></p>
                 <div class="bg-amber-50 border border-amber-100 rounded-2xl p-4 mb-6 text-center">
-                    <p class="text-[10px] font-black uppercase text-amber-700 tracking-widest mb-1">Montant attendu</p>
+                    <p class="text-[10px] font-black uppercase text-amber-700 tracking-widest mb-1">Montant à verser</p>
                     <p id="alloc-reminder-montant" class="text-3xl font-black text-amber-600">--€</p>
                 </div>
-                <button onclick="closeAllocReminder()" class="w-full bg-slate-900 text-white font-black py-4 rounded-2xl uppercase text-[11px] tracking-widest active:scale-95 transition-all">J'ai compris</button>
+                <button onclick="confirmerVersementAlloc()" id="btn-confirmer-alloc" class="w-full bg-amber-500 text-white font-black py-4 rounded-2xl uppercase text-[11px] tracking-widest active:scale-95 transition-all mb-3">✓ J'ai versé mon allocation</button>
+                <button onclick="closeAllocReminder()" class="w-full bg-slate-100 text-slate-500 font-black py-3.5 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95 transition-all">Plus tard</button>
             </div>
         </div>
     </div>
@@ -206,7 +207,10 @@
                         class="flex-1 bg-slate-50 p-4 rounded-2xl border-2 border-slate-50 font-black text-xl outline-none focus:border-blue-200 focus:bg-white transition-all">
                     <button onclick="updateAllocation()" class="bg-blue-900 text-white px-6 rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all">OK</button>
                 </div>
-                <p class="text-[9px] text-blue-400 font-bold ml-1 mt-2 leading-relaxed">Communique votre dotation mensuelle à votre chef de maison.</p>
+                <p class="text-[9px] text-blue-400 font-bold ml-1 mt-2 leading-relaxed">Indique le montant que vous versez chaque mois à votre maison.</p>
+            <button onclick="openAllocModal()" id="btn-declarer-alloc" class="hidden w-full mt-3 bg-amber-500 text-white font-black py-3.5 rounded-xl uppercase text-[10px] tracking-widest active:scale-95 transition-all shadow-md shadow-amber-500/20">
+                🏠 Déclarer mon versement du mois
+            </button>
             </div>
 
             <div class="bg-white rounded-[28px] border border-slate-100 p-6 anim-slide" style="animation-delay:.05s">
@@ -494,11 +498,45 @@
             if(alloc<=0) return;
             const now=new Date(),mois=now.getMonth()+1,annee=now.getFullYear();
             const{data}=await sb.from('allocations_versees').select('id').eq('user_id',userProfile.id).eq('mois',mois).eq('annee',annee).maybeSingle();
+            const btn=document.getElementById('btn-declarer-alloc');
             if(!data){
-                document.getElementById('alloc-reminder-text').textContent=`Votre allocation de ${MOIS_FR[mois-1]} ${annee} n'a pas encore été versée. Ce rappel disparaîtra dès qu'elle sera validée par votre chef de maison.`;
+                // Préparer le modal
+                document.getElementById('alloc-reminder-text').textContent=`Vous n'avez pas encore déclaré le versement de votre allocation de ${MOIS_FR[mois-1]} ${annee} à votre maison. Confirmez dès que vous l'avez effectué.`;
                 document.getElementById('alloc-reminder-montant').textContent=alloc.toFixed(2)+'€';
                 document.getElementById('alloc-reminder-modal').classList.remove('hidden');
+                // Afficher aussi le bouton rapide dans Profil
+                if(btn) btn.classList.remove('hidden');
+            } else {
+                if(btn) btn.classList.add('hidden');
             }
+        }
+
+        function openAllocModal() {
+            const alloc=parseFloat(userProfile.allocation_mensuelle)||0;
+            const now=new Date(),mois=now.getMonth()+1,annee=now.getFullYear();
+            document.getElementById('alloc-reminder-text').textContent=`Vous n'avez pas encore déclaré le versement de votre allocation de ${MOIS_FR[mois-1]} ${annee} à votre maison. Confirmez dès que vous l'avez effectué.`;
+            document.getElementById('alloc-reminder-montant').textContent=alloc.toFixed(2)+'€';
+            document.getElementById('alloc-reminder-modal').classList.remove('hidden');
+        }
+
+        async function confirmerVersementAlloc() {
+            const alloc = parseFloat(userProfile.allocation_mensuelle)||0;
+            if (alloc<=0) return;
+            const now=new Date(), mois=now.getMonth()+1, annee=now.getFullYear();
+            const btn = document.getElementById('btn-confirmer-alloc');
+            btn.textContent='...'; btn.disabled=true;
+            const { error } = await sb.from('allocations_versees').insert([{
+                user_id: userProfile.id,
+                maison_id: userProfile.maison_id,
+                mois, annee,
+                montant: alloc,
+                valide_par: userProfile.id
+            }]);
+            btn.textContent="✓ J'ai versé mon allocation"; btn.disabled=false;
+            if (error) { showToast("Erreur lors de l'enregistrement","error"); return; }
+            showToast(`Allocation de ${MOIS_FR[mois-1]} ${annee} déclarée !`,"success");
+            closeAllocReminder();
+            await refreshDashboard();
         }
 
         function closeAllocReminder(){document.getElementById('alloc-reminder-modal').classList.add('hidden');}
