@@ -25,6 +25,20 @@
 </head>
 <body class="text-slate-900 pb-20">
 
+    <!-- Modal rappel allocation non versée (chef) -->
+    <div id="alloc-reminder-modal" class="hidden fixed inset-0 z-[200] flex items-end justify-center p-4 sm:items-center">
+        <div class="absolute inset-0 bg-slate-900/70 backdrop-blur-sm"></div>
+        <div class="relative bg-white rounded-[40px] w-full max-w-sm shadow-2xl overflow-hidden">
+            <div class="bg-gradient-to-r from-amber-400 to-orange-500 h-2 w-full"></div>
+            <div class="p-8">
+                <div class="flex justify-center mb-5"><div class="w-16 h-16 rounded-full bg-amber-50 border-2 border-amber-200 flex items-center justify-center text-3xl">💰</div></div>
+                <h3 class="text-xl font-black text-center text-slate-900 tracking-tight mb-2">Versements en attente</h3>
+                <p id="alloc-reminder-text" class="text-[12px] text-slate-500 font-bold text-center leading-relaxed mb-6"></p>
+                <button onclick="closeAllocReminder()" class="w-full bg-slate-900 text-white font-black py-4 rounded-2xl uppercase text-[11px] tracking-widest active:scale-95 transition-all">Voir les versements</button>
+            </div>
+        </div>
+    </div>
+
     <nav class="glass-nav text-white p-6 rounded-b-[45px] shadow-2xl sticky top-0 z-50 border-b border-white/10">
         <div class="flex justify-between items-start mb-8">
             <div>
@@ -56,6 +70,7 @@
                 Remboursements <span id="alert-dot" class="hidden h-2.5 w-2.5 rounded-full blink-alert"></span>
             </a>
             <a href="#section-membres" class="bg-white/10 px-5 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap border border-white/5">Membres</a>
+            <a href="#section-versements" class="bg-white/10 px-5 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap border border-white/5 flex items-center gap-2">Versements <span id="nav-versements-dot" class="hidden h-2.5 w-2.5 rounded-full blink-alert"></span></a>
             <a href="#section-audit" class="bg-white/10 px-5 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap border border-white/5">Audit</a>
         </div>
     </nav>
@@ -113,6 +128,18 @@
                 <div id="total-dettes" class="bg-orange-500 text-white px-4 py-1.5 rounded-full text-[10px] font-black shadow-lg shadow-orange-500/20">Total : 0€</div>
             </div>
             <div id="list-avances-attente" class="space-y-6"></div>
+        </section>
+
+        <!-- Versements allocations du mois -->
+        <section id="section-versements" class="space-y-4">
+            <div class="flex items-center justify-between px-2">
+                <div class="flex items-center gap-2">
+                    <div class="h-1 w-4 bg-amber-400 rounded-full"></div>
+                    <h2 class="text-[11px] font-black uppercase text-slate-400 tracking-[0.2em]">Versements du mois</h2>
+                </div>
+                <div id="versements-badge" class="hidden bg-amber-500 text-white px-4 py-1.5 rounded-full text-[10px] font-black shadow-lg shadow-amber-500/20"></div>
+            </div>
+            <div id="list-versements" class="space-y-3"></div>
         </section>
 
         <!-- Membres -->
@@ -191,31 +218,30 @@
             document.getElementById('tx-date').valueAsDate = new Date();
             loadMotifs();
             refreshAll();
+            checkAllocVersee();
         }
 
         async function refreshAll() {
-            await Promise.all([refreshSoldes(), loadAvancesChef(), loadMembres(), loadAuditGlobal()]);
+            await Promise.all([refreshSoldes(), loadAvancesChef(), loadVersements(), loadMembres(), loadAuditGlobal()]);
         }
 
         async function refreshSoldes() {
-            const { data: members } = await sb.from('profiles').select('id, allocation_mensuelle, created_at').eq('maison_id', userProfile.maison_id);
             const { data: txs } = await sb.from('transactions').select('*').eq('maison_id', userProfile.maison_id);
-            const today = new Date();
+            const { data: allocVersees } = await sb.from('allocations_versees').select('*').eq('maison_id', userProfile.maison_id);
 
-            let totalMaison = 0, monPerso = 0;
-            (members || []).forEach(m => {
-                const alloc = parseFloat(m.allocation_mensuelle) || 0;
-                if (alloc > 0) {
-                    const reg = new Date(m.created_at);
-                    const diff = Math.max(0, (today.getFullYear() - reg.getFullYear()) * 12 + (today.getMonth() - reg.getMonth()) + 1);
-                    const allocTotal = alloc * diff;
-                    const dep = (txs || []).filter(t => t.user_id === m.id && t.type === 'depense').reduce((s, t) => s + parseFloat(t.montant), 0);
-                    const rec = (txs || []).filter(t => t.user_id === m.id && t.type === 'recette').reduce((s, t) => s + parseFloat(t.montant), 0);
-                    const solde = allocTotal + rec - dep;
-                    totalMaison += solde;
-                    if (m.id === userProfile.id) monPerso = solde;
-                }
-            });
+            // Totaux maison basés sur les allocations réellement versées
+            const houseAlloc = (allocVersees || []).reduce((s, a) => s + parseFloat(a.montant), 0);
+            const houseDep = (txs || []).filter(t => t.type === 'depense').reduce((s, t) => s + parseFloat(t.montant), 0);
+            const houseRec = (txs || []).filter(t => t.type === 'recette').reduce((s, t) => s + parseFloat(t.montant), 0);
+            const totalMaison = houseAlloc + houseRec - houseDep;
+
+            // Solde perso
+            const myAllocVersees = (allocVersees || []).filter(a => a.user_id === userProfile.id);
+            const myAllocTotal = myAllocVersees.reduce((s, a) => s + parseFloat(a.montant), 0);
+            const myTx = (txs || []).filter(t => t.user_id === userProfile.id);
+            const myDep = myTx.filter(t => t.type === 'depense').reduce((s, t) => s + parseFloat(t.montant), 0);
+            const myRec = myTx.filter(t => t.type === 'recette').reduce((s, t) => s + parseFloat(t.montant), 0);
+            const monPerso = myAllocTotal + myRec - myDep;
 
             document.getElementById('solde-maison').innerText = totalMaison.toFixed(2) + " €";
             document.getElementById('solde-perso').innerText = monPerso.toFixed(2) + " €";
@@ -556,6 +582,148 @@
         function copyIban(iban) {
             if (!iban) return;
             navigator.clipboard.writeText(iban).then(() => showToast("IBAN copié !", "success")).catch(() => showToast("Impossible de copier", "error"));
+        }
+
+        async function loadVersements() {
+            const now = new Date();
+            const mois = now.getMonth() + 1;
+            const annee = now.getFullYear();
+            const MOIS_LABELS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+
+            // Membres de la maison avec allocation définie
+            const { data: membres } = await sb.from('profiles')
+                .select('*')
+                .eq('maison_id', userProfile.maison_id);
+
+            // Versements déjà effectués ce mois
+            const { data: verses } = await sb.from('allocations_versees')
+                .select('*')
+                .eq('maison_id', userProfile.maison_id)
+                .eq('mois', mois)
+                .eq('annee', annee);
+
+            const versesIds = new Set((verses || []).map(v => v.user_id));
+            const membresAvecAlloc = (membres || []).filter(m => parseFloat(m.allocation_mensuelle) > 0);
+            const nonVerses = membresAvecAlloc.filter(m => !versesIds.has(m.id));
+
+            // Badge nav
+            const dot = document.getElementById('nav-versements-dot');
+            const badge = document.getElementById('versements-badge');
+            if (nonVerses.length > 0) {
+                dot.classList.remove('hidden');
+                badge.classList.remove('hidden');
+                badge.innerText = `${nonVerses.length} en attente`;
+            } else {
+                dot.classList.add('hidden');
+                badge.classList.add('hidden');
+            }
+
+            if (membresAvecAlloc.length === 0) {
+                document.getElementById('list-versements').innerHTML =
+                    `<p class="text-center text-slate-300 text-[11px] font-bold uppercase py-6">Aucun membre avec allocation définie</p>`;
+                return;
+            }
+
+            const moisLabel = `${MOIS_LABELS[mois-1]} ${annee}`;
+            document.getElementById('list-versements').innerHTML = `
+                <div class="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-5">${moisLabel}</p>
+                    <div class="space-y-3">
+                        ${membresAvecAlloc.map(m => {
+                            const verse = (verses || []).find(v => v.user_id === m.id);
+                            const alloc = parseFloat(m.allocation_mensuelle).toFixed(2);
+                            return `
+                            <div class="flex items-center justify-between p-4 rounded-2xl ${verse ? 'bg-emerald-50 border border-emerald-100' : 'bg-amber-50 border border-amber-100'}">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-full ${verse ? 'bg-emerald-200 text-emerald-700' : 'bg-amber-200 text-amber-700'} flex items-center justify-center font-black text-xs">
+                                        ${escapeHtml((m.prenom || '?')[0])}
+                                    </div>
+                                    <div>
+                                        <p class="text-[11px] font-black uppercase text-slate-800">${escapeHtml(m.prenom)} ${escapeHtml(m.nom || '')}</p>
+                                        <p class="text-[9px] font-bold ${verse ? 'text-emerald-600' : 'text-amber-600'}">${verse ? '✓ Versé le ' + new Date(verse.created_at).toLocaleDateString('fr-FR') : 'Non versé'}</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <p class="font-black text-sm text-slate-800">${alloc}€</p>
+                                    ${!verse ? `<button onclick="validerVersement('${escapeHtml(m.id)}', ${alloc}, '${escapeHtml(m.prenom)} ${escapeHtml(m.nom || '')}')"
+                                        class="bg-amber-500 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase shadow-md active:scale-95 transition-all">
+                                        Valider
+                                    </button>` : `<span class="text-emerald-500 text-lg">✓</span>`}
+                                </div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                    ${nonVerses.length === 0 ? `<div class="mt-4 pt-4 border-t border-slate-50 text-center"><p class="text-[10px] font-black text-emerald-600 uppercase tracking-widest">✓ Tous les versements du mois sont effectués</p></div>` : ''}
+                </div>
+            `;
+        }
+
+        async function validerVersement(userId, montant, nomMembre) {
+            const now = new Date();
+            const mois = now.getMonth() + 1;
+            const annee = now.getFullYear();
+            const MOIS_LABELS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+
+            const { error } = await sb.from('allocations_versees').insert([{
+                user_id: userId,
+                maison_id: userProfile.maison_id,
+                mois,
+                annee,
+                montant,
+                valide_par: userProfile.id
+            }]);
+
+            if (error) {
+                showToast("Erreur : " + error.message, "error");
+                return;
+            }
+
+            await sb.from('notifications').insert([{
+                user_id: userId,
+                message: `Votre allocation de ${MOIS_LABELS[mois-1]} ${annee} (${parseFloat(montant).toFixed(2)}€) a été versée par votre chef de maison.`,
+                type: 'allocation',
+                lu: false
+            }]);
+
+            showToast(`Versement de ${nomMembre} validé !`, "success");
+            loadVersements();
+            refreshSoldes();
+        }
+
+        async function checkAllocVersee() {
+            const alloc = parseFloat(userProfile.allocation_mensuelle) || 0;
+            if (alloc <= 0) return;
+            const now = new Date();
+            const mois = now.getMonth() + 1;
+            const annee = now.getFullYear();
+            const MOIS_LABELS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+
+            const { data } = await sb.from('allocations_versees')
+                .select('id')
+                .eq('user_id', userProfile.id)
+                .eq('mois', mois)
+                .eq('annee', annee)
+                .maybeSingle();
+
+            if (!data) {
+                // Vérifier combien de membres non versés dans la maison
+                const { data: membres } = await sb.from('profiles').select('id, allocation_mensuelle').eq('maison_id', userProfile.maison_id);
+                const { data: verses } = await sb.from('allocations_versees').select('user_id').eq('maison_id', userProfile.maison_id).eq('mois', mois).eq('annee', annee);
+                const versesIds = new Set((verses || []).map(v => v.user_id));
+                const nonVerses = (membres || []).filter(m => parseFloat(m.allocation_mensuelle) > 0 && !versesIds.has(m.id));
+
+                if (nonVerses.length > 0) {
+                    document.getElementById('alloc-reminder-text').innerText =
+                        `${nonVerses.length} membre(s) de votre maison n'ont pas encore reçu leur allocation de ${MOIS_LABELS[mois-1]} ${annee}. Pensez à effectuer les versements dès que possible.`;
+                    document.getElementById('alloc-reminder-modal').classList.remove('hidden');
+                }
+            }
+        }
+
+        function closeAllocReminder() {
+            document.getElementById('alloc-reminder-modal').classList.add('hidden');
+            // Scroll vers la section versements
+            document.getElementById('section-versements').scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         function logout() { sb.auth.signOut().then(() => location.href = "index.html"); }
