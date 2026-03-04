@@ -333,6 +333,7 @@
             loadMotifs();
             await refreshAll();
             checkAllocVersee();
+            checkNotifications();
         }
 
         async function refreshAll() {
@@ -746,6 +747,40 @@
         function closeAllocReminder() {
             document.getElementById('alloc-reminder-modal').classList.add('hidden');
             switchTab('versements', document.getElementById('bar-versements'));
+        }
+
+        async function checkNotifications() {
+            const { data } = await sb.from('notifications').select('*')
+                .eq('user_id', userProfile.id).eq('lu', false)
+                .order('created_at', { ascending: false });
+            if (data && data.length) data.forEach(n => afficherNotif(n));
+
+            sb.channel('notifs-chef-' + userProfile.id)
+                .on('postgres_changes', {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'notifications',
+                    filter: `user_id=eq.${userProfile.id}`
+                }, payload => afficherNotif(payload.new))
+                .subscribe();
+        }
+
+        function afficherNotif(n) {
+            const container = document.getElementById('notif-container');
+            if (document.querySelector(`[data-notif="${n.id}"]`)) return;
+            const el = document.createElement('div');
+            el.className = 'pointer-events-auto bg-emerald-600 text-white rounded-2xl px-4 py-3 flex justify-between items-center gap-3 shadow-lg anim-slide';
+            el.dataset.notif = n.id;
+            el.innerHTML = `
+                <p class="text-[11px] font-bold leading-snug flex-1">🔔 ${escapeHtml(n.message)}</p>
+                <button onclick="markNotifRead('${escapeHtml(n.id)}')" class="text-white/70 hover:text-white font-black text-lg leading-none flex-shrink-0">✓</button>`;
+            container.prepend(el);
+        }
+
+        async function markNotifRead(id) {
+            await sb.from('notifications').update({ lu: true }).eq('id', id);
+            const el = document.querySelector(`[data-notif="${id}"]`);
+            if (el) { el.style.cssText='opacity:0;transform:translateY(-8px);transition:all .2s'; setTimeout(()=>el.remove(),200); }
         }
 
         function logout(){sb.auth.signOut().then(()=>location.href="index.html");}
