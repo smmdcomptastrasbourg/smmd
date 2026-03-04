@@ -49,12 +49,6 @@
         .bar-btn.active svg  { stroke:#1e3a8a; transform:translateY(-2px); }
         .bar-btn.active span { color:#1e3a8a; }
 
-        /* TOGGLE CHECK */
-        .check-toggle { transition: all .15s; }
-        .check-toggle.checked { background:#f59e0b; border-color:#f59e0b; }
-        .check-toggle.checked svg { display:block; }
-        .check-toggle svg { display:none; }
-
         /* TABS */
         .tab-btn { transition: all .2s; }
         .tab-active      { background:#1e3a8a!important; color:white!important; box-shadow:0 8px 20px -4px rgba(30,58,138,.3); }
@@ -74,7 +68,7 @@
                 <div class="flex justify-center mb-5">
                     <div class="w-16 h-16 rounded-full bg-amber-50 border-2 border-amber-200 flex items-center justify-center text-3xl">💰</div>
                 </div>
-                <h3 class="text-xl font-black text-center tracking-tight mb-2">Versements en attente</h3>
+                <h3 class="text-xl font-black text-center tracking-tight mb-2">Allocations non versées</h3>
                 <p id="alloc-reminder-text" class="text-[12px] text-slate-500 font-bold text-center leading-relaxed mb-6"></p>
                 <button onclick="closeAllocReminder()" class="w-full bg-slate-900 text-white font-black py-4 rounded-2xl uppercase text-[11px] tracking-widest active:scale-95 transition-all">Voir les versements</button>
             </div>
@@ -509,28 +503,24 @@
                 const noAlloc   = (membres||[]).filter(m=>!(parseFloat(m.allocation_mensuelle)>0));
                 const nonVerses = withAlloc.filter(m=>!vers.find(v=>v.user_id===m.id&&v.mois===mois&&v.annee===annee));
                 const totalMois = withAlloc.reduce((s,m)=>s+parseFloat(m.allocation_mensuelle),0);
+                const totalVerse = withAlloc
+                    .filter(m=>vers.find(v=>v.user_id===m.id&&v.mois===mois&&v.annee===annee))
+                    .reduce((s,m)=>s+parseFloat(m.allocation_mensuelle),0);
 
-                const rowsOk = withAlloc.map(m => {
+                const rows = withAlloc.map(m => {
                     const v = vers.find(v=>v.user_id===m.id&&v.mois===mois&&v.annee===annee);
                     const alloc = parseFloat(m.allocation_mensuelle);
-                    const btnId = `chk-${mois}-${annee}-${m.id}`;
                     return `<div class="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
                         <div class="flex items-center gap-3">
-                            ${!v
-                                ? `<button type="button" id="${btnId}" onclick="toggleCheck(this)"
-                                    data-uid="${m.id}" data-alloc="${alloc}" data-nom="${escapeHtml(m.prenom)} ${escapeHtml(m.nom||'')}" data-mois="${mois}" data-annee="${annee}" data-checked="false"
-                                    class="check-toggle w-6 h-6 rounded-lg border-2 border-slate-200 flex-shrink-0 flex items-center justify-center bg-white hover:border-amber-300">
-                                    <svg class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                                  </button>`
-                                : `<span class="w-6 h-6 rounded-lg bg-emerald-500 flex items-center justify-center flex-shrink-0">
-                                    <svg class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                                   </span>`}
+                            <span class="w-6 h-6 rounded-lg flex-shrink-0 flex items-center justify-center ${v?'bg-emerald-500':'bg-slate-100 border-2 border-slate-200'}">
+                                ${v?`<svg class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>`:''}
+                            </span>
                             <div>
                                 <p class="text-[11px] font-black uppercase text-slate-800">${escapeHtml(m.prenom)} ${escapeHtml(m.nom||'')}</p>
-                                <p class="text-[9px] font-bold ${v?'text-emerald-600':'text-slate-400'}">${v?'✓ Versé le '+new Date(v.created_at).toLocaleDateString('fr-FR'):'En attente'}</p>
+                                <p class="text-[9px] font-bold ${v?'text-emerald-600':'text-amber-500'}">${v?'✓ Déclaré le '+new Date(v.created_at).toLocaleDateString('fr-FR'):'Pas encore versé'}</p>
                             </div>
                         </div>
-                        <p class="font-black text-[13px] ${v?'text-emerald-600':'text-slate-700'}">${alloc.toFixed(2)}€</p>
+                        <p class="font-black text-[13px] ${v?'text-emerald-600':'text-slate-400'}">${alloc.toFixed(2)}€</p>
                     </div>`;
                 }).join('');
 
@@ -552,49 +542,20 @@
                             <span class="w-2 h-2 rounded-full ${isCur?'bg-amber-400 pulse-amber':'bg-slate-200'}"></span>
                             <p class="font-black text-[13px] uppercase tracking-widest text-slate-800">${moisLabel}</p>
                         </div>
-                        <div class="flex items-center gap-3">
-                            ${nonVerses.length>0
-                                ? `<button onclick="toutCocher(${mois},${annee})" class="text-[9px] font-black text-amber-600 uppercase hover:text-amber-800 transition-colors">Tout cocher</button>
-                                   <button onclick="validerSelection(${mois},${annee})" class="bg-amber-500 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase shadow-md active:scale-95 transition-all">Valider (${nonVerses.length})</button>`
-                                : `<span class="text-[10px] font-black text-emerald-600 uppercase tracking-widest">✓ Complet</span>`}
-                        </div>
+                        <span class="text-[10px] font-black uppercase tracking-widest ${nonVerses.length===0?'text-emerald-600':'text-amber-500'}">
+                            ${nonVerses.length===0?'✓ Complet':`${nonVerses.length} manquant${nonVerses.length>1?'s':''}`}
+                        </span>
                     </div>
-                    <div class="px-5 py-1">${rowsOk}${rowsBlocked}</div>
+                    <div class="px-5 py-1">${rows}${rowsBlocked}</div>
                     <div class="px-5 pb-4 pt-2 flex justify-between items-center">
                         <p class="text-[9px] text-slate-300 font-bold uppercase tracking-widest">${withAlloc.length} membre${withAlloc.length>1?'s':''}</p>
-                        <p class="text-[11px] font-black text-slate-500">Total : ${totalMois.toFixed(2)}€</p>
+                        <p class="text-[11px] font-black ${totalVerse>=totalMois?'text-emerald-600':'text-amber-500'}">${totalVerse.toFixed(2)}€ / ${totalMois.toFixed(2)}€</p>
                     </div>
                 </div>`;
             }).join('');
         }
 
-        function toggleCheck(btn) {
-            const on = btn.dataset.checked==='true';
-            btn.dataset.checked = (!on).toString();
-            btn.classList.toggle('checked', !on);
-        }
-        function toutCocher(mois, annee) {
-            document.querySelectorAll(`button[data-mois="${mois}"][data-annee="${annee}"]`).forEach(btn=>{
-                btn.dataset.checked='true'; btn.classList.add('checked');
-            });
-        }
-        async function validerSelection(mois, annee) {
-            const btns = document.querySelectorAll(`button[data-mois="${mois}"][data-annee="${annee}"][data-checked="true"]`);
-            if (!btns.length) return showToast("Cochez au moins un membre","warning");
-            let blocage=false;
-            btns.forEach(b=>{ if(!parseFloat(b.dataset.alloc)||parseFloat(b.dataset.alloc)<=0){ showToast(`${b.dataset.nom} n'a pas d'allocation définie`,"error"); blocage=true; } });
-            if (blocage) return;
-            const inserts=[], notifs=[];
-            btns.forEach(b=>{
-                inserts.push({ user_id:b.dataset.uid, maison_id:userProfile.maison_id, mois:parseInt(mois), annee:parseInt(annee), montant:parseFloat(b.dataset.alloc), valide_par:userProfile.id });
-                notifs.push({ user_id:b.dataset.uid, lu:false, type:'allocation', message:`Votre allocation de ${MOIS_FR[mois-1]} ${annee} (${parseFloat(b.dataset.alloc).toFixed(2)}€) a été versée par votre chef de maison.` });
-            });
-            const { error } = await sb.from('allocations_versees').insert(inserts);
-            if (error) { showToast("Erreur : "+error.message,"error"); return; }
-            if (notifs.length) await sb.from('notifications').insert(notifs);
-            showToast(`${inserts.length} versement${inserts.length>1?'s':''} validé${inserts.length>1?'s':''} !`,"success");
-            await loadVersements(); refreshSoldes();
-        }
+// toggleCheck / toutCocher / validerSelection supprimés — les membres déclarent eux-mêmes leurs versements
 
         async function loadAuditGlobal() {
             const { data } = await sb.from('transactions')
@@ -753,7 +714,7 @@
             const versIds=new Set((vers||[]).map(v=>v.user_id));
             const nv=(membres||[]).filter(m=>parseFloat(m.allocation_mensuelle)>0&&!versIds.has(m.id));
             if(nv.length>0){
-                document.getElementById('alloc-reminder-text').textContent=`${nv.length} membre${nv.length>1?'s':''} n'ont pas encore reçu leur allocation de ${MOIS_FR[mois-1]} ${annee}.`;
+                document.getElementById('alloc-reminder-text').textContent=`${nv.length} membre${nv.length>1?'s':''} n'${nv.length>1?'ont':'a'} pas encore déclaré le versement de ${nv.length>1?'leurs':'son'} allocation de ${MOIS_FR[mois-1]} ${annee}.`;
                 document.getElementById('alloc-reminder-modal').classList.remove('hidden');
             }
         }
