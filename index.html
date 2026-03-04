@@ -3,71 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SMMD Compta - Connexion</title>
-    
+    <title>SMMD - Connexion</title>
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="SMMD">
-    <link rel="apple-touch-icon" href="https://fav.farm/🏠">
     <meta name="theme-color" content="#1e40af">
-
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
     <style>
         body { -webkit-tap-highlight-color: transparent; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body class="bg-slate-50 flex items-center justify-center min-h-screen p-6">
 
-    <div id="login-card" class="bg-white p-8 rounded-[40px] shadow-xl w-full max-sm:max-w-full max-w-sm border border-gray-100 transition-all">
-        <h1 class="text-4xl font-black italic mb-8 text-center text-blue-900 tracking-tighter">SMMD.</h1>
-        
+    <div id="login-card" class="bg-white p-8 rounded-[40px] shadow-xl w-full max-w-sm border border-gray-100 transition-all">
+        <h1 class="text-4xl font-black italic mb-2 text-center text-blue-900 tracking-tighter">SMMD.</h1>
+        <p class="text-center text-[10px] font-black uppercase tracking-widest text-gray-300 mb-8">Comptabilité des Maisons</p>
+
         <div class="space-y-4">
             <div>
                 <label class="text-[10px] font-black uppercase ml-2 mb-1 block text-gray-400 tracking-widest">Identifiant</label>
-                <input type="text" id="login-user" placeholder="ex: guillaume.legall" 
-                    class="w-full p-4 bg-gray-100 rounded-2xl border-none font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                <input type="text" id="login-user" placeholder="ex: guillaume.legall"
+                    class="w-full p-4 bg-gray-100 rounded-2xl border-none font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                    onkeydown="if(event.key==='Enter') handleLogin()">
             </div>
-            
             <div>
                 <label class="text-[10px] font-black uppercase ml-2 mb-1 block text-gray-400 tracking-widest">Mot de passe</label>
-                <input type="password" id="login-pass" placeholder="••••••••" 
-                    class="w-full p-4 bg-gray-100 rounded-2xl border-none font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                <input type="password" id="login-pass" placeholder="••••••••"
+                    class="w-full p-4 bg-gray-100 rounded-2xl border-none font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                    onkeydown="if(event.key==='Enter') handleLogin()">
             </div>
-            
-            <button onclick="handleLogin()" id="btn-login" 
+            <button onclick="handleLogin()" id="btn-login"
                 class="w-full bg-blue-900 text-white font-black py-5 rounded-2xl uppercase tracking-widest shadow-lg active:scale-95 transition-all mt-4">
                 Se connecter
             </button>
         </div>
-        
         <p id="error-msg" class="text-red-500 text-[10px] font-black uppercase text-center mt-6 hidden"></p>
     </div>
 
     <div id="loading-screen" class="hidden text-center">
         <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-900 mx-auto mb-4"></div>
-        <p class="font-black italic text-blue-900 uppercase tracking-widest text-[10px]">Vérification du rôle...</p>
+        <p class="font-black italic text-blue-900 uppercase tracking-widest text-[10px]">Connexion en cours...</p>
     </div>
 
     <script>
-        // CONFIGURATION SUPABASE
-        const SUPABASE_URL = "https://xccnnckuphxloxfrqtkf.supabase.co";
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjY25uY2t1cGh4bG94ZnJxdGtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODA3NjEsImV4cCI6MjA4Mjc1Njc2MX0.1mIEhKfS5OSsaw78f1_Iatni39y8CoIurAd5IXP6n6g";
-        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const sb = supabase.createClient(SMMD_CONFIG.url, SMMD_CONFIG.key);
 
-        // 1. VÉRIFICATION DE SESSION EXISTANTE
         async function checkSession() {
             const { data: { user } } = await sb.auth.getUser();
             if (user) {
                 document.getElementById('login-card').classList.add('hidden');
                 document.getElementById('loading-screen').classList.remove('hidden');
-                redirectUser(user.id);
+                await redirectUser(user.id);
             }
         }
 
-        // 2. FONCTION DE CONNEXION
         async function handleLogin() {
             const btn = document.getElementById('btn-login');
             const err = document.getElementById('error-msg');
@@ -77,25 +69,22 @@
             let identifier = document.getElementById('login-user').value.trim().toLowerCase();
             const password = document.getElementById('login-pass').value;
 
-            if(!identifier || !password) {
+            if (!identifier || !password) {
                 err.innerText = "Champs requis";
                 err.classList.remove('hidden');
                 return;
             }
 
-            if(!identifier.includes('@')) identifier += "@smmd.fr";
+            if (!identifier.includes('@')) identifier += "@smmd.fr";
 
             btn.disabled = true;
             btn.innerText = "PATIENTEZ...";
             err.classList.add('hidden');
 
-            const { data, error: authError } = await sb.auth.signInWithPassword({
-                email: identifier,
-                password: password
-            });
+            const { data, error: authError } = await sb.auth.signInWithPassword({ email: identifier, password });
 
             if (authError) {
-                err.innerText = "Accès refusé";
+                err.innerText = "Identifiant ou mot de passe incorrect";
                 err.classList.remove('hidden');
                 btn.disabled = false;
                 btn.innerText = "Se connecter";
@@ -104,44 +93,35 @@
 
             card.classList.add('hidden');
             load.classList.remove('hidden');
-            redirectUser(data.user.id);
+            await redirectUser(data.user.id);
         }
 
-        // 3. LOGIQUE D'AIGUILLAGE PAR RÔLE
         async function redirectUser(userId) {
-            const { data: profile, error: profError } = await sb
+            const { data: profile, error } = await sb
                 .from('profiles')
                 .select('role')
                 .eq('id', userId)
                 .maybeSingle();
 
-            if (profError) {
-                console.error("Erreur:", profError.message);
-                return;
-            }
-
-            if (!profile) {
-                document.getElementById('error-msg').innerText = "Profil introuvable en base.";
+            if (error || !profile) {
+                document.getElementById('error-msg').innerText = "Profil introuvable. Contactez l'administrateur.";
                 document.getElementById('error-msg').classList.remove('hidden');
+                document.getElementById('loading-screen').classList.add('hidden');
+                document.getElementById('login-card').classList.remove('hidden');
                 await sb.auth.signOut();
                 return;
             }
 
-            if (profile.role === 'chef') {
-                window.location.href = "chef.html";
-            } else if (profile.role === 'admin') {
-                window.location.href = "admin.html";
-            } else {
-                window.location.href = "user.html";
-            }
+            if (profile.role === 'chef') window.location.href = "chef.html";
+            else if (profile.role === 'admin') window.location.href = "admin.html";
+            else window.location.href = "user.html";
         }
 
-        // 4. ENREGISTREMENT DU SERVICE WORKER POUR PWA
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
-                    .then(reg => console.log('SW enregistré'))
-                    .catch(err => console.log('Erreur SW', err));
+                    .then(() => console.log('SW enregistré'))
+                    .catch(e => console.warn('Erreur SW', e));
             });
         }
 
