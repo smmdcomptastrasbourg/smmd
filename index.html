@@ -3,53 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SMMD - Connexion</title>
+    <title>SMMD — Connexion</title>
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="SMMD">
-    <meta name="theme-color" content="#1e40af">
+    <meta name="theme-color" content="#0f172a">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
     <style>
-        body { -webkit-tap-highlight-color: transparent; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,700;0,900;1,900&display=swap');
+        * { -webkit-tap-highlight-color: transparent; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(160deg, #0f172a 0%, #1e3a8a 60%, #312e81 100%);
+            min-height: 100vh; min-height: 100dvh;
+        }
+        @keyframes slideUp { from{opacity:0;transform:translateY(28px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes fadeIn  { from{opacity:0} to{opacity:1} }
+        .anim-up   { animation: slideUp .5s cubic-bezier(.4,0,.2,1) both; }
+        .anim-fade { animation: fadeIn .4s ease both; }
+
+        input:-webkit-autofill { -webkit-box-shadow: 0 0 0 100px #f8fafc inset; }
     </style>
 </head>
-<body class="bg-slate-50 flex items-center justify-center min-h-screen p-6">
+<body class="flex flex-col items-center justify-center p-6 min-h-screen">
 
-    <div id="login-card" class="bg-white p-8 rounded-[40px] shadow-xl w-full max-w-sm border border-gray-100 transition-all">
-        <h1 class="text-4xl font-black italic mb-2 text-center text-blue-900 tracking-tighter">SMMD.</h1>
-        <p class="text-center text-[10px] font-black uppercase tracking-widest text-gray-300 mb-8">Comptabilité des Maisons</p>
+    <!-- Logo -->
+    <div class="text-center mb-10 anim-up" style="animation-delay:.05s">
+        <h1 class="text-6xl font-black italic text-white tracking-tighter leading-none">SMMD.</h1>
+        <p class="text-[10px] font-black uppercase tracking-[.4em] text-white/30 mt-2">Comptabilité des Maisons</p>
+    </div>
 
-        <div class="space-y-4">
+    <!-- Card -->
+    <div id="login-card" class="bg-white rounded-[40px] w-full max-w-sm shadow-2xl p-8 anim-up" style="animation-delay:.1s">
+        <div class="space-y-5">
             <div>
-                <label class="text-[10px] font-black uppercase ml-2 mb-1 block text-gray-400 tracking-widest">Identifiant</label>
-                <input type="text" id="login-user" placeholder="ex: guillaume.legall"
-                    class="w-full p-4 bg-gray-100 rounded-2xl border-none font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                    onkeydown="if(event.key==='Enter') handleLogin()">
+                <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1.5 block tracking-widest">Identifiant</label>
+                <input type="text" id="login-user" placeholder="prenom.nom"
+                    autocomplete="username" autocapitalize="none" spellcheck="false"
+                    class="w-full p-4 bg-slate-50 rounded-2xl font-bold text-sm outline-none border-2 border-slate-50 focus:bg-white focus:border-blue-200 transition-all"
+                    onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()">
             </div>
             <div>
-                <label class="text-[10px] font-black uppercase ml-2 mb-1 block text-gray-400 tracking-widest">Mot de passe</label>
+                <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1.5 block tracking-widest">Mot de passe</label>
                 <input type="password" id="login-pass" placeholder="••••••••"
-                    class="w-full p-4 bg-gray-100 rounded-2xl border-none font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                    onkeydown="if(event.key==='Enter') handleLogin()">
+                    autocomplete="current-password"
+                    class="w-full p-4 bg-slate-50 rounded-2xl font-bold text-sm outline-none border-2 border-slate-50 focus:bg-white focus:border-blue-200 transition-all"
+                    onkeydown="if(event.key==='Enter')handleLogin()">
             </div>
-            <button onclick="handleLogin()" id="btn-login"
-                class="w-full bg-blue-900 text-white font-black py-5 rounded-2xl uppercase tracking-widest shadow-lg active:scale-95 transition-all mt-4">
+
+            <!-- Error -->
+            <div id="error-msg" class="hidden bg-red-50 border border-red-100 rounded-2xl px-4 py-3">
+                <p class="text-[11px] font-bold text-red-600 text-center"></p>
+            </div>
+
+            <button id="btn-login" onclick="handleLogin()"
+                class="w-full bg-blue-900 text-white font-black py-5 rounded-[22px] uppercase tracking-[.2em] text-[12px] shadow-xl shadow-blue-900/20 active:scale-[.97] hover:bg-blue-800 transition-all">
                 Se connecter
             </button>
         </div>
-        <p id="error-msg" class="text-red-500 text-[10px] font-black uppercase text-center mt-6 hidden"></p>
     </div>
 
-    <div id="loading-screen" class="hidden text-center">
-        <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-900 mx-auto mb-4"></div>
-        <p class="font-black italic text-blue-900 uppercase tracking-widest text-[10px]">Connexion en cours...</p>
+    <!-- Loading -->
+    <div id="loading-screen" class="hidden text-center anim-fade">
+        <div class="w-12 h-12 rounded-full border-4 border-white/20 border-t-white animate-spin mx-auto mb-5"></div>
+        <p class="text-white/60 font-black uppercase tracking-[.3em] text-[10px]">Connexion en cours...</p>
+    </div>
+
+    <!-- Offline banner -->
+    <div id="offline-banner" class="hidden fixed top-4 left-4 right-4 bg-amber-500 text-white rounded-2xl px-4 py-3 text-[11px] font-bold text-center shadow-lg z-50">
+        ⚠️ Pas de connexion réseau
     </div>
 
     <script>
         const sb = supabase.createClient(SMMD_CONFIG.url, SMMD_CONFIG.key);
+
+        // Offline detection
+        window.addEventListener('offline', () => document.getElementById('offline-banner').classList.remove('hidden'));
+        window.addEventListener('online',  () => document.getElementById('offline-banner').classList.add('hidden'));
+        if (!navigator.onLine) document.getElementById('offline-banner').classList.remove('hidden');
+
+        function showError(msg) {
+            const el = document.getElementById('error-msg');
+            el.querySelector('p').textContent = msg;
+            el.classList.remove('hidden');
+        }
+        function hideError() { document.getElementById('error-msg').classList.add('hidden'); }
 
         async function checkSession() {
             const { data: { user } } = await sb.auth.getUser();
@@ -61,70 +101,42 @@
         }
 
         async function handleLogin() {
+            if (!navigator.onLine) return showError("Pas de connexion réseau");
             const btn = document.getElementById('btn-login');
-            const err = document.getElementById('error-msg');
-            const card = document.getElementById('login-card');
-            const load = document.getElementById('loading-screen');
-
-            let identifier = document.getElementById('login-user').value.trim().toLowerCase();
-            const password = document.getElementById('login-pass').value;
-
-            if (!identifier || !password) {
-                err.innerText = "Champs requis";
-                err.classList.remove('hidden');
+            let id = document.getElementById('login-user').value.trim().toLowerCase();
+            const pw = document.getElementById('login-pass').value;
+            if (!id || !pw) return showError("Champs requis");
+            if (!id.includes('@')) id += '@smmd.fr';
+            hideError();
+            btn.textContent = '...'; btn.disabled = true;
+            const { data, error } = await sb.auth.signInWithPassword({ email: id, password: pw });
+            if (error) {
+                showError("Identifiant ou mot de passe incorrect");
+                btn.textContent = 'Se connecter'; btn.disabled = false;
                 return;
             }
-
-            if (!identifier.includes('@')) identifier += "@smmd.fr";
-
-            btn.disabled = true;
-            btn.innerText = "PATIENTEZ...";
-            err.classList.add('hidden');
-
-            const { data, error: authError } = await sb.auth.signInWithPassword({ email: identifier, password });
-
-            if (authError) {
-                err.innerText = "Identifiant ou mot de passe incorrect";
-                err.classList.remove('hidden');
-                btn.disabled = false;
-                btn.innerText = "Se connecter";
-                return;
-            }
-
-            card.classList.add('hidden');
-            load.classList.remove('hidden');
+            document.getElementById('login-card').classList.add('hidden');
+            document.getElementById('loading-screen').classList.remove('hidden');
             await redirectUser(data.user.id);
         }
 
-        async function redirectUser(userId) {
-            const { data: profile, error } = await sb
-                .from('profiles')
-                .select('role')
-                .eq('id', userId)
-                .maybeSingle();
-
+        async function redirectUser(uid) {
+            const { data: profile, error } = await sb.from('profiles').select('role').eq('id', uid).maybeSingle();
             if (error || !profile) {
-                document.getElementById('error-msg').innerText = "Profil introuvable. Contactez l'administrateur.";
-                document.getElementById('error-msg').classList.remove('hidden');
+                showError("Profil introuvable — contactez l'administrateur");
                 document.getElementById('loading-screen').classList.add('hidden');
                 document.getElementById('login-card').classList.remove('hidden');
                 await sb.auth.signOut();
                 return;
             }
-
-            if (profile.role === 'chef') window.location.href = "chef.html";
-            else if (profile.role === 'admin') window.location.href = "admin.html";
-            else window.location.href = "user.html";
+            if (profile.role === 'chef')  window.location.href = 'chef.html';
+            else if (profile.role === 'admin') window.location.href = 'admin.html';
+            else window.location.href = 'user.html';
         }
 
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(() => console.log('SW enregistré'))
-                    .catch(e => console.warn('Erreur SW', e));
-            });
+            window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
         }
-
         checkSession();
     </script>
 </body>
