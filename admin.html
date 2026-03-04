@@ -215,10 +215,11 @@
         }
 
         async function deleteUser(id) {
-            if (!confirm("Supprimer définitivement ce profil ? Cette action est irréversible.")) return;
-            const { error } = await sb.from('profiles').delete().eq('id', id);
-            if (error) showToast("Erreur lors de la suppression", "error");
-            else { showToast("Profil supprimé", "info"); loadUsers(); }
+            showConfirm('Supprimer définitivement ce profil ? Cette action est irréversible.', async () => {
+                const { error } = await sb.from('profiles').delete().eq('id', id);
+                if (error) showToast("Erreur lors de la suppression", "error");
+                else { showToast("Profil supprimé", "info"); loadUsers(); }
+            }, 'Supprimer', true);
         }
 
         async function registerUser() {
@@ -271,12 +272,16 @@
 
             let csv = "\uFEFFDate;Maison;Membre;Type;Motif;Montant;Méthode;Statut;Commentaire\n";
 
-            // Allocations
-            (members || []).forEach(m => {
-                const alloc = parseFloat(m.allocation_mensuelle) || 0;
-                if (alloc > 0) {
-                    csv += `01/${month}/${year};${m.maisons?.nom || '-'};${m.prenom} ${m.nom || ''};REVENU;ALLOCATION;${alloc.toFixed(2).replace('.', ',')};AUTO;Validé;Versement mensuel\n`;
-                }
+            // Allocations versées ce mois (depuis la table allocations_versees)
+            let allocQuery = sb.from('allocations_versees')
+                .select('montant, user_id, profiles(prenom, nom), maisons(nom)')
+                .eq('mois', parseInt(month))
+                .eq('annee', parseInt(year));
+            if (maisonId !== 'all') allocQuery = allocQuery.eq('maison_id', maisonId);
+            const { data: allocVersees } = await allocQuery;
+            (allocVersees || []).forEach(a => {
+                const alloc = parseFloat(a.montant);
+                csv += `01/${month}/${year};${a.maisons?.nom || '-'};${a.profiles?.prenom || ''} ${a.profiles?.nom || ''};REVENU;ALLOCATION VERSÉE;${alloc.toFixed(2).replace('.', ',')};VIREMENT;Validé;Versement mensuel\n`;
             });
 
             // Transactions filtrées par mois ET année
@@ -319,10 +324,11 @@
         }
 
         async function deleteMaison(id) {
-            if (!confirm("Supprimer cette maison ? Les membres associés ne seront plus rattachés.")) return;
-            const { error } = await sb.from('maisons').delete().eq('id', id);
-            if (error) showToast("Erreur : " + error.message, "error");
-            else { showToast("Maison supprimée", "info"); loadMaisons(); }
+            showConfirm('Supprimer cette maison ? Les membres associés ne seront plus rattachés.', async () => {
+                const { error } = await sb.from('maisons').delete().eq('id', id);
+                if (error) showToast("Erreur : " + error.message, "error");
+                else { showToast("Maison supprimée", "info"); loadMaisons(); }
+            }, 'Supprimer', true);
         }
 
         async function addMotif() {
