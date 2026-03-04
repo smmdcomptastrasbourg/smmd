@@ -390,10 +390,11 @@
             if (!data || !data[0]) return showToast("Aucune opération à annuler", "warning");
             const age = Date.now() - new Date(data[0].created_at).getTime();
             if (age > 24 * 60 * 60 * 1000) return showToast("Annulation impossible après 24h", "error");
-            if (!confirm("Annuler la dernière saisie ?")) return;
-            const { error } = await sb.from('transactions').delete().eq('id', data[0].id);
-            if (error) showToast("Erreur lors de l'annulation", "error");
-            else { showToast("Opération annulée", "info"); await refreshDashboard(); await loadRefundHistory(); }
+            showConfirm('Annuler la dernière saisie ?', async () => {
+                const { error } = await sb.from('transactions').delete().eq('id', data[0].id);
+                if (error) showToast("Erreur lors de l'annulation", "error");
+                else { showToast("Opération annulée", "info"); await refreshDashboard(); await loadRefundHistory(); }
+            }, 'Annuler', true);
         }
 
         async function loadMotifs() {
