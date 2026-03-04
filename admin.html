@@ -2,350 +2,443 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SMMD - Master Admin</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SMMD — Console Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
-</head>
-<body class="bg-slate-50 text-slate-900 font-sans pb-20">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,700;0,900;1,900&display=swap');
+        * { -webkit-tap-highlight-color: transparent; }
+        body { font-family:'Inter',sans-serif; background:#f1f5f9; }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
 
-    <nav class="bg-white border-b p-6 flex justify-between items-center sticky top-0 z-50 shadow-sm">
-        <h1 class="text-2xl font-black italic tracking-tighter text-blue-900">SMMD. <span class="text-xs opacity-30 not-italic font-bold uppercase tracking-widest ml-2">Console Master</span></h1>
-        <button onclick="logout()" class="bg-red-50 text-red-600 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-100 transition-all">Déconnexion</button>
+        /* NAV */
+        #main-nav {
+            background: linear-gradient(160deg,#0f172a 0%,#1e3a8a 55%,#312e81 100%);
+            transition: padding .35s cubic-bezier(.4,0,.2,1), border-radius .35s cubic-bezier(.4,0,.2,1);
+        }
+        #nav-expanded { transition: opacity .25s ease, max-height .35s cubic-bezier(.4,0,.2,1); max-height:300px; overflow:hidden; }
+        #nav-compact   { transition: opacity .25s ease; }
+
+        /* ANIMATIONS */
+        @keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+        .anim-slide { animation: slideUp .4s cubic-bezier(.4,0,.2,1) both; }
+
+        /* SECTIONS */
+        .section-panel { display:none; }
+        .section-panel.active { display:block; animation:slideUp .3s cubic-bezier(.4,0,.2,1) both; }
+
+        /* BOTTOM BAR */
+        #bottom-bar {
+            background:rgba(255,255,255,.95);
+            backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px);
+            border-top:1px solid rgba(0,0,0,.07);
+        }
+        .bar-btn svg   { stroke:#94a3b8; transition:all .2s; }
+        .bar-btn span  { color:#94a3b8; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; transition:color .2s; }
+        .bar-btn.active svg  { stroke:#1e3a8a; transform:translateY(-2px); }
+        .bar-btn.active span { color:#1e3a8a; }
+    </style>
+</head>
+<body class="text-slate-900 min-h-screen pb-24">
+
+    <div id="scroll-sentinel" class="h-px w-full absolute top-0 pointer-events-none"></div>
+
+    <!-- OFFLINE BANNER -->
+    <div id="offline-banner" class="hidden fixed top-0 left-0 right-0 z-[300] bg-amber-500 text-white text-center text-[11px] font-bold py-2 px-4">
+        ⚠️ Pas de connexion réseau
+    </div>
+
+    <!-- NAV -->
+    <nav id="main-nav" class="sticky top-0 z-50 text-white px-6 pt-6 pb-5 rounded-b-[40px] shadow-2xl">
+        <div id="nav-expanded">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-black italic tracking-tighter leading-none">SMMD.</h1>
+                    <p class="text-[10px] uppercase tracking-[.3em] opacity-50 font-bold italic mt-1">Console Admin</p>
+                </div>
+                <button onclick="logout()" class="bg-red-500/20 text-red-300 border border-red-500/20 px-4 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-500/30 transition-all active:scale-95">
+                    Déconnexion
+                </button>
+            </div>
+        </div>
+        <div id="nav-compact" class="hidden">
+            <div class="flex justify-between items-center">
+                <div>
+                    <p class="text-[12px] font-black uppercase tracking-widest">SMMD.</p>
+                    <p class="text-[8px] opacity-40 font-bold tracking-widest uppercase">Console Admin</p>
+                </div>
+                <button onclick="logout()" class="bg-red-500/20 text-red-300 border border-red-500/20 px-3 py-2 rounded-xl font-black text-[9px] uppercase">Déco.</button>
+            </div>
+        </div>
     </nav>
 
-    <main class="p-6 max-w-6xl mx-auto space-y-10">
+    <main class="px-4 pt-5">
 
-        <!-- Export CSV -->
-        <section class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-            <h2 class="text-xs font-black uppercase tracking-widest text-blue-900 mb-6 italic">Extraction Compta (Transactions + Allocations)</h2>
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <select id="export-maison" class="p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none text-sm"></select>
-                <select id="export-month" class="p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none text-sm">
-                    <option value="01">Janvier</option><option value="02">Février</option><option value="03">Mars</option>
-                    <option value="04">Avril</option><option value="05">Mai</option><option value="06">Juin</option>
-                    <option value="07">Juillet</option><option value="08">Août</option><option value="09">Septembre</option>
-                    <option value="10">Octobre</option><option value="11">Novembre</option><option value="12">Décembre</option>
-                </select>
-                <select id="export-year" class="p-4 bg-gray-50 rounded-2xl border-none font-bold outline-none text-sm"></select>
-                <button onclick="exportData()" class="bg-blue-900 text-white font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest shadow-lg hover:scale-[1.02] transition-all">Télécharger CSV</button>
+        <!-- ── SECTION EXPORT ── -->
+        <div id="section-export" class="section-panel active space-y-4">
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1 pt-1 mb-3">Export Comptabilité</p>
+
+            <div class="bg-white rounded-[28px] border border-slate-100 shadow-sm p-6 space-y-4 anim-slide">
+                <div>
+                    <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1.5 block tracking-widest">Maison</label>
+                    <div class="relative">
+                        <select id="export-maison" class="w-full bg-slate-50 p-4 rounded-2xl font-bold text-sm outline-none border-2 border-slate-50 focus:bg-white focus:border-blue-100 transition-all appearance-none"></select>
+                        <svg class="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1.5 block tracking-widest">Mois</label>
+                        <div class="relative">
+                            <select id="export-month" class="w-full bg-slate-50 p-4 rounded-2xl font-bold text-sm outline-none border-2 border-slate-50 focus:bg-white focus:border-blue-100 transition-all appearance-none">
+                                <option value="01">Janvier</option><option value="02">Février</option><option value="03">Mars</option>
+                                <option value="04">Avril</option><option value="05">Mai</option><option value="06">Juin</option>
+                                <option value="07">Juillet</option><option value="08">Août</option><option value="09">Septembre</option>
+                                <option value="10">Octobre</option><option value="11">Novembre</option><option value="12">Décembre</option>
+                            </select>
+                            <svg class="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1.5 block tracking-widest">Année</label>
+                        <div class="relative">
+                            <select id="export-year" class="w-full bg-slate-50 p-4 rounded-2xl font-bold text-sm outline-none border-2 border-slate-50 focus:bg-white focus:border-blue-100 transition-all appearance-none"></select>
+                            <svg class="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                        </div>
+                    </div>
+                </div>
+                <button onclick="exportData()" class="w-full bg-blue-900 text-white font-black py-5 rounded-[22px] uppercase tracking-[.2em] text-[12px] shadow-xl shadow-blue-900/20 active:scale-[.97] hover:bg-blue-800 transition-all">
+                    Télécharger CSV
+                </button>
             </div>
-        </section>
+        </div>
 
-        <!-- Créer un membre -->
-        <section class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-            <h2 class="text-xs font-black uppercase tracking-widest text-gray-400 mb-6">Enregistrer un nouveau membre</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-                <div>
-                    <label class="text-[9px] font-black uppercase text-gray-400 ml-2 mb-1 block tracking-widest">Prénom</label>
-                    <input type="text" id="user-prenom" placeholder="Prénom" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold text-sm outline-none focus:ring-2 focus:ring-blue-300">
+        <!-- ── SECTION MEMBRES ── -->
+        <div id="section-membres" class="section-panel space-y-4">
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1 pt-1 mb-1">Annuaire & Allocations</p>
+
+            <!-- Créer un membre -->
+            <div class="bg-white rounded-[28px] border border-blue-100 p-6 space-y-4 anim-slide">
+                <p class="text-[9px] font-black uppercase text-blue-700 tracking-widest">Nouveau membre</p>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1 block tracking-widest">Prénom</label>
+                        <input type="text" id="user-prenom" placeholder="Prénom" class="w-full bg-slate-50 p-3.5 rounded-2xl font-bold text-sm outline-none border-2 border-slate-50 focus:bg-white focus:border-blue-100 transition-all">
+                    </div>
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1 block tracking-widest">Nom</label>
+                        <input type="text" id="user-nom" placeholder="NOM" class="w-full bg-slate-50 p-3.5 rounded-2xl font-bold text-sm outline-none border-2 border-slate-50 focus:bg-white focus:border-blue-100 transition-all uppercase">
+                    </div>
                 </div>
                 <div>
-                    <label class="text-[9px] font-black uppercase text-gray-400 ml-2 mb-1 block tracking-widest">Nom</label>
-                    <input type="text" id="user-nom" placeholder="NOM" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold text-sm outline-none focus:ring-2 focus:ring-blue-300 uppercase">
+                    <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1 block tracking-widest">Email</label>
+                    <input type="email" id="user-email" placeholder="prenom.nom@smmd.fr" class="w-full bg-slate-50 p-3.5 rounded-2xl font-bold text-sm outline-none border-2 border-slate-50 focus:bg-white focus:border-blue-100 transition-all">
                 </div>
                 <div>
-                    <label class="text-[9px] font-black uppercase text-gray-400 ml-2 mb-1 block tracking-widest">Email (identifiant)</label>
-                    <input type="email" id="user-email" placeholder="prenom.nom@smmd.fr" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold text-sm outline-none focus:ring-2 focus:ring-blue-300">
+                    <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1 block tracking-widest">Mot de passe</label>
+                    <input type="password" id="user-pass" placeholder="••••••••" class="w-full bg-slate-50 p-3.5 rounded-2xl font-bold text-sm outline-none border-2 border-slate-50 focus:bg-white focus:border-blue-100 transition-all">
                 </div>
-                <div>
-                    <label class="text-[9px] font-black uppercase text-gray-400 ml-2 mb-1 block tracking-widest">Mot de passe initial</label>
-                    <input type="password" id="user-pass" placeholder="••••••••" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold text-sm outline-none focus:ring-2 focus:ring-blue-300">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1 block tracking-widest">Maison</label>
+                        <div class="relative">
+                            <select id="user-maison" class="w-full bg-slate-50 p-3.5 rounded-2xl font-bold text-sm outline-none border-2 border-slate-50 focus:bg-white appearance-none"></select>
+                            <svg class="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-300 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1 block tracking-widest">Rôle</label>
+                        <div class="relative">
+                            <select id="user-role" class="w-full bg-slate-50 p-3.5 rounded-2xl font-bold text-sm outline-none border-2 border-slate-50 focus:bg-white appearance-none">
+                                <option value="user">Utilisateur</option>
+                                <option value="chef">Chef de Maison</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                            <svg class="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-300 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                        </div>
+                    </div>
                 </div>
-                <div>
-                    <label class="text-[9px] font-black uppercase text-gray-400 ml-2 mb-1 block tracking-widest">Maison</label>
-                    <select id="user-maison" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold text-sm outline-none focus:ring-2 focus:ring-blue-300"></select>
-                </div>
-                <div>
-                    <label class="text-[9px] font-black uppercase text-gray-400 ml-2 mb-1 block tracking-widest">Rôle</label>
-                    <select id="user-role" class="w-full p-4 bg-gray-50 rounded-2xl border-none font-bold text-sm outline-none focus:ring-2 focus:ring-blue-300">
-                        <option value="user">Utilisateur</option>
-                        <option value="chef">Chef de Maison</option>
-                        <option value="admin">Master Admin</option>
-                    </select>
-                </div>
+                <button onclick="registerUser()" class="w-full bg-blue-900 text-white font-black py-4 rounded-[20px] uppercase text-[11px] tracking-widest shadow-lg active:scale-95 transition-all">
+                    Créer le compte
+                </button>
             </div>
-            <button onclick="registerUser()" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest shadow-lg hover:bg-blue-700 transition-all">Créer le compte</button>
-        </section>
 
-        <!-- Annuaire & Allocations -->
-        <section class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-            <h2 class="text-xs font-black uppercase tracking-widest text-gray-400 mb-6 italic">Gestion de l'Annuaire & Allocations</h2>
-            <div id="users-list" class="space-y-4"></div>
-        </section>
+            <!-- Liste membres -->
+            <div id="users-list" class="space-y-3"></div>
+        </div>
 
-        <!-- Maisons & Motifs -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
-            <section class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-                <h2 class="text-xs font-black uppercase tracking-widest text-gray-400 mb-6">Maisons</h2>
-                <div class="flex gap-2 mb-4">
-                    <input type="text" id="new-maison-name" placeholder="Nom de la maison..." class="flex-1 p-3 bg-gray-50 rounded-xl border-none font-bold text-sm outline-none focus:ring-2 focus:ring-blue-300">
-                    <button onclick="addMaison()" class="bg-slate-900 text-white px-4 rounded-xl font-black text-[10px] uppercase hover:bg-slate-700 transition-all">Ajouter</button>
+        <!-- ── SECTION MAISONS & MOTIFS ── -->
+        <div id="section-config" class="section-panel space-y-4">
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1 pt-1 mb-1">Configuration</p>
+
+            <!-- Maisons -->
+            <div class="bg-white rounded-[28px] border border-slate-100 shadow-sm p-6 anim-slide">
+                <p class="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-4">Maisons</p>
+                <div class="flex gap-3 mb-4">
+                    <input type="text" id="new-maison-name" placeholder="Nom de la maison..."
+                        class="flex-1 bg-slate-50 p-3.5 rounded-2xl font-bold text-sm outline-none border-2 border-slate-50 focus:bg-white focus:border-blue-100 transition-all">
+                    <button onclick="addMaison()" class="bg-slate-900 text-white px-5 rounded-2xl font-black text-[10px] uppercase active:scale-95 transition-all">+</button>
                 </div>
                 <div id="maisons-list" class="space-y-2"></div>
-            </section>
+            </div>
 
-            <section class="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-                <h2 class="text-xs font-black uppercase tracking-widest text-gray-400 mb-6">Motifs de dépense</h2>
-                <div class="flex gap-2 mb-4">
-                    <input type="text" id="new-motif" placeholder="Nouveau motif..." class="flex-1 p-3 bg-gray-50 rounded-xl border-none font-bold text-sm outline-none focus:ring-2 focus:ring-blue-300">
-                    <button onclick="addMotif()" class="bg-slate-900 text-white px-4 rounded-xl font-black text-[10px] uppercase hover:bg-slate-700 transition-all">Ajouter</button>
+            <!-- Motifs -->
+            <div class="bg-white rounded-[28px] border border-slate-100 shadow-sm p-6 anim-slide" style="animation-delay:.05s">
+                <p class="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-4">Motifs de dépense</p>
+                <div class="flex gap-3 mb-4">
+                    <input type="text" id="new-motif" placeholder="Nouveau motif..."
+                        class="flex-1 bg-slate-50 p-3.5 rounded-2xl font-bold text-sm outline-none border-2 border-slate-50 focus:bg-white focus:border-blue-100 transition-all">
+                    <button onclick="addMotif()" class="bg-slate-900 text-white px-5 rounded-2xl font-black text-[10px] uppercase active:scale-95 transition-all">+</button>
                 </div>
                 <div id="motifs-list" class="flex flex-wrap gap-2"></div>
-            </section>
+            </div>
         </div>
 
     </main>
+
+    <!-- BOTTOM BAR -->
+    <div id="bottom-bar" class="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around px-2 py-2">
+        <button class="bar-btn active flex flex-col items-center gap-1 px-6 py-2 rounded-2xl" onclick="switchTab('export',this)">
+            <svg class="w-5 h-5" fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            <span>Export</span>
+        </button>
+        <button class="bar-btn flex flex-col items-center gap-1 px-6 py-2 rounded-2xl" onclick="switchTab('membres',this)">
+            <svg class="w-5 h-5" fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span>Membres</span>
+        </button>
+        <button class="bar-btn flex flex-col items-center gap-1 px-6 py-2 rounded-2xl" onclick="switchTab('config',this)">
+            <svg class="w-5 h-5" fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span>Config</span>
+        </button>
+    </div>
 
     <script>
         const sb = supabase.createClient(SMMD_CONFIG.url, SMMD_CONFIG.key);
         let allMaisonsCache = [];
 
+        // Offline
+        window.addEventListener('offline', ()=>document.getElementById('offline-banner').classList.remove('hidden'));
+        window.addEventListener('online',  ()=>document.getElementById('offline-banner').classList.add('hidden'));
+
+        // Compact nav
+        new IntersectionObserver(([e]) => {
+            const compact = !e.isIntersecting;
+            const exp = document.getElementById('nav-expanded');
+            const cmp = document.getElementById('nav-compact');
+            const nav = document.getElementById('main-nav');
+            exp.style.maxHeight = compact ? '0'    : '300px';
+            exp.style.opacity   = compact ? '0'    : '1';
+            cmp.classList.toggle('hidden', !compact);
+            nav.style.paddingTop    = compact ? '14px' : '24px';
+            nav.style.paddingBottom = compact ? '14px' : '20px';
+            nav.style.borderRadius  = compact ? '0 0 20px 20px' : '0 0 40px 40px';
+        }, { threshold:0 }).observe(document.getElementById('scroll-sentinel'));
+
+        function switchTab(name, btn) {
+            document.querySelectorAll('.section-panel').forEach(s=>s.classList.remove('active'));
+            document.getElementById('section-'+name).classList.add('active');
+            document.querySelectorAll('.bar-btn').forEach(b=>b.classList.remove('active'));
+            btn.classList.add('active');
+            window.scrollTo({top:0,behavior:'smooth'});
+        }
+
         async function init() {
             const { data: { session } } = await sb.auth.getSession();
-            if (!session) { window.location.href = "index.html"; return; }
-
-            // Pré-sélectionner le mois courant
+            if (!session) { window.location.href='index.html'; return; }
             const now = new Date();
-            document.getElementById('export-month').value = String(now.getMonth() + 1).padStart(2, '0');
-
-            // Remplir les années
-            const yearSelect = document.getElementById('export-year');
-            for (let y = now.getFullYear(); y >= 2025; y--) {
-                yearSelect.innerHTML += `<option value="${y}">${y}</option>`;
-            }
-
+            document.getElementById('export-month').value = String(now.getMonth()+1).padStart(2,'0');
+            const ySel = document.getElementById('export-year');
+            for (let y=now.getFullYear(); y>=2025; y--) ySel.innerHTML+=`<option value="${y}">${y}</option>`;
             await loadMaisons();
             await loadUsers();
             await loadMotifs();
         }
 
         async function loadMaisons() {
-            const { data, error } = await sb.from('maisons').select('*').order('nom');
-            if (error || !data) return;
-            allMaisonsCache = data;
-
-            document.getElementById('export-maison').innerHTML =
-                `<option value="all">Toutes les maisons</option>` +
-                data.map(m => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.nom)}</option>`).join('');
-
-            document.getElementById('user-maison').innerHTML =
-                data.filter(m => m.nom !== 'ADMINISTRATION')
-                    .map(m => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.nom)}</option>`).join('');
-
-            document.getElementById('maisons-list').innerHTML = data.map(m => `
-                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
-                    <span class="text-xs font-bold uppercase italic text-blue-900">${escapeHtml(m.nom)}</span>
-                    <button onclick="deleteMaison('${escapeHtml(m.id)}')" class="text-red-400 text-[10px] font-black uppercase hover:text-red-600 transition-colors">Supprimer</button>
-                </div>
-            `).join('');
+            const {data,error}=await sb.from('maisons').select('*').order('nom');
+            if(error||!data){ showToast("Erreur chargement maisons","error"); return; }
+            allMaisonsCache=data;
+            document.getElementById('export-maison').innerHTML=
+                `<option value="all">Toutes les maisons</option>`+
+                data.map(m=>`<option value="${escapeHtml(m.id)}">${escapeHtml(m.nom)}</option>`).join('');
+            document.getElementById('user-maison').innerHTML=
+                data.filter(m=>m.nom!=='ADMINISTRATION')
+                    .map(m=>`<option value="${escapeHtml(m.id)}">${escapeHtml(m.nom)}</option>`).join('');
+            document.getElementById('maisons-list').innerHTML=data.map(m=>`
+                <div class="flex justify-between items-center p-3.5 bg-slate-50 rounded-2xl">
+                    <span class="text-[11px] font-black uppercase italic text-slate-700">${escapeHtml(m.nom)}</span>
+                    <button onclick="deleteMaison('${escapeHtml(m.id)}')" class="text-red-300 hover:text-red-500 font-black text-sm transition-colors">✕</button>
+                </div>`).join('');
         }
 
         async function loadUsers() {
-            const { data: users, error: usersErr } = await sb.from('profiles')
-                .select('*, maisons(id, nom)')
-                .order('prenom');
-            if (usersErr || !users) return;
-
-            document.getElementById('users-list').innerHTML = users.map(u => `
-                <div class="p-5 bg-gray-50 rounded-[30px] border border-transparent hover:border-blue-200 hover:bg-white transition-all grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-center">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full bg-blue-900 text-white flex items-center justify-center font-black text-xs italic flex-shrink-0">
-                            ${escapeHtml((u.prenom || '?')[0])}${escapeHtml((u.nom || '?')[0])}
+            const {data:users,error}=await sb.from('profiles').select('*, maisons(id,nom)').order('prenom');
+            if(error||!users){ showToast("Erreur chargement membres","error"); return; }
+            document.getElementById('users-list').innerHTML=users.map((u,i)=>`
+                <div class="bg-white p-5 rounded-[26px] border border-slate-100 shadow-sm anim-slide" style="animation-delay:${i*.03}s">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-9 h-9 rounded-full bg-blue-900 text-white flex items-center justify-center font-black text-xs italic flex-shrink-0">
+                            ${escapeHtml((u.prenom||'?')[0])}${escapeHtml((u.nom||'?')[0])}
                         </div>
-                        <div class="min-w-0">
-                            <p class="text-[11px] font-black uppercase leading-none truncate">${escapeHtml(u.prenom || '')} ${escapeHtml(u.nom || '')}</p>
-                            <p class="text-[9px] text-gray-400 font-bold lowercase truncate">${escapeHtml(u.email || u.id)}</p>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-[12px] font-black uppercase text-slate-800 truncate">${escapeHtml(u.prenom||'')} ${escapeHtml(u.nom||'')}</p>
+                            <p class="text-[9px] text-slate-400 font-bold lowercase truncate">${escapeHtml(u.email||u.id)}</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="resetPassword('${escapeHtml(u.email||'')}')" title="Reset mdp" class="bg-blue-50 text-blue-500 w-8 h-8 rounded-xl flex items-center justify-center text-sm hover:bg-blue-100 transition-all">🔑</button>
+                            <button onclick="deleteUser('${escapeHtml(u.id)}')" class="bg-red-50 text-red-400 w-8 h-8 rounded-xl flex items-center justify-center font-black hover:bg-red-100 transition-all">✕</button>
                         </div>
                     </div>
-
-                    <div class="flex gap-2">
-                        <select onchange="updateUserMaison('${escapeHtml(u.id)}', this.value)" class="flex-1 bg-white p-2 rounded-lg text-[10px] font-bold uppercase border border-gray-100 outline-none focus:ring-1 focus:ring-blue-300">
-                            ${allMaisonsCache.map(m => `<option value="${escapeHtml(m.id)}" ${u.maison_id === m.id ? 'selected' : ''}>${escapeHtml(m.nom)}</option>`).join('')}
-                        </select>
-                        <select onchange="updateUserRole('${escapeHtml(u.id)}', this.value)" class="w-24 bg-white p-2 rounded-lg text-[10px] font-bold uppercase border border-gray-100 outline-none focus:ring-1 focus:ring-blue-300">
-                            <option value="user" ${u.role === 'user' ? 'selected' : ''}>User</option>
-                            <option value="chef" ${u.role === 'chef' ? 'selected' : ''}>Chef</option>
-                            <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option>
-                        </select>
+                    <div class="grid grid-cols-2 gap-2 mb-3">
+                        <div class="relative">
+                            <select onchange="updateUserMaison('${escapeHtml(u.id)}',this.value)"
+                                class="w-full bg-slate-50 p-3 rounded-xl text-[10px] font-bold uppercase outline-none appearance-none border border-slate-100">
+                                ${allMaisonsCache.map(m=>`<option value="${escapeHtml(m.id)}" ${u.maison_id===m.id?'selected':''}>${escapeHtml(m.nom)}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="relative">
+                            <select onchange="updateUserRole('${escapeHtml(u.id)}',this.value)"
+                                class="w-full bg-slate-50 p-3 rounded-xl text-[10px] font-bold uppercase outline-none appearance-none border border-slate-100">
+                                <option value="user"  ${u.role==='user' ?'selected':''}>Utilisateur</option>
+                                <option value="chef"  ${u.role==='chef' ?'selected':''}>Chef</option>
+                                <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+                            </select>
+                        </div>
                     </div>
-
-                    <div class="flex items-center gap-2 bg-blue-50 p-2 rounded-xl">
-                        <span class="text-[9px] font-black text-blue-900 uppercase flex-shrink-0">Alloc :</span>
-                        <input type="number" value="${parseFloat(u.allocation_mensuelle) || 0}" step="0.01" min="0"
-                            onchange="updateUserAlloc('${escapeHtml(u.id)}', this.value)"
-                            class="w-full bg-transparent border-none text-[10px] font-black text-blue-600 outline-none min-w-0">
-                        <span class="text-[9px] font-black text-blue-900 flex-shrink-0">€</span>
+                    <div class="flex items-center gap-3 bg-blue-50 border border-blue-100 p-3 rounded-xl">
+                        <span class="text-[9px] font-black text-blue-700 uppercase flex-shrink-0">Allocation</span>
+                        <input type="number" value="${parseFloat(u.allocation_mensuelle)||0}" step="0.01" min="0"
+                            onchange="updateUserAlloc('${escapeHtml(u.id)}',this.value)"
+                            class="flex-1 bg-transparent border-none text-[13px] font-black text-blue-800 outline-none min-w-0 text-right">
+                        <span class="text-[10px] font-black text-blue-700 flex-shrink-0">€/mois</span>
                     </div>
-
-                    <div class="flex justify-end gap-2">
-                        <button onclick="resetPassword('${escapeHtml(u.email || '')}')" class="bg-blue-100 text-blue-700 px-3 py-2 rounded-lg text-[10px] font-black uppercase hover:bg-blue-200 transition-all" title="Envoyer lien reset">🔑</button>
-                        <button onclick="deleteUser('${escapeHtml(u.id)}')" class="bg-red-100 text-red-600 px-3 py-2 rounded-lg text-[10px] font-black uppercase hover:bg-red-200 transition-all">✕</button>
-                    </div>
-                </div>
-            `).join('');
+                </div>`).join('');
         }
 
-        async function updateUserMaison(userId, maisonId) {
-            const { error } = await sb.from('profiles').update({ maison_id: maisonId }).eq('id', userId);
-            if (error) showToast("Erreur de mise à jour", "error");
-            else showToast("Maison mise à jour", "success");
+        async function updateUserMaison(uid, mid) {
+            const{error}=await sb.from('profiles').update({maison_id:mid}).eq('id',uid);
+            if(error) showToast("Erreur","error"); else showToast("Maison mise à jour","success");
         }
-
-        async function updateUserRole(userId, role) {
-            const { error } = await sb.from('profiles').update({ role }).eq('id', userId);
-            if (error) showToast("Erreur de mise à jour", "error");
-            else showToast("Rôle mis à jour", "success");
+        async function updateUserRole(uid, role) {
+            const{error}=await sb.from('profiles').update({role}).eq('id',uid);
+            if(error) showToast("Erreur","error"); else showToast("Rôle mis à jour","success");
         }
-
-        async function updateUserAlloc(userId, val) {
-            const parsed = parseFloat(val);
-            if (isNaN(parsed) || parsed < 0) return showToast("Valeur invalide", "error");
-            const { error } = await sb.from('profiles').update({ allocation_mensuelle: parsed }).eq('id', userId);
-            if (error) showToast("Erreur de mise à jour", "error");
-            else showToast("Allocation mise à jour", "success");
+        async function updateUserAlloc(uid, val) {
+            const v=parseFloat(val);
+            if(isNaN(v)||v<0) return showToast("Valeur invalide","error");
+            const{error}=await sb.from('profiles').update({allocation_mensuelle:v}).eq('id',uid);
+            if(error) showToast("Erreur","error"); else showToast("Allocation mise à jour","success");
         }
-
         async function resetPassword(email) {
-            if (!email) return showToast("Email absent pour cet utilisateur", "error");
-            const { error } = await sb.auth.resetPasswordForEmail(email);
-            if (error) showToast(error.message, "error");
-            else showToast("Email de récupération envoyé !", "success");
+            if(!email) return showToast("Email absent","error");
+            const{error}=await sb.auth.resetPasswordForEmail(email);
+            if(error) showToast(error.message,"error"); else showToast("Email de récupération envoyé !","success");
         }
-
-        async function deleteUser(id) {
-            showConfirm('Supprimer définitivement ce profil ? Cette action est irréversible.', async () => {
-                const { error } = await sb.from('profiles').delete().eq('id', id);
-                if (error) showToast("Erreur lors de la suppression", "error");
-                else { showToast("Profil supprimé", "info"); loadUsers(); }
-            }, 'Supprimer', true);
+        function deleteUser(id) {
+            showConfirm('Supprimer définitivement ce profil ?',async()=>{
+                const{error}=await sb.from('profiles').delete().eq('id',id);
+                if(error) showToast("Erreur","error"); else{showToast("Profil supprimé","info");loadUsers();}
+            },'Supprimer',true);
         }
-
         async function registerUser() {
-            const email = document.getElementById('user-email').value.trim();
-            const pass = document.getElementById('user-pass').value;
-            const prenom = document.getElementById('user-prenom').value.trim();
-            const nom = document.getElementById('user-nom').value.trim().toUpperCase();
-            const maison = document.getElementById('user-maison').value;
-            const role = document.getElementById('user-role').value;
-
-            if (!email || !pass || !prenom || !nom) return showToast("Tous les champs sont requis", "error");
-            if (pass.length < 6) return showToast("Mot de passe : 6 caractères minimum", "error");
-
-            const { data, error } = await sb.auth.signUp({ email, password: pass });
-            if (error) return showToast(error.message, "error");
-
-            const { error: profileError } = await sb.from('profiles').insert([{
-                id: data.user.id,
-                prenom,
-                nom,
-                nom_complet: `${prenom} ${nom}`,
-                email,
-                maison_id: maison,
-                role,
-                allocation_mensuelle: 0
-            }]);
-
-            if (profileError) showToast("Compte créé mais erreur profil : " + profileError.message, "warning");
-            else { showToast("Compte créé avec succès !", "success"); loadUsers(); }
+            const email=document.getElementById('user-email').value.trim();
+            const pass=document.getElementById('user-pass').value;
+            const prenom=document.getElementById('user-prenom').value.trim();
+            const nom=document.getElementById('user-nom').value.trim().toUpperCase();
+            const maison=document.getElementById('user-maison').value;
+            const role=document.getElementById('user-role').value;
+            if(!email||!pass||!prenom||!nom) return showToast("Tous les champs requis","error");
+            if(pass.length<6) return showToast("Mot de passe : 6 car. minimum","error");
+            const{data,error}=await sb.auth.signUp({email,password:pass});
+            if(error) return showToast(error.message,"error");
+            const{error:pErr}=await sb.from('profiles').insert([{id:data.user.id,prenom,nom,nom_complet:`${prenom} ${nom}`,email,maison_id:maison,role,allocation_mensuelle:0}]);
+            if(pErr) showToast("Compte créé mais erreur profil : "+pErr.message,"warning");
+            else{
+                showToast("Compte créé !","success");
+                ['user-prenom','user-nom','user-email','user-pass'].forEach(id=>document.getElementById(id).value='');
+                loadUsers();
+            }
         }
 
         async function exportData() {
-            const month = document.getElementById('export-month').value;
-            const year = document.getElementById('export-year').value;
-            const maisonId = document.getElementById('export-maison').value;
+            if(!navigator.onLine) return showToast("Pas de connexion réseau","error");
+            const month=document.getElementById('export-month').value;
+            const year=document.getElementById('export-year').value;
+            const maisonId=document.getElementById('export-maison').value;
 
-            // Récupérer les transactions AVEC maison_id
-            let txQuery = sb.from('transactions')
-                .select('created_at, type, montant, motif, commentaire, methode_paiement, statut, maison_id, profiles(prenom, nom), maisons(nom)')
-                .order('created_at', { ascending: true });
+            let txQ=sb.from('transactions')
+                .select('created_at,type,montant,motif,commentaire,methode_paiement,statut,maison_id,profiles(prenom,nom),maisons(nom)')
+                .order('created_at',{ascending:true});
+            if(maisonId!=='all') txQ=txQ.eq('maison_id',maisonId);
+            const{data:txs,error:txErr}=await txQ;
+            if(txErr) return showToast("Erreur export","error");
 
-            if (maisonId !== 'all') txQuery = txQuery.eq('maison_id', maisonId);
+            let avQ=sb.from('allocations_versees')
+                .select('montant,user_id,profiles(prenom,nom),maisons(nom)')
+                .eq('mois',parseInt(month)).eq('annee',parseInt(year));
+            if(maisonId!=='all') avQ=avQ.eq('maison_id',maisonId);
+            const{data:avs}=await avQ;
 
-            const { data: transactions, error: txErr } = await txQuery;
-            if (txErr) return showToast("Erreur lors de la récupération", "error");
+            let csv="\uFEFFDate;Maison;Membre;Type;Motif;Montant;Méthode;Statut;Commentaire\n";
 
-            let membersQuery = sb.from('profiles').select('prenom, nom, allocation_mensuelle, maison_id, maisons(nom)');
-            if (maisonId !== 'all') membersQuery = membersQuery.eq('maison_id', maisonId);
-            const { data: members } = await membersQuery;
-
-            let csv = "\uFEFFDate;Maison;Membre;Type;Motif;Montant;Méthode;Statut;Commentaire\n";
-
-            // Allocations versées ce mois (depuis la table allocations_versees)
-            let allocQuery = sb.from('allocations_versees')
-                .select('montant, user_id, profiles(prenom, nom), maisons(nom)')
-                .eq('mois', parseInt(month))
-                .eq('annee', parseInt(year));
-            if (maisonId !== 'all') allocQuery = allocQuery.eq('maison_id', maisonId);
-            const { data: allocVersees } = await allocQuery;
-            (allocVersees || []).forEach(a => {
-                const alloc = parseFloat(a.montant);
-                csv += `01/${month}/${year};${a.maisons?.nom || '-'};${a.profiles?.prenom || ''} ${a.profiles?.nom || ''};REVENU;ALLOCATION VERSÉE;${alloc.toFixed(2).replace('.', ',')};VIREMENT;Validé;Versement mensuel\n`;
+            (avs||[]).forEach(a=>{
+                csv+=`01/${month}/${year};${a.maisons?.nom||'-'};${a.profiles?.prenom||''} ${a.profiles?.nom||''};RECETTE;ALLOCATION VERSÉE;${parseFloat(a.montant).toFixed(2).replace('.',',')};VIREMENT;Validé;Versement mensuel\n`;
             });
 
-            // Transactions filtrées par mois ET année
-            const filteredTx = (transactions || []).filter(t => {
-                return t.created_at.includes(`${year}-${month}-`);
+            (txs||[]).filter(t=>t.created_at.startsWith(`${year}-${month}-`)).forEach(t=>{
+                const d=new Date(t.created_at).toLocaleDateString('fr-FR');
+                const m=parseFloat(t.montant).toFixed(2).replace('.',',');
+                const note=(t.commentaire||'').replace(/;/g,',').replace(/\n/g,' ');
+                csv+=`${d};${t.maisons?.nom||'-'};${t.profiles?.prenom||''} ${t.profiles?.nom||''};${t.type.toUpperCase()};${t.motif||'RECETTE'};${m};${t.methode_paiement||'-'};${t.statut==='attente'?'En attente':'Validé'};${note}\n`;
             });
 
-            filteredTx.forEach(t => {
-                const d = new Date(t.created_at).toLocaleDateString('fr-FR');
-                const montant = parseFloat(t.montant).toFixed(2).replace('.', ',');
-                const commentaire = (t.commentaire || '').replace(/;/g, ',').replace(/\n/g, ' ');
-                csv += `${d};${t.maisons?.nom || '-'};${t.profiles?.prenom || ''} ${t.profiles?.nom || ''};${t.type.toUpperCase()};${t.motif || 'RECETTE'};${montant};${t.methode_paiement || '-'};${t.statut === 'attente' ? 'En attente' : 'Validé'};${commentaire}\n`;
-            });
-
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = `SMMD_Compta_${month}_${year}.csv`;
-            link.click();
-            showToast("Export CSV téléchargé !", "success");
+            const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+            const a=document.createElement('a');
+            a.href=URL.createObjectURL(blob);
+            a.download=`SMMD_Compta_${month}_${year}.csv`;
+            a.click();
+            showToast("Export CSV téléchargé !","success");
         }
 
         async function loadMotifs() {
-            const { data, error } = await sb.from('motifs').select('*').order('nom');
-            if (error || !data) return;
-            document.getElementById('motifs-list').innerHTML = data.map(m => `
-                <div class="bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-full flex items-center gap-2">
-                    <span class="text-[10px] font-black uppercase text-blue-900">${escapeHtml(m.nom)}</span>
-                    <button onclick="deleteMotif('${escapeHtml(m.id)}')" class="text-blue-300 hover:text-red-500 font-bold transition-colors">×</button>
-                </div>
-            `).join('');
+            const{data,error}=await sb.from('motifs').select('*').order('nom');
+            if(error||!data) return;
+            document.getElementById('motifs-list').innerHTML=data.map(m=>`
+                <div class="bg-slate-50 border border-slate-200 px-3 py-2 rounded-full flex items-center gap-2">
+                    <span class="text-[10px] font-black uppercase text-slate-700">${escapeHtml(m.nom)}</span>
+                    <button onclick="deleteMotif('${escapeHtml(m.id)}')" class="text-slate-300 hover:text-red-500 font-black text-sm transition-colors">×</button>
+                </div>`).join('');
         }
 
         async function addMaison() {
-            const nom = document.getElementById('new-maison-name').value.trim().toUpperCase();
-            if (!nom) return showToast("Saisissez un nom", "error");
-            const { error } = await sb.from('maisons').insert([{ nom }]);
-            if (error) showToast("Erreur : " + error.message, "error");
-            else { document.getElementById('new-maison-name').value = ''; showToast("Maison ajoutée !", "success"); loadMaisons(); }
+            const nom=document.getElementById('new-maison-name').value.trim().toUpperCase();
+            if(!nom) return showToast("Saisissez un nom","error");
+            const{error}=await sb.from('maisons').insert([{nom}]);
+            if(error) showToast("Erreur : "+error.message,"error");
+            else{document.getElementById('new-maison-name').value='';showToast("Maison ajoutée !","success");loadMaisons();}
         }
-
         async function deleteMaison(id) {
-            showConfirm('Supprimer cette maison ? Les membres associés ne seront plus rattachés.', async () => {
-                const { error } = await sb.from('maisons').delete().eq('id', id);
-                if (error) showToast("Erreur : " + error.message, "error");
-                else { showToast("Maison supprimée", "info"); loadMaisons(); }
-            }, 'Supprimer', true);
+            showConfirm('Supprimer cette maison ?',async()=>{
+                const{error}=await sb.from('maisons').delete().eq('id',id);
+                if(error) showToast("Erreur : "+error.message,"error");
+                else{showToast("Maison supprimée","info");loadMaisons();}
+            },'Supprimer',true);
         }
-
         async function addMotif() {
-            const nom = document.getElementById('new-motif').value.trim();
-            if (!nom) return showToast("Saisissez un motif", "error");
-            const { error } = await sb.from('motifs').insert([{ nom }]);
-            if (error) showToast("Erreur : " + error.message, "error");
-            else { document.getElementById('new-motif').value = ''; showToast("Motif ajouté !", "success"); loadMotifs(); }
+            const nom=document.getElementById('new-motif').value.trim();
+            if(!nom) return showToast("Saisissez un motif","error");
+            const{error}=await sb.from('motifs').insert([{nom}]);
+            if(error) showToast("Erreur","error");
+            else{document.getElementById('new-motif').value='';showToast("Motif ajouté !","success");loadMotifs();}
         }
-
         async function deleteMotif(id) {
-            const { error } = await sb.from('motifs').delete().eq('id', id);
-            if (error) showToast("Erreur : " + error.message, "error");
-            else loadMotifs();
+            const{error}=await sb.from('motifs').delete().eq('id',id);
+            if(error) showToast("Erreur","error"); else loadMotifs();
         }
 
-        function logout() { sb.auth.signOut().then(() => location.href = 'index.html'); }
+        function logout(){sb.auth.signOut().then(()=>location.href='index.html');}
         init();
     </script>
 </body>
