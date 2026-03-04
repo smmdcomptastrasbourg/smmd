@@ -6,21 +6,15 @@
     <title>SMMD - Espace Membre</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        
         body { font-family: 'Inter', sans-serif; background: radial-gradient(circle at top, #f8fafc 0%, #f1f5f9 100%); }
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        
-        /* Amélioration des onglets avec une transition plus douce */
         .active-tab { background: #1e3a8a !important; color: white !important; box-shadow: 0 10px 15px -3px rgba(30, 58, 138, 0.3); }
         .active-recette { background: #10b981 !important; color: white !important; box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.3); }
-        
-        /* Effet de lueur sur les montants */
-        .glow-amount { text-shadow: 0 0 20px rgba(255,255,255,0.2); }
-        
-        /* Style des inputs focus */
-        .custom-input:focus { transform: translateY(-2px); box-shadow: 0 10px 20px -5px rgba(0,0,0,0.05); }
+        .custom-input:focus { transform: translateY(-1px); box-shadow: 0 10px 20px -5px rgba(0,0,0,0.05); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body class="text-slate-900 pb-10 min-h-screen">
@@ -31,22 +25,25 @@
                 <h1 id="user-name" class="text-2xl font-black italic tracking-tighter leading-none">Chargement...</h1>
                 <p id="maison-name" class="text-[10px] uppercase tracking-[0.3em] opacity-50 font-bold italic mt-1">Maison ...</p>
             </div>
-            <button onclick="logout()" class="bg-white/10 backdrop-blur-md p-3 rounded-2xl hover:bg-white/20 transition-all border border-white/10 active:scale-90">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-            </button>
+            <div class="flex gap-2">
+                <button onclick="openSettingsModal()" class="bg-white/10 backdrop-blur-md p-3 rounded-2xl hover:bg-white/20 transition-all border border-white/10 active:scale-90">⚙️</button>
+                <button onclick="logout()" class="bg-white/10 backdrop-blur-md p-3 rounded-2xl hover:bg-white/20 transition-all border border-white/10 active:scale-90">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                </button>
+            </div>
         </div>
-        
+
         <div class="space-y-5">
             <div class="bg-white/5 backdrop-blur-xl p-6 rounded-[32px] border border-white/10 text-center shadow-inner relative overflow-hidden">
                 <div class="absolute -right-4 -top-4 w-20 h-20 bg-blue-400/10 blur-3xl rounded-full"></div>
                 <p class="text-[10px] uppercase font-black opacity-50 mb-1 tracking-[0.2em] text-blue-100">Solde Commun Maison</p>
-                <h2 id="house-balance" class="text-4xl font-black text-white glow-amount tracking-tight">0.00€</h2>
+                <h2 id="house-balance" class="text-4xl font-black text-white tracking-tight">0.00€</h2>
             </div>
-
             <div class="grid grid-cols-2 gap-4">
                 <div class="bg-white/5 backdrop-blur-md p-4 rounded-[28px] border border-white/10">
                     <p class="text-[9px] uppercase font-black opacity-40 mb-1 tracking-wider">Mon Solde</p>
                     <h2 id="balance" class="text-xl font-black text-blue-50">0.00€</h2>
+                    <p id="alloc-badge" class="text-[8px] text-blue-300/60 font-bold mt-1">Allocation : -- €/mois</p>
                 </div>
                 <div class="bg-orange-500/10 backdrop-blur-md p-4 rounded-[28px] border border-orange-500/20">
                     <p class="text-[9px] uppercase font-black text-orange-300/70 mb-1 tracking-wider">À me rembourser</p>
@@ -56,25 +53,27 @@
         </div>
     </nav>
 
+    <!-- Notifications -->
+    <div id="notif-container" class="px-6 pt-4 space-y-3"></div>
+
     <main class="p-6 space-y-10">
-        
-        <section class="bg-white/80 backdrop-blur-sm p-7 rounded-[40px] shadow-[0_20px_50px_rgba(0,0,0,0.04)] border border-white">
+
+        <!-- Formulaire transaction -->
+        <section class="bg-white/80 backdrop-blur-sm p-7 rounded-[40px] shadow-sm border border-white">
             <div class="flex bg-slate-100/80 p-1.5 rounded-[22px] mb-8">
                 <button id="tab-depense" onclick="setTxType('depense')" class="flex-1 py-3.5 rounded-[18px] font-black text-[11px] uppercase tracking-widest active-tab transition-all duration-300">Dépense</button>
                 <button id="tab-recette" onclick="setTxType('recette')" class="flex-1 py-3.5 rounded-[18px] font-black text-[11px] uppercase tracking-widest transition-all duration-300 text-slate-400">Recette</button>
             </div>
-
             <div class="space-y-6">
                 <div>
                     <label class="text-[10px] font-black uppercase text-slate-400 ml-3 mb-2 block tracking-widest">Date de l'opération</label>
                     <input type="date" id="tx-date" class="w-full bg-slate-50 p-4 rounded-2xl font-bold border-2 border-slate-50 focus:bg-white focus:border-blue-100 outline-none transition-all custom-input">
                 </div>
-
                 <div class="relative group">
-                    <input type="number" id="tx-amount" placeholder="0.00" class="w-full bg-slate-50 p-8 rounded-[32px] text-4xl font-black text-center outline-none border-2 border-transparent focus:border-blue-900 focus:bg-white transition-all custom-input">
+                    <input type="number" id="tx-amount" placeholder="0.00" step="0.01" min="0"
+                        class="w-full bg-slate-50 p-8 rounded-[32px] text-4xl font-black text-center outline-none border-2 border-transparent focus:border-blue-900 focus:bg-white transition-all custom-input">
                     <span class="absolute right-8 top-1/2 -translate-y-1/2 font-black text-slate-200 text-2xl group-focus-within:text-blue-900 transition-colors">€</span>
                 </div>
-
                 <div id="container-motif">
                     <label class="text-[10px] font-black uppercase text-slate-400 ml-3 mb-2 block tracking-widest">Motif</label>
                     <div class="relative">
@@ -84,88 +83,135 @@
                         </div>
                     </div>
                 </div>
-
                 <div>
                     <label class="text-[10px] font-black uppercase text-slate-400 ml-3 mb-2 block tracking-widest">Commentaire</label>
                     <input type="text" id="tx-comment" placeholder="Ajouter une note..." class="w-full bg-slate-50 p-4 rounded-2xl font-bold border-2 border-slate-50 focus:bg-white focus:border-blue-100 outline-none transition-all custom-input">
                 </div>
-
                 <div id="container-paiement">
                     <label class="text-[10px] font-black uppercase text-slate-400 ml-3 mb-2 block tracking-widest">Moyen de paiement</label>
-                    <select id="tx-method" class="w-full bg-slate-50 p-4 rounded-2xl font-bold border-2 border-slate-50 focus:bg-white focus:border-blue-100 outline-none appearance-none custom-input">
-                        <option value="maison_cb">💳 CB MAISON</option>
-                        <option value="perso_cb">📱 CARTE PERSO (À REMBOURSER)</option>
-                        <option value="perso_especes">💵 ESPÈCES (À REMBOURSER)</option>
-                    </select>
+                    <div class="relative">
+                        <select id="tx-method" class="w-full bg-slate-50 p-4 rounded-2xl font-bold border-2 border-slate-50 focus:bg-white focus:border-blue-100 outline-none appearance-none custom-input">
+                            <option value="cb_maison">💳 CB MAISON</option>
+                            <option value="perso_cb">📱 CARTE PERSO (À rembourser)</option>
+                            <option value="perso_liq">💵 ESPÈCES (À rembourser)</option>
+                        </select>
+                        <div class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-30">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                        </div>
+                    </div>
                 </div>
-
-                <button onclick="submitTx()" class="w-full bg-blue-900 text-white py-6 rounded-[28px] font-black text-[12px] uppercase tracking-[0.25em] shadow-[0_15px_30px_rgba(30,58,138,0.25)] active:scale-[0.97] hover:bg-blue-800 transition-all duration-300">Enregistrer</button>
+                <button onclick="submitTx()" class="w-full bg-blue-900 text-white py-6 rounded-[28px] font-black text-[12px] uppercase tracking-[0.25em] shadow-xl active:scale-[0.97] hover:bg-blue-800 transition-all duration-300">Enregistrer</button>
             </div>
         </section>
 
+        <!-- Remboursements groupés par mois -->
         <section>
-            <div class="flex justify-between items-center mb-5 px-4">
-                <h3 class="text-[11px] font-black uppercase tracking-[0.15em] text-slate-400 italic">Dernières opérations</h3>
-                <button onclick="undoLast()" class="text-[10px] font-black text-red-500/70 uppercase hover:text-red-600 transition-colors">Annuler</button>
+            <div class="flex items-center gap-2 px-2 mb-4">
+                <div class="h-1 w-4 bg-orange-400 rounded-full"></div>
+                <h3 class="text-[11px] font-black uppercase tracking-[0.15em] text-slate-400 italic">Mes remboursements</h3>
             </div>
-            <div id="tx-history" class="space-y-4"></div>
+            <div id="refund-history" class="space-y-3"></div>
         </section>
 
-        <section class="bg-gradient-to-b from-slate-800 to-slate-950 p-8 rounded-[45px] text-white space-y-8 shadow-2xl border border-slate-700/50">
-            <div>
-                <label class="text-[10px] font-black uppercase opacity-40 ml-1 tracking-widest">Mon IBAN</label>
-                <div class="flex gap-3 mt-2">
-                    <input type="text" id="user-iban" class="flex-1 bg-white/5 p-4 rounded-2xl font-mono text-xs border border-white/10 outline-none focus:bg-white/10 transition-all" placeholder="FR76...">
-                    <button onclick="updateIban()" class="bg-blue-600 px-6 rounded-2xl font-black text-[11px] uppercase shadow-lg shadow-blue-900/40 active:scale-90 transition-all">OK</button>
+        <!-- Historique transactions -->
+        <section>
+            <div class="flex justify-between items-center mb-5 px-2">
+                <div class="flex items-center gap-2">
+                    <div class="h-1 w-4 bg-blue-600 rounded-full"></div>
+                    <h3 class="text-[11px] font-black uppercase tracking-[0.15em] text-slate-400 italic">Dernières opérations</h3>
                 </div>
+                <button onclick="undoLast()" class="text-[10px] font-black text-red-400/70 uppercase hover:text-red-600 transition-colors">Annuler la dernière</button>
             </div>
-
-            <div class="pt-6 border-t border-white/5">
-                <label class="text-[10px] font-black uppercase opacity-40 ml-1 tracking-widest">Changer mot de passe</label>
-                <div class="flex gap-3 mt-2">
-                    <input type="password" id="new-password" class="flex-1 bg-white/5 p-4 rounded-2xl font-bold text-xs border border-white/10 outline-none focus:bg-white/10 transition-all" placeholder="Nouveau code...">
-                    <button onclick="updatePassword()" class="bg-emerald-600 px-6 rounded-2xl font-black text-[11px] uppercase shadow-lg shadow-emerald-900/40 active:scale-90 transition-all">Changer</button>
-                </div>
-            </div>
+            <div id="tx-history" class="space-y-3"></div>
         </section>
 
     </main>
 
-    <script>
-        // LE SCRIPT RESTE IDENTIQUE (Logique métier intacte)
-        const SUPABASE_URL = "https://xccnnckuphxloxfrqtkf.supabase.co";
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjY25uY2t1cGh4bG94ZnJxdGtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODA3NjEsImV4cCI6MjA4Mjc1Njc2MX0.1mIEhKfS5OSsaw78f1_Iatni39y8CoIurAd5IXP6n6g";
-        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    <!-- Modal Paramètres -->
+    <div id="settings-modal" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-6 z-[100]">
+        <div class="bg-white p-8 rounded-[45px] w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar">
+            <div class="flex justify-between items-center mb-8">
+                <h3 class="text-2xl font-black italic tracking-tighter text-slate-800">Mon Profil</h3>
+                <button onclick="closeSettingsModal()" class="text-slate-300 text-2xl hover:text-slate-500 transition-colors">✕</button>
+            </div>
+            <div class="space-y-6">
 
+                <!-- Allocation -->
+                <div class="bg-blue-50 p-5 rounded-3xl border border-blue-100">
+                    <label class="text-[9px] font-black uppercase text-blue-700 ml-2 tracking-widest block mb-2">Mon Allocation Mensuelle (€)</label>
+                    <div class="flex gap-3">
+                        <input type="number" id="settings-allocation" step="0.01" min="0"
+                            class="flex-1 bg-white p-4 rounded-2xl border border-blue-100 font-black text-lg shadow-sm focus:ring-2 focus:ring-blue-300 outline-none">
+                        <button onclick="updateAllocation()" class="bg-blue-900 text-white px-5 rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all">OK</button>
+                    </div>
+                    <p class="text-[9px] text-blue-400 font-bold ml-2 mt-2">Saisir votre allocation communique à votre chef de maison votre dotation mensuelle.</p>
+                </div>
+
+                <!-- IBAN -->
+                <div class="bg-slate-50 p-5 rounded-3xl">
+                    <label class="text-[9px] font-black uppercase text-slate-400 ml-2 tracking-widest block mb-2">Mon IBAN</label>
+                    <input type="text" id="settings-iban" class="w-full bg-white p-4 rounded-2xl border border-slate-200 font-mono text-xs shadow-sm focus:ring-2 focus:ring-blue-200 outline-none uppercase" placeholder="FR76...">
+                    <p id="iban-error" class="text-[9px] text-red-500 font-bold ml-2 mt-1 hidden">Format IBAN invalide</p>
+                    <button onclick="updateIban()" class="w-full mt-3 bg-slate-800 text-white text-[9px] font-black py-3 rounded-xl uppercase tracking-widest hover:bg-slate-700 transition-all">Mettre à jour l'IBAN</button>
+                </div>
+
+                <!-- Mot de passe -->
+                <div class="bg-slate-50 p-5 rounded-3xl">
+                    <label class="text-[9px] font-black uppercase text-slate-400 ml-2 tracking-widest block mb-2">Changer le mot de passe</label>
+                    <input type="password" id="settings-pass" placeholder="Nouveau mot de passe (6 car. min.)"
+                        class="w-full p-4 bg-white rounded-2xl border border-slate-200 font-bold outline-none mb-3 focus:ring-2 focus:ring-blue-200">
+                    <button onclick="updatePassword()" class="w-full bg-slate-900 text-white text-[10px] font-black py-4 rounded-2xl uppercase tracking-widest shadow-lg active:scale-95">Changer le mot de passe</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const sb = supabase.createClient(SMMD_CONFIG.url, SMMD_CONFIG.key);
         let userProfile = null;
         let currentType = 'depense';
+
+        const MOIS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 
         async function init() {
             const { data: { user } } = await sb.auth.getUser();
             if (!user) { window.location.href = "index.html"; return; }
 
-            const { data: profile } = await sb.from('profiles').select('*, maisons(nom)').eq('id', user.id).single();
+            const { data: profile, error } = await sb.from('profiles').select('*, maisons(nom)').eq('id', user.id).single();
+            if (!profile) { window.location.href = "index.html"; return; }
             userProfile = profile;
 
-            document.getElementById('user-name').innerText = `${profile.prenom} ${profile.nom}`;
-            document.getElementById('maison-name').innerText = `Maison ${profile.maisons.nom}`;
-            document.getElementById('user-iban').value = profile.iban || '';
-            
+            document.getElementById('user-name').innerText = escapeHtml(`${profile.prenom} ${profile.nom || ''}`).trim();
+            document.getElementById('maison-name').innerText = `Maison ${escapeHtml(profile.maisons?.nom || '')}`;
             document.getElementById('tx-date').valueAsDate = new Date();
 
             loadMotifs();
-            refreshDashboard();
-            checkNotifications();
+            await refreshDashboard();
+            await loadRefundHistory();
+            await checkNotifications();
         }
 
         async function checkNotifications() {
-            const { data, error } = await sb.from('notifications').select('*').eq('user_id', userProfile.id).eq('lu', false);
-            if (data && data.length > 0) {
-                data.forEach(n => {
-                    alert("🔔 NOTIFICATION : " + n.message);
-                    sb.from('notifications').update({ lu: true }).eq('id', n.id).then();
-                });
-            }
+            const { data } = await sb.from('notifications').select('*').eq('user_id', userProfile.id).eq('lu', false).order('created_at', { ascending: false });
+            if (!data || data.length === 0) return;
+
+            const container = document.getElementById('notif-container');
+            container.innerHTML = data.map(n => `
+                <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex justify-between items-start gap-3" data-notif="${escapeHtml(n.id)}">
+                    <div class="flex gap-3 items-start">
+                        <span class="text-lg mt-0.5">🔔</span>
+                        <p class="text-[11px] font-bold text-emerald-800">${escapeHtml(n.message)}</p>
+                    </div>
+                    <button onclick="markNotifRead('${escapeHtml(n.id)}')" class="text-emerald-400 hover:text-emerald-700 font-black text-lg leading-none flex-shrink-0 transition-colors">✓</button>
+                </div>
+            `).join('');
+        }
+
+        async function markNotifRead(id) {
+            await sb.from('notifications').update({ lu: true }).eq('id', id);
+            const el = document.querySelector(`[data-notif="${id}"]`);
+            if (el) el.remove();
         }
 
         async function refreshDashboard() {
@@ -173,60 +219,144 @@
             const { data: txs } = await sb.from('transactions').select('*').eq('maison_id', userProfile.maison_id);
             const today = new Date();
 
+            // Solde maison
             let houseAllocTotal = 0;
-            members.forEach(m => {
-                const reg = new Date(m.created_at);
-                const diff = (today.getFullYear() - reg.getFullYear()) * 12 + (today.getMonth() - reg.getMonth()) + 1;
-                houseAllocTotal += (m.allocation_mensuelle * diff);
+            (members || []).forEach(m => {
+                const alloc = parseFloat(m.allocation_mensuelle) || 0;
+                if (alloc > 0) {
+                    const reg = new Date(m.created_at);
+                    const diff = Math.max(0, (today.getFullYear() - reg.getFullYear()) * 12 + (today.getMonth() - reg.getMonth()) + 1);
+                    houseAllocTotal += alloc * diff;
+                }
             });
-            const houseDep = txs.filter(t => t.type === 'depense').reduce((s,t) => s + t.montant, 0);
-            const houseRec = txs.filter(t => t.type === 'recette').reduce((s,t) => s + t.montant, 0);
-            const soldeHouse = houseAllocTotal + houseRec - houseDep;
+            const houseDep = (txs || []).filter(t => t.type === 'depense').reduce((s, t) => s + parseFloat(t.montant), 0);
+            const houseRec = (txs || []).filter(t => t.type === 'recette').reduce((s, t) => s + parseFloat(t.montant), 0);
+            document.getElementById('house-balance').innerText = `${(houseAllocTotal + houseRec - houseDep).toFixed(2)}€`;
 
+            // Solde perso
+            const myAlloc = parseFloat(userProfile.allocation_mensuelle) || 0;
             const myReg = new Date(userProfile.created_at);
-            const myMonths = (today.getFullYear() - myReg.getFullYear()) * 12 + (today.getMonth() - myReg.getMonth()) + 1;
-            const myTx = txs.filter(t => t.user_id === userProfile.id);
-            const myDep = myTx.filter(t => t.type === 'depense').reduce((s,t) => s + t.montant, 0);
-            const myRec = myTx.filter(t => t.type === 'recette').reduce((s,t) => s + t.montant, 0);
-            const soldePerso = (userProfile.allocation_mensuelle * myMonths) + myRec - myDep;
-            const pending = myTx.filter(t => t.statut === 'attente').reduce((s,t) => s + t.montant, 0);
+            const myMonths = myAlloc > 0 ? Math.max(0, (today.getFullYear() - myReg.getFullYear()) * 12 + (today.getMonth() - myReg.getMonth()) + 1) : 0;
+            const myTx = (txs || []).filter(t => t.user_id === userProfile.id);
+            const myDep = myTx.filter(t => t.type === 'depense').reduce((s, t) => s + parseFloat(t.montant), 0);
+            const myRec = myTx.filter(t => t.type === 'recette').reduce((s, t) => s + parseFloat(t.montant), 0);
+            const pending = myTx.filter(t => t.statut === 'attente').reduce((s, t) => s + parseFloat(t.montant), 0);
 
-            document.getElementById('house-balance').innerText = `${soldeHouse.toFixed(2)}€`;
-            document.getElementById('balance').innerText = `${soldePerso.toFixed(2)}€`;
+            document.getElementById('balance').innerText = `${(myAlloc * myMonths + myRec - myDep).toFixed(2)}€`;
             document.getElementById('pending-refund').innerText = `${pending.toFixed(2)}€`;
+            document.getElementById('alloc-badge').innerText = `Allocation : ${myAlloc > 0 ? myAlloc.toFixed(2) + '€/mois' : 'non définie'}`;
 
-            const hist = myTx.sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).slice(0,8);
-            document.getElementById('tx-history').innerHTML = hist.map(t => `
-                <div class="flex justify-between items-center p-5 bg-white rounded-[24px] shadow-sm border border-slate-100 hover:scale-[1.02] transition-transform">
-                    <div class="flex items-center gap-4">
-                        <div class="w-3 h-3 rounded-full ${t.type === 'recette' ? 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]' : (t.statut === 'attente' ? 'bg-orange-500 shadow-[0_0_12px_rgba(249,115,22,0.4)]' : 'bg-blue-900 shadow-[0_0_12px_rgba(30,58,138,0.2)]')}"></div>
-                        <div>
-                            <p class="text-[11px] font-black uppercase tracking-wider text-slate-700">${t.motif || 'RECETTE'}</p>
-                            <p class="text-[9px] text-slate-400 font-bold">${new Date(t.created_at).toLocaleDateString('fr-FR')}</p>
+            // Historique
+            const hist = [...myTx].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 10);
+            document.getElementById('tx-history').innerHTML = hist.length === 0
+                ? `<p class="text-center text-slate-300 text-[11px] font-bold uppercase py-8">Aucune opération enregistrée</p>`
+                : hist.map(t => `
+                    <div class="flex justify-between items-center p-5 bg-white rounded-[24px] shadow-sm border border-slate-100 hover:scale-[1.01] transition-transform">
+                        <div class="flex items-center gap-4">
+                            <div class="w-3 h-3 rounded-full flex-shrink-0 ${t.type === 'recette' ? 'bg-emerald-500' : (t.statut === 'attente' ? 'bg-orange-500' : 'bg-blue-900')}"></div>
+                            <div>
+                                <p class="text-[11px] font-black uppercase tracking-wider text-slate-700">${escapeHtml(t.motif || 'RECETTE')}</p>
+                                <p class="text-[9px] text-slate-400 font-bold">${new Date(t.created_at).toLocaleDateString('fr-FR')}</p>
+                                ${t.commentaire ? `<p class="text-[9px] text-slate-400 italic">${escapeHtml(t.commentaire)}</p>` : ''}
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-black text-base ${t.type === 'recette' ? 'text-emerald-600' : 'text-slate-900'}">${t.type === 'recette' ? '+' : '-'}${parseFloat(t.montant).toFixed(2)}€</p>
+                            <p class="text-[8px] uppercase font-black px-2 py-0.5 rounded-full mt-1 inline-block ${t.statut === 'attente' ? 'bg-orange-50 text-orange-500' : 'bg-emerald-50 text-emerald-600'}">${t.statut === 'attente' ? 'En attente' : 'Validé'}</p>
                         </div>
                     </div>
-                    <p class="font-black text-base ${t.type === 'recette' ? 'text-emerald-600' : 'text-slate-900'}">
-                        ${t.type === 'recette' ? '+' : '-'}${t.montant.toFixed(2)}€
-                    </p>
-                </div>
-            `).join('');
+                `).join('');
+        }
+
+        async function loadRefundHistory() {
+            // Récupérer toutes les notifications de remboursement (lues et non lues)
+            const { data: notifs } = await sb.from('notifications')
+                .select('*')
+                .eq('user_id', userProfile.id)
+                .order('created_at', { ascending: false });
+
+            const { data: txs } = await sb.from('transactions')
+                .select('*')
+                .eq('user_id', userProfile.id)
+                .eq('type', 'depense')
+                .order('created_at', { ascending: false });
+
+            if (!txs || txs.length === 0) {
+                document.getElementById('refund-history').innerHTML =
+                    `<p class="text-center text-slate-300 text-[11px] font-bold uppercase py-4">Aucun remboursement</p>`;
+                return;
+            }
+
+            // Grouper les dépenses par mois
+            const byMonth = {};
+            txs.forEach(t => {
+                const d = new Date(t.created_at);
+                const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                if (!byMonth[key]) byMonth[key] = { label: `${MOIS_FR[d.getMonth()]} ${d.getFullYear()}`, attente: [], valide: [] };
+                if (t.statut === 'attente') byMonth[key].attente.push(t);
+                else byMonth[key].valide.push(t);
+            });
+
+            const html = Object.entries(byMonth).sort((a, b) => b[0].localeCompare(a[0])).map(([key, month]) => {
+                const totalAttente = month.attente.reduce((s, t) => s + parseFloat(t.montant), 0);
+                const totalValide = month.valide.reduce((s, t) => s + parseFloat(t.montant), 0);
+                const allTx = [...month.attente, ...month.valide];
+
+                // Trouver la notification de remboursement correspondante à ce mois
+                const notifMois = (notifs || []).filter(n => {
+                    const nd = new Date(n.created_at);
+                    const nKey = `${nd.getFullYear()}-${String(nd.getMonth() + 1).padStart(2, '0')}`;
+                    return nKey === key;
+                });
+
+                return `
+                <div class="bg-white rounded-[28px] border border-slate-100 shadow-sm overflow-hidden">
+                    <div class="p-4 flex justify-between items-center border-b border-slate-50">
+                        <div>
+                            <p class="font-black text-[11px] uppercase tracking-widest text-slate-700">${escapeHtml(month.label)}</p>
+                            ${notifMois.length > 0 ? `<p class="text-[9px] text-emerald-600 font-bold mt-0.5">✓ Virement reçu · ${new Date(notifMois[0].created_at).toLocaleDateString('fr-FR')}</p>` : ''}
+                        </div>
+                        <div class="text-right">
+                            ${totalAttente > 0 ? `<p class="text-[10px] font-black text-orange-500">${totalAttente.toFixed(2)}€ en attente</p>` : ''}
+                            ${totalValide > 0 ? `<p class="text-[10px] font-black text-emerald-500">${totalValide.toFixed(2)}€ remboursé</p>` : ''}
+                        </div>
+                    </div>
+                    <div class="divide-y divide-slate-50">
+                        ${allTx.map(t => `
+                            <div class="px-4 py-3 flex justify-between items-center">
+                                <div class="flex items-center gap-3">
+                                    <span class="w-2 h-2 rounded-full flex-shrink-0 ${t.statut === 'attente' ? 'bg-orange-400' : 'bg-emerald-400'}"></span>
+                                    <div>
+                                        <p class="text-[10px] font-bold text-slate-700">${escapeHtml(t.motif || '-')}</p>
+                                        <p class="text-[8px] text-slate-400">${new Date(t.created_at).toLocaleDateString('fr-FR')}${t.commentaire ? ' · ' + escapeHtml(t.commentaire) : ''}</p>
+                                    </div>
+                                </div>
+                                <p class="font-black text-[11px] text-slate-800">${parseFloat(t.montant).toFixed(2)}€</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>`;
+            }).join('');
+
+            document.getElementById('refund-history').innerHTML = html || `<p class="text-center text-slate-300 text-[11px] font-bold uppercase py-4">Aucun remboursement</p>`;
         }
 
         async function submitTx() {
             const amount = parseFloat(document.getElementById('tx-amount').value);
             const date = document.getElementById('tx-date').value;
-            const comment = document.getElementById('tx-comment').value;
-            if (!amount) return alert("Saisissez un montant");
-            if (!date) return alert("Saisissez une date");
-            
+            const comment = document.getElementById('tx-comment').value.trim();
+            const motif = document.getElementById('tx-motif').value;
             const method = document.getElementById('tx-method').value;
+
+            if (!amount || amount <= 0) return showToast("Saisissez un montant valide", "error");
+            if (!date) return showToast("Saisissez une date", "error");
 
             const { error } = await sb.from('transactions').insert([{
                 user_id: userProfile.id,
                 maison_id: userProfile.maison_id,
                 montant: amount,
-                motif: currentType === 'recette' ? 'RECETTE' : document.getElementById('tx-motif').value,
-                commentaire: comment,
+                motif: currentType === 'recette' ? 'RECETTE' : motif,
+                commentaire: comment || null,
                 created_at: new Date(date).toISOString(),
                 type: currentType,
                 methode_paiement: currentType === 'recette' ? null : method,
@@ -234,37 +364,30 @@
             }]);
 
             if (error) {
-                alert("Erreur lors de l'enregistrement");
+                showToast("Erreur lors de l'enregistrement", "error");
             } else {
                 document.getElementById('tx-amount').value = '';
                 document.getElementById('tx-comment').value = '';
-                refreshDashboard();
+                showToast("Opération enregistrée !", "success");
+                await refreshDashboard();
+                await loadRefundHistory();
             }
-        }
-
-        async function updatePassword() {
-            const p = document.getElementById('new-password').value;
-            if (p.length < 6) return alert("6 car. min.");
-            const { error } = await sb.auth.updateUser({ password: p });
-            if (error) alert(error.message); else { alert("Mot de passe modifié !"); document.getElementById('new-password').value = ''; }
-        }
-
-        async function updateIban() {
-            await sb.from('profiles').update({ iban: document.getElementById('user-iban').value }).eq('id', userProfile.id);
-            alert("IBAN mis à jour !");
         }
 
         async function undoLast() {
-            const { data } = await sb.from('transactions').select('id').eq('user_id', userProfile.id).order('created_at', { ascending: false }).limit(1);
-            if (data && data[0] && confirm("Annuler la dernière saisie ?")) {
-                await sb.from('transactions').delete().eq('id', data[0].id);
-                refreshDashboard();
-            }
+            const { data } = await sb.from('transactions').select('id, created_at').eq('user_id', userProfile.id).order('created_at', { ascending: false }).limit(1);
+            if (!data || !data[0]) return showToast("Aucune opération à annuler", "warning");
+            const age = Date.now() - new Date(data[0].created_at).getTime();
+            if (age > 24 * 60 * 60 * 1000) return showToast("Annulation impossible après 24h", "error");
+            if (!confirm("Annuler la dernière saisie ?")) return;
+            const { error } = await sb.from('transactions').delete().eq('id', data[0].id);
+            if (error) showToast("Erreur lors de l'annulation", "error");
+            else { showToast("Opération annulée", "info"); await refreshDashboard(); await loadRefundHistory(); }
         }
 
         async function loadMotifs() {
             const { data } = await sb.from('motifs').select('*').order('nom');
-            document.getElementById('tx-motif').innerHTML = data.map(m => `<option value="${m.nom}">${m.nom.toUpperCase()}</option>`).join('');
+            document.getElementById('tx-motif').innerHTML = (data || []).map(m => `<option value="${escapeHtml(m.nom)}">${escapeHtml(m.nom.toUpperCase())}</option>`).join('');
         }
 
         function setTxType(type) {
@@ -272,8 +395,53 @@
             const isR = type === 'recette';
             document.getElementById('container-motif').classList.toggle('hidden', isR);
             document.getElementById('container-paiement').classList.toggle('hidden', isR);
-            document.getElementById('tab-depense').className = isR ? "flex-1 py-3.5 rounded-[18px] font-black text-[11px] bg-slate-100 text-slate-400" : "flex-1 py-3.5 rounded-[18px] font-black text-[11px] active-tab";
-            document.getElementById('tab-recette').className = isR ? "flex-1 py-3.5 rounded-[18px] font-black text-[11px] active-recette" : "flex-1 py-3.5 rounded-[18px] font-black text-[11px] bg-slate-100 text-slate-400";
+            document.getElementById('tab-depense').className = isR
+                ? "flex-1 py-3.5 rounded-[18px] font-black text-[11px] bg-slate-100 text-slate-400"
+                : "flex-1 py-3.5 rounded-[18px] font-black text-[11px] active-tab";
+            document.getElementById('tab-recette').className = isR
+                ? "flex-1 py-3.5 rounded-[18px] font-black text-[11px] active-recette"
+                : "flex-1 py-3.5 rounded-[18px] font-black text-[11px] bg-slate-100 text-slate-400";
+        }
+
+        function openSettingsModal() {
+            document.getElementById('settings-modal').classList.remove('hidden');
+            document.getElementById('settings-iban').value = userProfile.iban || '';
+            document.getElementById('settings-allocation').value = parseFloat(userProfile.allocation_mensuelle) || '';
+        }
+        function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
+
+        async function updateAllocation() {
+            const val = parseFloat(document.getElementById('settings-allocation').value);
+            if (isNaN(val) || val < 0) return showToast("Montant invalide", "error");
+            const { error } = await sb.from('profiles').update({ allocation_mensuelle: val }).eq('id', userProfile.id);
+            if (error) { showToast("Erreur de mise à jour", "error"); return; }
+            userProfile.allocation_mensuelle = val;
+            showToast("Allocation mise à jour !", "success");
+            await refreshDashboard();
+        }
+
+        async function updateIban() {
+            const raw = document.getElementById('settings-iban').value.trim();
+            const errEl = document.getElementById('iban-error');
+            if (raw && !validateIban(raw)) {
+                errEl.classList.remove('hidden');
+                return;
+            }
+            errEl.classList.add('hidden');
+            const normalized = raw ? normalizeIban(raw) : null;
+            const { error } = await sb.from('profiles').update({ iban: normalized }).eq('id', userProfile.id);
+            if (error) { showToast("Erreur de mise à jour", "error"); return; }
+            userProfile.iban = normalized;
+            document.getElementById('settings-iban').value = normalized || '';
+            showToast("IBAN mis à jour !", "success");
+        }
+
+        async function updatePassword() {
+            const p = document.getElementById('settings-pass').value;
+            if (p.length < 6) return showToast("6 caractères minimum", "error");
+            const { error } = await sb.auth.updateUser({ password: p });
+            if (error) showToast(error.message, "error");
+            else { showToast("Mot de passe modifié !", "success"); document.getElementById('settings-pass').value = ''; closeSettingsModal(); }
         }
 
         function logout() { sb.auth.signOut().then(() => window.location.href = "index.html"); }
