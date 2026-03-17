@@ -78,7 +78,7 @@
                     <p class="text-[10px] font-black uppercase text-amber-700 tracking-widest mb-1">Montant à verser</p>
                     <p id="alloc-reminder-montant" class="text-3xl font-black text-amber-600">--€</p>
                 </div>
-                <button onclick="confirmerVersementAlloc()" id="btn-confirmer-alloc" class="w-full bg-amber-500 text-white font-black py-4 rounded-2xl uppercase text-[11px] tracking-widest active:scale-95 transition-all mb-3">✓ J'ai versé mon allocation</button>
+                <button onclick="toggleAllocation()" id="btn-confirmer-alloc" class="w-full bg-amber-500 text-white font-black py-4 rounded-2xl uppercase text-[11px] tracking-widest active:scale-95 transition-all mb-3">✓ J'ai versé mon allocation</button>
                 <button onclick="closeAllocReminder()" class="w-full bg-slate-100 text-slate-500 font-black py-3.5 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95 transition-all">Plus tard</button>
             </div>
         </div>
@@ -217,7 +217,7 @@
                     <button onclick="updateAllocation()" class="bg-blue-900 text-white px-6 rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all">OK</button>
                 </div>
                 <p class="text-[9px] text-blue-400 font-bold ml-1 mt-2 leading-relaxed">Indique le montant que vous versez chaque mois à votre maison.</p>
-            <button onclick="openAllocModal()" id="btn-declarer-alloc" class="hidden w-full mt-3 bg-amber-500 text-white font-black py-3.5 rounded-xl uppercase text-[10px] tracking-widest active:scale-95 transition-all shadow-md shadow-amber-500/20">
+            <button onclick="toggleAllocation()" id="btn-declarer-alloc" class="hidden w-full mt-3 font-black py-3.5 rounded-xl uppercase text-[10px] tracking-widest active:scale-95 transition-all shadow-md">
                 🏠 Déclarer mon versement du mois
             </button>
             </div>
@@ -600,68 +600,77 @@
             if(alloc<=0) return;
             const now=new Date(),mois=now.getMonth()+1,annee=now.getFullYear();
             const{data}=await sb.from('allocations_versees').select('id').eq('user_id',userProfile.id).eq('mois',mois).eq('annee',annee).maybeSingle();
+            // Toujours afficher le bouton dans Profil (toggle)
             const btn=document.getElementById('btn-declarer-alloc');
+            if(btn) btn.classList.remove('hidden');
             if(!data){
-                // Préparer le modal
+                // Pas encore versé → pop-up + bouton état OFF
                 document.getElementById('alloc-reminder-text').textContent=`Vous n'avez pas encore déclaré le versement de votre allocation de ${MOIS_FR[mois-1]} ${annee} à votre maison. Confirmez dès que vous l'avez effectué.`;
                 document.getElementById('alloc-reminder-montant').textContent=alloc.toFixed(2)+'€';
                 document.getElementById('alloc-reminder-modal').classList.remove('hidden');
-                // Afficher aussi le bouton rapide dans Profil
-                if(btn) btn.classList.remove('hidden');
+                setAllocBtnState(false, mois, annee, alloc);
             } else {
-                if(btn) btn.classList.add('hidden');
+                // Déjà versé → bouton état ON (permet d'annuler)
+                setAllocBtnState(true, mois, annee, alloc);
             }
         }
 
-        function openAllocModal() {
-            const alloc=parseFloat(userProfile.allocation_mensuelle)||0;
-            const now=new Date(),mois=now.getMonth()+1,annee=now.getFullYear();
-            document.getElementById('alloc-reminder-text').textContent=`Vous n'avez pas encore déclaré le versement de votre allocation de ${MOIS_FR[mois-1]} ${annee} à votre maison. Confirmez dès que vous l'avez effectué.`;
-            document.getElementById('alloc-reminder-montant').textContent=alloc.toFixed(2)+'€';
-            document.getElementById('alloc-reminder-modal').classList.remove('hidden');
-        }
-
-        async function confirmerVersementAlloc() {
+        async function toggleAllocation() {
             const alloc = parseFloat(userProfile.allocation_mensuelle)||0;
-            if (alloc<=0) return;
+            if (alloc<=0) return showToast("Allocation non définie","warning");
             const now=new Date(), mois=now.getMonth()+1, annee=now.getFullYear();
-            const btn = document.getElementById('btn-confirmer-alloc');
+            const btn  = document.getElementById('btn-confirmer-alloc');
+            const btn2 = document.getElementById('btn-declarer-alloc');
+            if (btn)  { btn.textContent='...';  btn.disabled=true; }
+            if (btn2) { btn2.textContent='...'; btn2.disabled=true; }
 
-            // Vérifier si déjà déclaré (protection double-clic)
+            // Vérifier l'état actuel
             const { data: existing } = await sb.from('allocations_versees').select('id')
                 .eq('user_id',userProfile.id).eq('mois',mois).eq('annee',annee).maybeSingle();
-            if (existing) {
-                showToast(`Allocation de ${MOIS_FR[mois-1]} ${annee} déjà déclarée`,"warning");
-                closeAllocReminder();
-                return;
-            }
 
-            btn.textContent='...'; btn.disabled=true;
-            const { error } = await sb.from('allocations_versees').insert([{
-                user_id: userProfile.id,
-                maison_id: userProfile.maison_id,
-                mois, annee,
-                montant: alloc,
-                valide_par: userProfile.id
-            }]);
-            btn.textContent="✓ J'ai versé mon allocation"; btn.disabled=false;
-            if (error) {
-                // Contrainte UNIQUE violée = déjà déclaré
-                if (error.code === '23505') {
-                    showToast(`Allocation de ${MOIS_FR[mois-1]} ${annee} déjà déclarée`,"warning");
-                } else {
-                    showToast("Erreur lors de l'enregistrement","error");
+            if (existing) {
+                // Déjà déclaré → on annule (DELETE)
+                const { error } = await sb.from('allocations_versees').delete()
+                    .eq('id', existing.id);
+                if (error) { showToast("Erreur","error"); }
+                else {
+                    showToast(`Allocation de ${MOIS_FR[mois-1]} ${annee} annulée`,"info");
+                    closeAllocReminder();
+                    setAllocBtnState(false, mois, annee, alloc);
+                    await refreshDashboard();
+                    await loadVersementsHistory();
                 }
-                closeAllocReminder();
-                return;
+            } else {
+                // Pas encore déclaré → on déclare (INSERT)
+                const { error } = await sb.from('allocations_versees').insert([{
+                    user_id: userProfile.id, maison_id: userProfile.maison_id,
+                    mois, annee, montant: alloc, valide_par: userProfile.id
+                }]);
+                if (error) { showToast("Erreur","error"); }
+                else {
+                    showToast(`Allocation de ${MOIS_FR[mois-1]} ${annee} déclarée !`,"success");
+                    closeAllocReminder();
+                    setAllocBtnState(true, mois, annee, alloc);
+                    await refreshDashboard();
+                    await loadVersementsHistory();
+                }
             }
-            showToast(`Allocation de ${MOIS_FR[mois-1]} ${annee} déclarée ! Solde mis à jour.`,"success");
-            closeAllocReminder();
-            // Mettre à jour le solde immédiatement
-            await refreshDashboard();
-            // Masquer le bouton rapide dans profil
-            const btnDeclarer = document.getElementById('btn-declarer-alloc');
-            if (btnDeclarer) btnDeclarer.classList.add('hidden');
+            if (btn)  { btn.disabled=false; }
+            if (btn2) { btn2.disabled=false; }
+        }
+
+        function setAllocBtnState(versee, mois, annee, alloc) {
+            const btn2 = document.getElementById('btn-declarer-alloc');
+            if (!btn2) return;
+            if (versee) {
+                btn2.classList.remove('hidden','bg-amber-500','shadow-amber-500/20');
+                btn2.classList.add('bg-emerald-500','shadow-emerald-500/20');
+                btn2.textContent = `✓ Allocation ${MOIS_FR[mois-1]} versée — Annuler`;
+            } else {
+                btn2.classList.remove('hidden','bg-emerald-500','shadow-emerald-500/20');
+                btn2.classList.add('bg-amber-500','shadow-amber-500/20');
+                btn2.textContent = `🏠 Déclarer mon versement du mois`;
+            }
         }
 
         function closeAllocReminder(){document.getElementById('alloc-reminder-modal').classList.add('hidden');}
