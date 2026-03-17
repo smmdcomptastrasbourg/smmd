@@ -217,11 +217,14 @@
 
             <div class="bg-white rounded-[28px] border border-blue-100 p-6 anim-slide">
                 <p class="text-[9px] font-black uppercase text-blue-700 tracking-widest mb-3">Allocation mensuelle (€)</p>
-                <div class="flex gap-3">
+                <div class="flex gap-3 mb-3">
                     <input type="number" id="settings-allocation" step="0.01" min="0" placeholder="0.00"
                         class="flex-1 bg-slate-50 p-4 rounded-2xl border-2 border-slate-50 font-black text-xl outline-none focus:border-blue-200 focus:bg-white transition-all">
                     <button onclick="updateAllocation()" class="bg-blue-900 text-white px-6 rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95">OK</button>
                 </div>
+                <button onclick="toggleAllocation()" id="btn-chef-alloc" class="hidden w-full font-black py-3.5 rounded-xl uppercase text-[10px] tracking-widest active:scale-95 transition-all shadow-md">
+                    🏠 Déclarer mon versement du mois
+                </button>
             </div>
 
             <div class="bg-white rounded-[28px] border border-slate-100 p-6 anim-slide" style="animation-delay:.05s">
@@ -334,6 +337,7 @@
             await refreshAll();
             checkAllocVersee();
             checkNotifications();
+            initChefAllocBtn();
         }
 
         async function refreshAll() {
@@ -701,7 +705,59 @@
             if(isNaN(val)||val<0) return showToast("Montant invalide","error");
             const{error}=await sb.from('profiles').update({allocation_mensuelle:val}).eq('id',userProfile.id);
             if(error){showToast("Erreur","error");return;}
-            userProfile.allocation_mensuelle=val; showToast("Allocation mise à jour !","success"); refreshSoldes(); loadVersements();
+            userProfile.allocation_mensuelle=val;
+            showToast("Allocation mise à jour !","success");
+            refreshSoldes(); loadVersements();
+            // Rafraîchir l'état du bouton toggle
+            initChefAllocBtn();
+        }
+
+        async function initChefAllocBtn() {
+            const alloc=parseFloat(userProfile.allocation_mensuelle)||0;
+            const btn=document.getElementById('btn-chef-alloc');
+            if(!btn) return;
+            if(alloc<=0){ btn.classList.add('hidden'); return; }
+            btn.classList.remove('hidden');
+            const now=new Date(),mois=now.getMonth()+1,annee=now.getFullYear();
+            const{data}=await sb.from('allocations_versees').select('id').eq('user_id',userProfile.id).eq('mois',mois).eq('annee',annee).maybeSingle();
+            setAllocBtnState(!!data, mois, annee, alloc);
+        }
+
+        async function toggleAllocation() {
+            const alloc=parseFloat(userProfile.allocation_mensuelle)||0;
+            if(alloc<=0) return showToast("Allocation non définie","warning");
+            const now=new Date(),mois=now.getMonth()+1,annee=now.getFullYear();
+            const btn=document.getElementById('btn-chef-alloc');
+            if(btn){btn.textContent='...';btn.disabled=true;}
+
+            const{data:existing}=await sb.from('allocations_versees').select('id')
+                .eq('user_id',userProfile.id).eq('mois',mois).eq('annee',annee).maybeSingle();
+
+            if(existing){
+                const{error}=await sb.from('allocations_versees').delete().eq('id',existing.id);
+                if(error){showToast("Erreur","error");}
+                else{showToast(`Allocation de ${MOIS_FR[mois-1]} ${annee} annulée`,"info");setAllocBtnState(false,mois,annee,alloc);refreshSoldes();loadVersements();}
+            } else {
+                const{error}=await sb.from('allocations_versees').insert([{
+                    user_id:userProfile.id,maison_id:userProfile.maison_id,
+                    mois,annee,montant:alloc,valide_par:userProfile.id
+                }]);
+                if(error){showToast("Erreur","error");}
+                else{showToast(`Allocation de ${MOIS_FR[mois-1]} ${annee} déclarée !`,"success");setAllocBtnState(true,mois,annee,alloc);refreshSoldes();loadVersements();}
+            }
+            if(btn){btn.disabled=false;}
+        }
+
+        function setAllocBtnState(versee, mois, annee, alloc) {
+            const btn=document.getElementById('btn-chef-alloc');
+            if(!btn) return;
+            if(versee){
+                btn.className='w-full bg-emerald-500 text-white font-black py-3.5 rounded-xl uppercase text-[10px] tracking-widest active:scale-95 transition-all shadow-md shadow-emerald-500/20';
+                btn.textContent=`✓ Allocation ${MOIS_FR[mois-1]} versée — Annuler`;
+            } else {
+                btn.className='w-full bg-amber-500 text-white font-black py-3.5 rounded-xl uppercase text-[10px] tracking-widest active:scale-95 transition-all shadow-md shadow-amber-500/20';
+                btn.textContent=`🏠 Déclarer mon versement du mois`;
+            }
         }
         async function updateIban() {
             const raw=document.getElementById('settings-iban').value.trim();
@@ -739,9 +795,15 @@
             const {data:vers}=await sb.from('allocations_versees').select('user_id').eq('maison_id',userProfile.maison_id).eq('mois',mois).eq('annee',annee);
             const versIds=new Set((vers||[]).map(v=>v.user_id));
             const nv=(membres||[]).filter(m=>parseFloat(m.allocation_mensuelle)>0&&!versIds.has(m.id));
+            // Chef : pas de pop-up, uniquement le point orange + badge dans la bottom bar
+            const dot   = document.getElementById('bar-dot');
+            const badge = document.getElementById('versements-badge');
             if(nv.length>0){
-                document.getElementById('alloc-reminder-text').textContent=`${nv.length} membre${nv.length>1?'s':''} n'${nv.length>1?'ont':'a'} pas encore déclaré le versement de ${nv.length>1?'leurs':'son'} allocation de ${MOIS_FR[mois-1]} ${annee}.`;
-                document.getElementById('alloc-reminder-modal').classList.remove('hidden');
+                if(dot)   dot.classList.remove('hidden');
+                if(badge) { badge.classList.remove('hidden'); badge.textContent=`${nv.length} en attente`; }
+            } else {
+                if(dot)   dot.classList.add('hidden');
+                if(badge) badge.classList.add('hidden');
             }
         }
         function closeAllocReminder() {
