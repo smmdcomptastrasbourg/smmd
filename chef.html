@@ -496,17 +496,13 @@
             const allMois = getMoisDepuis2026();
             const now = new Date(), moisCur=now.getMonth()+1, anneeCur=now.getFullYear();
 
-            let totalNV = 0;
-            allMois.forEach(({mois,annee}) => {
-                (membres||[]).forEach(m => {
-                    if (parseFloat(m.allocation_mensuelle)>0 && !vers.find(v=>v.user_id===m.id&&v.mois===mois&&v.annee===annee)) totalNV++;
-                });
-            });
-
+            // Badge pending (mois courant seulement)
+            const withAllocAll = (membres||[]).filter(m=>parseFloat(m.allocation_mensuelle)>0);
+            const nvCur = withAllocAll.filter(m=>!vers.find(v=>v.user_id===m.id&&v.mois===moisCur&&v.annee===anneeCur));
             const dot = document.getElementById('bar-dot');
             const badge = document.getElementById('versements-badge');
-            if (totalNV>0) { dot.classList.remove('hidden'); badge.classList.remove('hidden'); badge.textContent=`${totalNV} en attente`; }
-            else           { dot.classList.add('hidden');    badge.classList.add('hidden'); }
+            if(nvCur.length>0){ dot.classList.remove('hidden'); badge.classList.remove('hidden'); badge.textContent=`${nvCur.length} en attente`; }
+            else               { dot.classList.add('hidden');   badge.classList.add('hidden'); }
 
             document.getElementById('list-versements').innerHTML = allMois.map(({mois, annee}, idx) => {
                 const isCur = mois===moisCur && annee===anneeCur;
@@ -514,30 +510,31 @@
                 const withAlloc = (membres||[]).filter(m=>parseFloat(m.allocation_mensuelle)>0);
                 const noAlloc   = (membres||[]).filter(m=>!(parseFloat(m.allocation_mensuelle)>0));
                 const nonVerses = withAlloc.filter(m=>!vers.find(v=>v.user_id===m.id&&v.mois===mois&&v.annee===annee));
-                const totalMois = withAlloc.reduce((s,m)=>s+parseFloat(m.allocation_mensuelle),0);
-                const totalVerse = withAlloc
-                    .filter(m=>vers.find(v=>v.user_id===m.id&&v.mois===mois&&v.annee===annee))
-                    .reduce((s,m)=>s+parseFloat(m.allocation_mensuelle),0);
+                const totalMois   = withAlloc.reduce((s,m)=>s+parseFloat(m.allocation_mensuelle),0);
+                const totalVerse  = withAlloc.filter(m=>vers.find(v=>v.user_id===m.id&&v.mois===mois&&v.annee===annee)).reduce((s,m)=>s+parseFloat(m.allocation_mensuelle),0);
 
                 const rows = withAlloc.map(m => {
                     const v = vers.find(v=>v.user_id===m.id&&v.mois===mois&&v.annee===annee);
                     const alloc = parseFloat(m.allocation_mensuelle);
-                    return `<div class="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
+                    const versId = v ? v.id : null;
+                    return `<button type="button"
+                        onclick="chefToggleVersement('${escapeHtml(m.id)}','${escapeHtml(m.prenom)} ${escapeHtml(m.nom||'')}',${mois},${annee},${alloc},${versId?`'${versId}'`:'null'},this)"
+                        class="w-full flex items-center justify-between py-3 border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors rounded-xl px-2 -mx-2 active:scale-[.98]">
                         <div class="flex items-center gap-3">
-                            <span class="w-6 h-6 rounded-lg flex-shrink-0 flex items-center justify-center ${v?'bg-emerald-500':'bg-slate-100 border-2 border-slate-200'}">
+                            <span class="w-6 h-6 rounded-lg flex-shrink-0 flex items-center justify-center transition-all ${v?'bg-emerald-500':'bg-slate-100 border-2 border-slate-200'}">
                                 ${v?`<svg class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>`:''}
                             </span>
-                            <div>
+                            <div class="text-left">
                                 <p class="text-[11px] font-black uppercase text-slate-800">${escapeHtml(m.prenom)} ${escapeHtml(m.nom||'')}</p>
-                                <p class="text-[9px] font-bold ${v?'text-emerald-600':'text-amber-500'}">${v?'✓ Déclaré le '+new Date(v.created_at).toLocaleDateString('fr-FR'):'Pas encore versé'}</p>
+                                <p class="text-[9px] font-bold ${v?'text-emerald-600':'text-amber-500'}">${v?'✓ '+new Date(v.created_at).toLocaleDateString('fr-FR'):'Pas encore versé'}</p>
                             </div>
                         </div>
                         <p class="font-black text-[13px] ${v?'text-emerald-600':'text-slate-400'}">${alloc.toFixed(2)}€</p>
-                    </div>`;
+                    </button>`;
                 }).join('');
 
                 const rowsBlocked = noAlloc.map(m=>`
-                    <div class="flex items-center justify-between py-2.5 border-b border-slate-50 last:border-0 opacity-40">
+                    <div class="flex items-center justify-between py-2.5 border-b border-slate-50 last:border-0 opacity-40 px-2">
                         <div class="flex items-center gap-3">
                             <span class="w-6 h-6 rounded-lg border-2 border-red-200 bg-red-50 flex items-center justify-center text-red-400 text-[10px] font-black flex-shrink-0">!</span>
                             <div>
@@ -567,7 +564,25 @@
             }).join('');
         }
 
-// toggleCheck / toutCocher / validerSelection supprimés — les membres déclarent eux-mêmes leurs versements
+        async function chefToggleVersement(uid, nom, mois, annee, alloc, versId, btn) {
+            btn.disabled = true;
+            if (versId) {
+                // Déjà versé → annuler (DELETE)
+                const { error } = await sb.from('allocations_versees').delete().eq('id', versId);
+                if (error) { showToast("Erreur","error"); btn.disabled=false; return; }
+                showToast(`${nom} — ${MOIS_FR[mois-1]} ${annee} annulé`,"info");
+            } else {
+                // Pas versé → confirmer (INSERT)
+                const { error } = await sb.from('allocations_versees').insert([{
+                    user_id: uid, maison_id: userProfile.maison_id,
+                    mois, annee, montant: alloc, valide_par: userProfile.id
+                }]);
+                if (error) { showToast("Erreur","error"); btn.disabled=false; return; }
+                showToast(`${nom} — ${MOIS_FR[mois-1]} ${annee} confirmé`,"success");
+            }
+            await loadVersements();
+            refreshSoldes();
+        }
 
         async function loadAuditGlobal() {
             const { data } = await sb.from('transactions')
