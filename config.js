@@ -177,7 +177,7 @@ Règles : montant = total TTC final. Date du jour = ${new Date().toISOString().s
   let res;
   try {
     res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${SMMD_CONFIG.gemini_key}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent?key=${SMMD_CONFIG.gemini_key}`,
       { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
     );
   } catch (netErr) {
