@@ -120,8 +120,8 @@
                         </label>
                         <label class="flex flex-col items-center gap-2 bg-slate-50 border-2 border-slate-100 rounded-2xl p-5 cursor-pointer hover:border-blue-200 hover:bg-blue-50 transition-all active:scale-95">
                             <span class="text-2xl">🖼️</span>
-                            <span class="text-[10px] font-black uppercase tracking-widest text-slate-600">Galerie / PDF</span>
-                            <input type="file" accept="image/*,application/pdf" class="hidden" onchange="handleScanFile(this)">
+                            <span class="text-[10px] font-black uppercase tracking-widest text-slate-600">Galerie (multi)</span>
+                            <input type="file" accept="image/*" multiple class="hidden" onchange="handleScanFile(this)">
                         </label>
                     </div>
                     <button onclick="closeScanModal()" class="w-full bg-slate-100 text-slate-500 font-black py-3.5 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95">Annuler</button>
@@ -136,13 +136,21 @@
 
                 <!-- État : résultat / vérification -->
                 <div id="scan-step-result" class="hidden">
-                    <div class="flex items-center gap-3 mb-5">
+                    <div class="flex items-center gap-3 mb-4">
                         <img id="scan-preview" class="w-16 h-16 rounded-2xl object-cover border border-slate-100 flex-shrink-0" src="" alt="preview">
                         <div>
                             <p class="font-black text-[13px] uppercase tracking-wide text-slate-800">Vérifiez les données</p>
                             <p class="text-[10px] text-slate-400 font-bold mt-0.5">Corrigez si nécessaire</p>
                             <span id="scan-confiance" class="inline-block mt-1 text-[8px] font-black uppercase px-2 py-0.5 rounded-full"></span>
                         </div>
+                    </div>
+                    <!-- Photos supplémentaires -->
+                    <div class="mb-4">
+                        <div id="scan-extra-previews" class="flex gap-2 flex-wrap mb-2"></div>
+                        <label class="flex items-center gap-2 text-[9px] font-black text-blue-600 uppercase cursor-pointer hover:text-blue-800 transition-colors">
+                            <span>＋ Ajouter d'autres photos</span>
+                            <input type="file" accept="image/*" multiple class="hidden" onchange="ajouterPhotosExtra(this)">
+                        </label>
                     </div>
                     <div class="space-y-3 mb-5">
                         <div>
@@ -210,24 +218,40 @@
                     <div class="w-14 h-14 rounded-full bg-amber-50 border-2 border-amber-200 flex items-center justify-center text-3xl">📎</div>
                 </div>
                 <h3 class="text-lg font-black text-center tracking-tight mb-1">Ajouter un justificatif</h3>
-                <p class="text-[11px] text-slate-400 font-bold text-center mb-5">Obligatoire pour être remboursé</p>
+                <p class="text-[11px] text-slate-400 font-bold text-center mb-4">Plusieurs photos possibles — assemblées en PDF</p>
                 <input type="hidden" id="justif-tx-id">
-                <div class="grid grid-cols-2 gap-3 mb-4">
-                    <label class="flex flex-col items-center gap-2 bg-slate-50 border-2 border-slate-100 rounded-2xl p-5 cursor-pointer hover:border-amber-200 hover:bg-amber-50 transition-all active:scale-95">
+
+                <!-- Miniatures des photos sélectionnées -->
+                <div id="justif-previews" class="hidden mb-4">
+                    <div id="justif-preview-grid" class="grid grid-cols-3 gap-2 mb-3"></div>
+                    <p id="justif-preview-count" class="text-[9px] font-black text-slate-400 uppercase text-center tracking-widest"></p>
+                </div>
+
+                <!-- Boutons d'ajout -->
+                <div class="grid grid-cols-2 gap-3 mb-3">
+                    <label class="flex flex-col items-center gap-2 bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 cursor-pointer hover:border-amber-200 hover:bg-amber-50 transition-all active:scale-95">
                         <span class="text-2xl">📷</span>
-                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-600">Appareil photo</span>
-                        <input type="file" accept="image/*" capture="environment" class="hidden" onchange="uploadJustificatif(this)">
+                        <span class="text-[9px] font-black uppercase tracking-widest text-slate-600 text-center">Photo</span>
+                        <input type="file" accept="image/*" capture="environment" class="hidden" onchange="ajouterPhotosJustif(this)">
                     </label>
-                    <label class="flex flex-col items-center gap-2 bg-slate-50 border-2 border-slate-100 rounded-2xl p-5 cursor-pointer hover:border-amber-200 hover:bg-amber-50 transition-all active:scale-95">
+                    <label class="flex flex-col items-center gap-2 bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 cursor-pointer hover:border-amber-200 hover:bg-amber-50 transition-all active:scale-95">
                         <span class="text-2xl">🖼️</span>
-                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-600">Galerie / PDF</span>
-                        <input type="file" accept="image/*,application/pdf" class="hidden" onchange="uploadJustificatif(this)">
+                        <span class="text-[9px] font-black uppercase tracking-widest text-slate-600 text-center">Galerie (multi)</span>
+                        <input type="file" accept="image/*" multiple class="hidden" onchange="ajouterPhotosJustif(this)">
                     </label>
                 </div>
-                <div id="justif-upload-progress" class="hidden bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-4 text-center">
+
+                <!-- Bouton valider (visible seulement si photos sélectionnées) -->
+                <button id="justif-valider-btn" onclick="validerJustificatif()" class="hidden w-full bg-amber-500 text-white font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95 shadow-md shadow-amber-500/20 mb-3">
+                    ✓ Valider le justificatif
+                </button>
+
+                <!-- Progress -->
+                <div id="justif-upload-progress" class="hidden bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-3 text-center">
                     <div class="w-6 h-6 rounded-full border-2 border-blue-200 border-t-blue-600 animate-spin mx-auto mb-2"></div>
-                    <p id="justif-upload-text" class="text-[10px] font-black text-blue-700 uppercase tracking-widest">Upload en cours...</p>
+                    <p id="justif-upload-text" class="text-[10px] font-black text-blue-700 uppercase tracking-widest">Traitement...</p>
                 </div>
+
                 <button onclick="fermerJustifModal()" class="w-full bg-slate-100 text-slate-500 font-black py-3.5 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95">Annuler</button>
             </div>
         </div>
@@ -467,6 +491,9 @@
             document.getElementById('scan-modal').classList.add('hidden');
         }
         function resetScanModal() {
+            extraPhotos = [];
+            const grid = document.getElementById('scan-extra-previews');
+            if (grid) grid.innerHTML = '';
             document.getElementById('scan-step-pick').classList.remove('hidden');
             document.getElementById('scan-step-loading').classList.add('hidden');
             document.getElementById('scan-step-result').classList.add('hidden');
@@ -572,6 +599,36 @@
 
         function goToProfil() { switchTab('profil', document.querySelectorAll('.bar-btn')[3]); }
 
+        let extraPhotos = [];
+
+        function ajouterPhotosExtra(input) {
+            const files = Array.from(input.files);
+            if (!files.length) return;
+            extraPhotos = [...extraPhotos, ...files];
+            const grid = document.getElementById('scan-extra-previews');
+            if (!grid) return;
+            grid.innerHTML = extraPhotos.map((f, i) => {
+                const url = URL.createObjectURL(f);
+                return `<div class="relative">
+                    <img src="${url}" class="w-14 h-14 object-cover rounded-xl border border-slate-100">
+                    <button onclick="supprimerPhotoExtra(${i})" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[9px] font-black flex items-center justify-center">✕</button>
+                </div>`;
+            }).join('');
+        }
+
+        function supprimerPhotoExtra(idx) {
+            extraPhotos.splice(idx, 1);
+            ajouterPhotosExtra({ files: [] });
+            const grid = document.getElementById('scan-extra-previews');
+            if (grid) grid.innerHTML = extraPhotos.map((f, i) => {
+                const url = URL.createObjectURL(f);
+                return `<div class="relative">
+                    <img src="${url}" class="w-14 h-14 object-cover rounded-xl border border-slate-100">
+                    <button onclick="supprimerPhotoExtra(${i})" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[9px] font-black flex items-center justify-center">✕</button>
+                </div>`;
+            }).join('');
+        }
+
         function setLoading(btnId, loading, steps) {
             const btn = document.getElementById(btnId);
             if (!btn) return;
@@ -592,55 +649,127 @@
         }
 
         function ouvrirAjoutJustificatif(txId) {
+            justifPhotos = [];
             document.getElementById('justif-tx-id').value = txId;
             document.getElementById('justif-upload-progress').classList.add('hidden');
+            document.getElementById('justif-preview-grid').innerHTML = '';
+            document.getElementById('justif-previews').classList.add('hidden');
+            document.getElementById('justif-valider-btn').classList.add('hidden');
             document.getElementById('justif-upload-modal').classList.remove('hidden');
         }
         function fermerJustifModal() {
             document.getElementById('justif-upload-modal').classList.add('hidden');
         }
 
-        async function uploadJustificatif(input) {
-            const file = input.files[0];
-            if (!file) return;
-            const txId = document.getElementById('justif-tx-id').value;
-            const prog = document.getElementById('justif-upload-progress');
-            const progText = document.getElementById('justif-upload-text');
+        // Photos en attente pour le justificatif
+        let justifPhotos = [];
 
-            // Étape 1 — Upload
-            prog.classList.remove('hidden');
-            if(progText) progText.textContent = 'Upload en cours...';
+        function ajouterPhotosJustif(input) {
+            const files = Array.from(input.files);
+            if (!files.length) return;
+            justifPhotos = [...justifPhotos, ...files];
+            afficherPreviewsJustif();
+        }
 
-            const ext = file.type.includes('pdf') ? 'pdf' : 'jpg';
-            const path = `${userProfile.maison_id}/${userProfile.id}/${Date.now()}.${ext}`;
-            const { error: upErr } = await sb.storage
-                .from('justificatifs')
-                .upload(path, file, { contentType: file.type, upsert: false });
+        function afficherPreviewsJustif() {
+            const grid    = document.getElementById('justif-preview-grid');
+            const section = document.getElementById('justif-previews');
+            const count   = document.getElementById('justif-preview-count');
+            const valBtn  = document.getElementById('justif-valider-btn');
 
-            if (upErr) {
-                prog.classList.add('hidden');
-                showToast('Erreur upload : ' + upErr.message, 'error');
+            if (!justifPhotos.length) {
+                section.classList.add('hidden');
+                valBtn.classList.add('hidden');
                 return;
             }
 
-            // Étape 2 — Enregistrement
-            if(progText) progText.textContent = 'Enregistrement...';
+            section.classList.remove('hidden');
+            valBtn.classList.remove('hidden');
+            count.textContent = `${justifPhotos.length} photo${justifPhotos.length>1?'s':''} — assemblées en PDF`;
 
-            const { data: urlData } = sb.storage.from('justificatifs').getPublicUrl(path);
-            const justificatif_url = urlData?.publicUrl || null;
+            grid.innerHTML = justifPhotos.map((f, i) => {
+                const url = URL.createObjectURL(f);
+                return `<div class="relative">
+                    <img src="${url}" class="w-full h-20 object-cover rounded-xl border border-slate-100">
+                    <button onclick="supprimerPhotoJustif(${i})"
+                        class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full text-[10px] font-black flex items-center justify-center shadow-md">✕</button>
+                </div>`;
+            }).join('');
+        }
 
-            const { error } = await sb.from('transactions')
-                .update({ justificatif_url })
-                .eq('id', txId)
-                .eq('user_id', userProfile.id);
+        function supprimerPhotoJustif(idx) {
+            justifPhotos.splice(idx, 1);
+            afficherPreviewsJustif();
+        }
 
-            prog.classList.add('hidden');
-            if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+        async function validerJustificatif() {
+            if (!justifPhotos.length) return showToast('Ajoutez au moins une photo', 'warning');
+            const txId    = document.getElementById('justif-tx-id').value;
+            const prog    = document.getElementById('justif-upload-progress');
+            const progTxt = document.getElementById('justif-upload-text');
+            const valBtn  = document.getElementById('justif-valider-btn');
 
-            fermerJustifModal();
-            showToast('Justificatif ajouté ! Le chef peut maintenant vous rembourser.', 'success');
-            await loadRefundHistory();
-            await refreshDashboard();
+            valBtn.classList.add('hidden');
+            prog.classList.remove('hidden');
+
+            try {
+                // Étape 1 — Assembler en PDF via jsPDF
+                progTxt.textContent = `Assemblage ${justifPhotos.length} photo${justifPhotos.length>1?'s':''}...`;
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+                const pageW = doc.internal.pageSize.getWidth();
+                const pageH = doc.internal.pageSize.getHeight();
+                const margin = 10;
+
+                for (let i = 0; i < justifPhotos.length; i++) {
+                    if (i > 0) doc.addPage();
+                    progTxt.textContent = `Photo ${i+1}/${justifPhotos.length}...`;
+                    const b64 = await fileToBase64(justifPhotos[i]);
+                    const props = doc.getImageProperties(b64);
+                    const maxW = pageW - margin*2;
+                    const maxH = pageH - margin*2;
+                    let w = maxW, h = (props.height * maxW) / props.width;
+                    if (h > maxH) { h = maxH; w = (props.width * maxH) / props.height; }
+                    doc.addImage(b64, 'JPEG', (pageW-w)/2, margin, w, h);
+                }
+
+                // Étape 2 — Convertir PDF en Blob
+                progTxt.textContent = 'Préparation PDF...';
+                const pdfBlob = doc.output('blob');
+
+                // Étape 3 — Upload
+                progTxt.textContent = 'Upload...';
+                const path = `${userProfile.maison_id}/${userProfile.id}/${Date.now()}.pdf`;
+                const { error: upErr } = await sb.storage
+                    .from('justificatifs')
+                    .upload(path, pdfBlob, { contentType: 'application/pdf', upsert: false });
+
+                if (upErr) throw new Error(upErr.message);
+
+                // Étape 4 — Enregistrement
+                progTxt.textContent = 'Enregistrement...';
+                const { data: urlData } = sb.storage.from('justificatifs').getPublicUrl(path);
+                const justificatif_url = urlData?.publicUrl || null;
+
+                const { error } = await sb.from('transactions')
+                    .update({ justificatif_url })
+                    .eq('id', txId)
+                    .eq('user_id', userProfile.id);
+
+                if (error) throw new Error(error.message);
+
+                justifPhotos = [];
+                prog.classList.add('hidden');
+                fermerJustifModal();
+                showToast('Justificatif ajouté ! Le chef peut maintenant vous rembourser.', 'success');
+                await loadRefundHistory();
+                await refreshDashboard();
+
+            } catch(e) {
+                prog.classList.add('hidden');
+                valBtn.classList.remove('hidden');
+                showToast('Erreur : ' + e.message, 'error');
+            }
         }
 
         // ── INIT ──
