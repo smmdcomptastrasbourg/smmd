@@ -138,15 +138,35 @@
                                 class="w-full bg-slate-50 p-4 rounded-2xl font-bold text-sm outline-none border-2 border-slate-50 focus:border-blue-200 focus:bg-white transition-all">
                         </div>
                         <div>
+                            <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1 block tracking-widest">Motif</label>
+                            <div class="relative">
+                                <select id="scan-motif" class="w-full bg-slate-50 p-4 rounded-2xl font-bold text-sm outline-none border-2 border-slate-50 focus:bg-white focus:border-blue-200 transition-all appearance-none"></select>
+                                <svg class="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                            </div>
+                        </div>
+                        <div>
                             <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1 block tracking-widest">Commentaire</label>
                             <input type="text" id="scan-commentaire" placeholder="Commerce, description..."
                                 class="w-full bg-slate-50 p-4 rounded-2xl font-bold text-sm outline-none border-2 border-slate-50 focus:border-blue-200 focus:bg-white transition-all">
                         </div>
+                        <div>
+                            <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1 block tracking-widest">Moyen de paiement</label>
+                            <div class="relative">
+                                <select id="scan-method" class="w-full bg-slate-50 p-4 rounded-2xl font-bold text-sm outline-none border-2 border-slate-50 focus:bg-white focus:border-blue-200 transition-all appearance-none">
+                                    <option value="cb_maison">💳 CB MAISON</option>
+                                    <option value="perso_cb">📱 CARTE PERSO — À rembourser</option>
+                                    <option value="perso_liq">💵 ESPÈCES — À rembourser</option>
+                                </select>
+                                <svg class="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                            </div>
+                        </div>
                     </div>
-                    <div class="flex gap-3">
-                        <button onclick="closeScanModal()" class="flex-1 bg-slate-100 text-slate-500 font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95">Annuler</button>
-                        <button onclick="applyScanResult()" class="flex-1 bg-blue-900 text-white font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95 shadow-lg">Utiliser</button>
-                    </div>
+                    <button id="scan-submit-btn" onclick="submitFromScan()" class="w-full bg-blue-900 text-white font-black py-5 rounded-[22px] uppercase text-[12px] tracking-[.2em] shadow-xl shadow-blue-900/20 active:scale-[.97] hover:bg-blue-800 transition-all mb-3">
+                        Enregistrer la dépense
+                    </button>
+                    <button onclick="applyScanResult()" class="w-full bg-slate-100 text-slate-500 font-black py-3.5 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95 transition-all">
+                        Remplir le formulaire manuellement
+                    </button>
                 </div>
 
                 <!-- État : erreur -->
@@ -628,6 +648,12 @@
         }
 
         function validerMois(uid, moisKey, montant) {
+            // Vérifier qu'il n'y a pas de dépenses sans justificatif
+            const missing = document.querySelectorAll(`[data-mois-key="${uid}-${moisKey}"] .sans-justif`).length;
+            if (missing > 0) {
+                showToast(`${missing} dépense${missing>1?'s':''} sans justificatif — remboursement impossible`, 'error');
+                return;
+            }
             showConfirm(`Confirmer le virement de ${montant}€ pour ce mois ?`, ()=>_doValiderMois(uid, moisKey, montant), 'Valider');
         }
         async function _doValiderMois(uid, moisKey, montant) {
@@ -647,6 +673,12 @@
         }
 
         function validerTout(uid, montantTotal) {
+            // Compter les dépenses sans justificatif pour ce membre
+            const sans = Array.from(document.querySelectorAll('.sans-justif-' + uid)).length;
+            if (sans > 0) {
+                showToast(`${sans} dépense${sans>1?'s':''} sans justificatif pour ce membre`, 'error');
+                return;
+            }
             showConfirm(`Confirmer le virement global de ${montantTotal.toFixed(2)}€ ?`, ()=>_doValiderTout(uid, montantTotal), 'Valider');
         }
         async function _doValiderTout(uid, montantTotal) {
