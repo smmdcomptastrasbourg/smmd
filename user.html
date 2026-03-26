@@ -381,6 +381,18 @@
             <div id="versements-history" class="space-y-3"></div>
         </div>
 
+        <!-- SECTION RÉSUMÉ ANNUEL -->
+        <div id="section-resume" class="section-panel space-y-4">
+            <div class="flex items-center justify-between px-1 pt-1 mb-1">
+                <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Résumé annuel</p>
+                <div class="relative">
+                    <select id="resume-annee" onchange="loadResumeAnnuel()" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-[10px] font-black uppercase outline-none appearance-none pr-6"></select>
+                    <svg class="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                </div>
+            </div>
+            <div id="resume-content" class="space-y-3"></div>
+        </div>
+
         <!-- SECTION PROFIL -->
         <div id="section-profil" class="section-panel space-y-4">
             <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1 pt-1 mb-1">Mon Profil</p>
@@ -429,11 +441,15 @@
             <svg class="w-5 h-5" fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
             <span>Remboursements</span>
         </button>
-        <button class="bar-btn flex flex-col items-center gap-1 px-4 py-2 rounded-2xl" onclick="switchTab('versements',this)">
+        <button class="bar-btn flex flex-col items-center gap-1 px-3 py-2 rounded-2xl" onclick="switchTab('versements',this)">
             <svg class="w-5 h-5" fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             <span>Versements</span>
         </button>
-        <button class="bar-btn flex flex-col items-center gap-1 px-4 py-2 rounded-2xl" onclick="switchTab('profil',this)">
+        <button class="bar-btn flex flex-col items-center gap-1 px-3 py-2 rounded-2xl" onclick="switchTab('resume',this);loadResumeAnnuel()">
+            <svg class="w-5 h-5" fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            <span>Résumé</span>
+        </button>
+        <button class="bar-btn flex flex-col items-center gap-1 px-3 py-2 rounded-2xl" onclick="switchTab('profil',this)">
             <svg class="w-5 h-5" fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
             <span>Profil</span>
         </button>
@@ -489,6 +505,15 @@
         }
         function closeScanModal() {
             document.getElementById('scan-modal').classList.add('hidden');
+            // Réinitialiser tous les champs du scan pour le prochain usage
+            const ids = ['scan-montant','scan-date','scan-commentaire'];
+            ids.forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+            const preview = document.getElementById('scan-preview');
+            if (preview) preview.src = '';
+            const confiance = document.getElementById('scan-confiance');
+            if (confiance) { confiance.textContent=''; confiance.className=''; }
+            scannedFile = null;
+            resetScanModal();
         }
         function resetScanModal() {
             extraPhotos = [];
@@ -597,7 +622,119 @@
             await refreshDashboard(); await loadRefundHistory();
         }
 
-        function goToProfil() { switchTab('profil', document.querySelectorAll('.bar-btn')[3]); }
+        function goToProfil() { switchTab('profil', document.querySelectorAll('.bar-btn')[4]); }
+
+        async function initResumeAnnee() {
+            const sel = document.getElementById('resume-annee');
+            if (!sel) return;
+            const now = new Date().getFullYear();
+            sel.innerHTML = '';
+            for (let y = now; y >= 2026; y--) {
+                sel.innerHTML += `<option value="${y}">${y}</option>`;
+            }
+        }
+
+        async function loadResumeAnnuel() {
+            const annee = parseInt(document.getElementById('resume-annee')?.value || new Date().getFullYear());
+            const container = document.getElementById('resume-content');
+            container.innerHTML = `<div class="text-center py-8"><div class="w-8 h-8 rounded-full border-2 border-slate-200 border-t-blue-600 animate-spin mx-auto"></div></div>`;
+
+            const [txRes, avsRes] = await Promise.all([
+                sb.from('transactions').select('*').eq('user_id', userProfile.id),
+                sb.from('allocations_versees').select('*').eq('user_id', userProfile.id)
+            ]);
+
+            const txs = (txRes.data||[]).filter(t => new Date(t.created_at).getFullYear() === annee);
+            // Double filtre : comparer en int ET en string pour couvrir les deux cas Supabase
+            const avs = (avsRes.data||[]).filter(a => parseInt(a.annee) === annee || String(a.annee) === String(annee));
+
+            const totalAlloc  = avs.reduce((s,a) => s+parseFloat(a.montant), 0);
+            const totalDep    = txs.filter(t=>t.type==='depense').reduce((s,t) => s+parseFloat(t.montant), 0);
+            const totalRec    = txs.filter(t=>t.type==='recette').reduce((s,t) => s+parseFloat(t.montant), 0);
+            const totalRemb   = txs.filter(t=>t.type==='depense'&&t.statut==='valide'&&t.methode_paiement?.startsWith('perso_')).reduce((s,t) => s+parseFloat(t.montant), 0);
+            const totalAttente= txs.filter(t=>t.statut==='attente').reduce((s,t) => s+parseFloat(t.montant), 0);
+            const solde       = totalAlloc + totalRec - totalDep;
+
+            // Par mois
+            const byMonth = {};
+            for (let m = 1; m <= 12; m++) {
+                const mTxs = txs.filter(t => new Date(t.created_at).getMonth()+1 === m);
+                const mAvs = avs.filter(a => a.mois === m);
+                byMonth[m] = {
+                    alloc: mAvs.reduce((s,a)=>s+parseFloat(a.montant),0),
+                    dep:   mTxs.filter(t=>t.type==='depense').reduce((s,t)=>s+parseFloat(t.montant),0),
+                    rec:   mTxs.filter(t=>t.type==='recette').reduce((s,t)=>s+parseFloat(t.montant),0),
+                };
+            }
+
+            // Motifs les plus fréquents
+            const motifMap = {};
+            txs.filter(t=>t.type==='depense').forEach(t => {
+                motifMap[t.motif||'Autre'] = (motifMap[t.motif||'Autre']||0) + parseFloat(t.montant);
+            });
+            const topMotifs = Object.entries(motifMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+            container.innerHTML = `
+                <!-- KPIs -->
+                <div class="grid grid-cols-2 gap-3 anim-slide">
+                    <div class="bg-white rounded-[24px] border border-slate-100 p-5">
+                        <p class="text-[8px] font-black uppercase text-slate-400 tracking-widest mb-1">Allocations versées</p>
+                        <p class="text-2xl font-black text-emerald-600">${totalAlloc.toFixed(2)}€</p>
+                        <p class="text-[9px] text-slate-400 font-bold mt-1">${avs.length} mois sur 12</p>
+                    </div>
+                    <div class="bg-white rounded-[24px] border border-slate-100 p-5">
+                        <p class="text-[8px] font-black uppercase text-slate-400 tracking-widest mb-1">Dépenses totales</p>
+                        <p class="text-2xl font-black text-slate-800">${totalDep.toFixed(2)}€</p>
+                        <p class="text-[9px] text-slate-400 font-bold mt-1">${txs.filter(t=>t.type==='depense').length} opérations</p>
+                    </div>
+                    <div class="bg-white rounded-[24px] border border-slate-100 p-5">
+                        <p class="text-[8px] font-black uppercase text-slate-400 tracking-widest mb-1">Remboursements reçus</p>
+                        <p class="text-2xl font-black text-blue-600">${totalRemb.toFixed(2)}€</p>
+                        ${totalAttente>0?`<p class="text-[9px] text-amber-500 font-bold mt-1">${totalAttente.toFixed(2)}€ en attente</p>`:'<p class="text-[9px] text-emerald-500 font-bold mt-1">Tout remboursé ✓</p>'}
+                    </div>
+                    <div class="bg-white rounded-[24px] border border-slate-100 p-5 ${solde<0?'border-red-100':'border-emerald-100'}">
+                        <p class="text-[8px] font-black uppercase text-slate-400 tracking-widest mb-1">Solde annuel</p>
+                        <p class="text-2xl font-black ${solde<0?'text-red-500':'text-emerald-600'}">${solde<0?'':'+'}${solde.toFixed(2)}€</p>
+                    </div>
+                </div>
+
+                <!-- Répartition par mois -->
+                <div class="bg-white rounded-[28px] border border-slate-100 overflow-hidden anim-slide" style="animation-delay:.05s">
+                    <div class="px-5 py-4 border-b border-slate-50">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-700">Mois par mois</p>
+                    </div>
+                    <div class="divide-y divide-slate-50">
+                        ${Object.entries(byMonth).filter(([m,d])=>d.alloc>0||d.dep>0||d.rec>0).map(([m,d])=>`
+                        <div class="px-5 py-3 flex justify-between items-center">
+                            <p class="text-[10px] font-black uppercase text-slate-600 w-20">${MOIS_FR[parseInt(m)-1]}</p>
+                            <div class="flex gap-4 text-right">
+                                ${d.alloc>0?`<div><p class="text-[8px] text-slate-400 font-bold">Alloc</p><p class="text-[10px] font-black text-emerald-600">+${d.alloc.toFixed(0)}€</p></div>`:''}
+                                ${d.dep>0?`<div><p class="text-[8px] text-slate-400 font-bold">Dép</p><p class="text-[10px] font-black text-slate-700">-${d.dep.toFixed(0)}€</p></div>`:''}
+                                ${d.rec>0?`<div><p class="text-[8px] text-slate-400 font-bold">Rec</p><p class="text-[10px] font-black text-blue-600">+${d.rec.toFixed(0)}€</p></div>`:''}
+                            </div>
+                        </div>`).join('')}
+                    </div>
+                </div>
+
+                <!-- Top motifs -->
+                ${topMotifs.length>0?`
+                <div class="bg-white rounded-[28px] border border-slate-100 overflow-hidden anim-slide" style="animation-delay:.1s">
+                    <div class="px-5 py-4 border-b border-slate-50">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-700">Top dépenses</p>
+                    </div>
+                    <div class="divide-y divide-slate-50">
+                        ${topMotifs.map(([motif,total],i)=>`
+                        <div class="px-5 py-3 flex justify-between items-center">
+                            <div class="flex items-center gap-3">
+                                <span class="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[9px] font-black text-slate-500">${i+1}</span>
+                                <p class="text-[10px] font-black uppercase text-slate-700">${escapeHtml(motif)}</p>
+                            </div>
+                            <p class="text-[11px] font-black text-slate-800">${total.toFixed(2)}€</p>
+                        </div>`).join('')}
+                    </div>
+                </div>`:''}
+            `;
+        }
 
         let extraPhotos = [];
 
@@ -790,6 +927,7 @@
             document.getElementById('settings-allocation').value = parseFloat(profile.allocation_mensuelle)||'';
 
             loadMotifs();
+            initResumeAnnee();
             await refreshDashboard();
             await loadRefundHistory();
             await loadVersementsHistory();
@@ -867,7 +1005,10 @@
             animCounter(document.getElementById('house-balance'), houseAlloc+houseRec-houseDep);
             animCounter(document.getElementById('balance'), myAvs+myRec-myDep);
             animCounter(document.getElementById('pending-refund'), pending);
-            document.getElementById('compact-balance').textContent = (myAvs+myRec-myDep).toFixed(2)+'€';
+            const myBal = myAvs+myRec-myDep;
+            const compEl = document.getElementById('compact-balance');
+            compEl.textContent = myBal.toFixed(2)+'€';
+            compEl.style.color = myBal < 0 ? '#ef4444' : '';
             document.getElementById('alloc-badge').textContent = myAlloc>0 ? `${myAlloc.toFixed(2)}€/mois` : 'Allocation non définie';
 
             const hist = [...myTx].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,8);
