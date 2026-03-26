@@ -174,21 +174,33 @@ Règles : montant = total TTC final. Date du jour = ${new Date().toISOString().s
     generationConfig: { temperature: 0.1, maxOutputTokens: 300 }
   };
 
-  let res;
-  try {
-    res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent?key=${SMMD_CONFIG.gemini_key}`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
-    );
-  } catch (netErr) {
-    throw new Error('Pas de connexion réseau. Vérifiez votre connexion et réessayez.');
-  }
+  // Liste de modèles à essayer en cascade
+  const MODELS = ['gemini-1.5-flash-8b', 'gemini-1.5-flash', 'gemini-2.0-flash-lite'];
+  let res = null;
 
-  if (!res.ok) {
-    const errBody = await res.text().catch(()=>'');
+  for (let attempt = 0; attempt < MODELS.length; attempt++) {
+    const model = MODELS[attempt];
+    try {
+      res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${SMMD_CONFIG.gemini_key}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+      );
+    } catch (netErr) {
+      throw new Error('Pas de connexion réseau. Vérifiez votre connexion et réessayez.');
+    }
+
+    if (res.ok) break; // succès
+
+    if (res.status === 429) {
+      if (attempt < MODELS.length - 1) {
+        // Essayer le modèle suivant après un court délai
+        await new Promise(r => setTimeout(r, 2000));
+        continue;
+      }
+      throw new Error('Quota dépassé sur tous les modèles. Attendez 1 minute et réessayez.');
+    }
     if (res.status === 400) throw new Error('Image non reconnue. Essayez avec une photo plus nette et bien cadrée.');
-    if (res.status === 403) throw new Error("Clé API invalide ou expirée. Contactez l'administrateur.");
-    if (res.status === 429) throw new Error('Trop de requêtes. Attendez quelques secondes et réessayez.');
+    if (res.status === 403) throw new Error("Clé API invalide. Vérifiez votre clé dans config.js.");
     throw new Error('Erreur API (' + res.status + '). Réessayez.');
   }
 
