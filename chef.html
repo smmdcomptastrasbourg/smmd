@@ -1482,13 +1482,7 @@
             else{showToast("Mot de passe modifié !","success");document.getElementById('settings-pass').value='';}
         }
 
-        function supprimerOperation(id) {
-            showConfirm('Supprimer cette opération ?',()=>_doSupprimer(id),'Supprimer',true);
-        }
-        async function _doSupprimer(id) {
-            const{error}=await sb.from('transactions').delete().eq('id',id).eq('maison_id',userProfile.maison_id);
-            if(error) showToast("Erreur","error"); else{showToast("Supprimé","info");refreshAll();}
-        }
+
 
         function copyIban(iban) {
             navigator.clipboard.writeText(iban).then(()=>showToast("IBAN copié !","success")).catch(()=>showToast("Impossible de copier","error"));
