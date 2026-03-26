@@ -354,7 +354,7 @@
             if(pass.length<6) return showToast("Mot de passe : 6 car. minimum","error");
             const{data,error}=await sb.auth.signUp({email,password:pass});
             if(error) return showToast(error.message,"error");
-            const{error:pErr}=await sb.from('profiles').insert([{id:data.user.id,prenom,nom,nom_complet:`${prenom} ${nom}`,email,maison_id:maison,role,allocation_mensuelle:0}]);
+            const{error:pErr}=await sb.from('profiles').insert([{id:data.user.id,prenom,nom,nom_complet:`${prenom} ${nom}`,maison_id:maison,role,allocation_mensuelle:0}]);
             if(pErr) showToast("Compte créé mais erreur profil : "+pErr.message,"warning");
             else{
                 showToast("Compte créé !","success");
