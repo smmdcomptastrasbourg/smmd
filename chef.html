@@ -102,8 +102,8 @@
                         </label>
                         <label class="flex flex-col items-center gap-2 bg-slate-50 border-2 border-slate-100 rounded-2xl p-5 cursor-pointer hover:border-blue-200 hover:bg-blue-50 transition-all active:scale-95">
                             <span class="text-2xl">🖼️</span>
-                            <span class="text-[10px] font-black uppercase tracking-widest text-slate-600">Galerie / PDF</span>
-                            <input type="file" accept="image/*,application/pdf" class="hidden" onchange="handleScanFile(this)">
+                            <span class="text-[10px] font-black uppercase tracking-widest text-slate-600">Galerie (multi)</span>
+                            <input type="file" accept="image/*" multiple class="hidden" onchange="handleScanFile(this)">
                         </label>
                     </div>
                     <button onclick="closeScanModal()" class="w-full bg-slate-100 text-slate-500 font-black py-3.5 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95">Annuler</button>
@@ -118,13 +118,21 @@
 
                 <!-- État : résultat / vérification -->
                 <div id="scan-step-result" class="hidden">
-                    <div class="flex items-center gap-3 mb-5">
+                    <div class="flex items-center gap-3 mb-4">
                         <img id="scan-preview" class="w-16 h-16 rounded-2xl object-cover border border-slate-100 flex-shrink-0" src="" alt="preview">
                         <div>
                             <p class="font-black text-[13px] uppercase tracking-wide text-slate-800">Vérifiez les données</p>
                             <p class="text-[10px] text-slate-400 font-bold mt-0.5">Corrigez si nécessaire</p>
                             <span id="scan-confiance" class="inline-block mt-1 text-[8px] font-black uppercase px-2 py-0.5 rounded-full"></span>
                         </div>
+                    </div>
+                    <!-- Photos supplémentaires -->
+                    <div class="mb-4">
+                        <div id="scan-extra-previews" class="flex gap-2 flex-wrap mb-2"></div>
+                        <label class="flex items-center gap-2 text-[9px] font-black text-blue-600 uppercase cursor-pointer hover:text-blue-800 transition-colors">
+                            <span>＋ Ajouter d'autres photos</span>
+                            <input type="file" accept="image/*" multiple class="hidden" onchange="ajouterPhotosExtra(this)">
+                        </label>
                     </div>
                     <div class="space-y-3 mb-5">
                         <div>
@@ -444,6 +452,9 @@
             document.getElementById('scan-modal').classList.add('hidden');
         }
         function resetScanModal() {
+            extraPhotos = [];
+            const grid = document.getElementById('scan-extra-previews');
+            if (grid) grid.innerHTML = '';
             document.getElementById('scan-step-pick').classList.remove('hidden');
             document.getElementById('scan-step-loading').classList.add('hidden');
             document.getElementById('scan-step-result').classList.add('hidden');
@@ -512,19 +523,40 @@
 
             setBtn('<span class="btn-spinner"></span>Upload justificatif...', true);
 
-            // Upload justificatif
+            // Upload justificatif — assembler toutes les photos en PDF
             let justificatif_url = null;
-            if (scannedFile) {
-                const ext = scannedFile.type.includes('pdf') ? 'pdf' : 'jpg';
-                const path = `${userProfile.maison_id}/${userProfile.id}/${Date.now()}.${ext}`;
-                const { error: upErr } = await sb.storage
-                    .from('justificatifs')
-                    .upload(path, scannedFile, { contentType: scannedFile.type, upsert: false });
-                if (!upErr) {
-                    const { data: urlData } = sb.storage.from('justificatifs').getPublicUrl(path);
-                    justificatif_url = urlData?.publicUrl || null;
-                } else {
-                    showToast('Erreur upload : ' + upErr.message, 'error');
+            const allPhotos = [scannedFile, ...extraPhotos].filter(Boolean);
+            if (allPhotos.length) {
+                setBtn(`<span class="btn-spinner"></span>Assemblage PDF (${allPhotos.length} photo${allPhotos.length>1?'s':''})...`, true);
+                try {
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+                    const pageW = doc.internal.pageSize.getWidth();
+                    const pageH = doc.internal.pageSize.getHeight();
+                    const margin = 10;
+                    for (let i = 0; i < allPhotos.length; i++) {
+                        if (i > 0) doc.addPage();
+                        const b64 = await fileToBase64(allPhotos[i]);
+                        const props = doc.getImageProperties(b64);
+                        const maxW = pageW-margin*2, maxH = pageH-margin*2;
+                        let w = maxW, h = (props.height*maxW)/props.width;
+                        if (h > maxH) { h = maxH; w = (props.width*maxH)/props.height; }
+                        doc.addImage(b64, 'JPEG', (pageW-w)/2, margin, w, h);
+                    }
+                    const pdfBlob = doc.output('blob');
+                    setBtn('<span class="btn-spinner"></span>Upload...', true);
+                    const path = `${userProfile.maison_id}/${userProfile.id}/${Date.now()}.pdf`;
+                    const { error: upErr } = await sb.storage
+                        .from('justificatifs')
+                        .upload(path, pdfBlob, { contentType: 'application/pdf', upsert: false });
+                    if (!upErr) {
+                        const { data: urlData } = sb.storage.from('justificatifs').getPublicUrl(path);
+                        justificatif_url = urlData?.publicUrl || null;
+                    } else {
+                        showToast('Erreur upload : ' + upErr.message, 'error');
+                    }
+                } catch(e) {
+                    showToast('Erreur PDF : ' + e.message, 'error');
                 }
             }
 
@@ -563,6 +595,36 @@
         }
 
         function goToProfil() { switchTab('profil', document.querySelectorAll('.bar-btn')[4]); }
+
+        let extraPhotos = []; // photos supplémentaires pour le scan
+
+        function ajouterPhotosExtra(input) {
+            const files = Array.from(input.files);
+            if (!files.length) return;
+            extraPhotos = [...extraPhotos, ...files];
+            const grid = document.getElementById('scan-extra-previews');
+            if (!grid) return;
+            grid.innerHTML = extraPhotos.map((f, i) => {
+                const url = URL.createObjectURL(f);
+                return `<div class="relative">
+                    <img src="${url}" class="w-14 h-14 object-cover rounded-xl border border-slate-100">
+                    <button onclick="supprimerPhotoExtra(${i})" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[9px] font-black flex items-center justify-center">✕</button>
+                </div>`;
+            }).join('');
+        }
+
+        function supprimerPhotoExtra(idx) {
+            extraPhotos.splice(idx, 1);
+            ajouterPhotosExtra({ files: [] });
+            const grid = document.getElementById('scan-extra-previews');
+            if (grid) grid.innerHTML = extraPhotos.map((f, i) => {
+                const url = URL.createObjectURL(f);
+                return `<div class="relative">
+                    <img src="${url}" class="w-14 h-14 object-cover rounded-xl border border-slate-100">
+                    <button onclick="supprimerPhotoExtra(${i})" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[9px] font-black flex items-center justify-center">✕</button>
+                </div>`;
+            }).join('');
+        }
 
         function setLoading(btnId, loading, step) {
             const btn = document.getElementById(btnId);
