@@ -8,6 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="config.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,700;0,900;1,900&display=swap');
@@ -264,12 +265,23 @@
                 <button onclick="openScanModal()" class="w-full bg-slate-50 border-2 border-dashed border-slate-200 text-slate-400 py-4 rounded-[22px] font-black text-[11px] uppercase tracking-widest hover:border-blue-300 hover:text-blue-500 hover:bg-blue-50 transition-all active:scale-[.97] flex items-center justify-center gap-2">
                     <span class="text-base">📄</span> Scanner un justificatif
                 </button>
+                <div id="justif-indicator" class="hidden flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-2xl px-4 py-3">
+                    <span class="text-sm">✅</span>
+                    <p class="text-[10px] font-black text-emerald-700 uppercase tracking-wide flex-1">Justificatif prêt</p>
+                    <button onclick="scannedFile=null;document.getElementById('justif-indicator').classList.add('hidden')" class="text-emerald-400 hover:text-red-400 font-black text-sm transition-colors">✕</button>
+                </div>
                 <button id="submit-btn" onclick="submitTransaction()" class="w-full bg-slate-900 text-white py-5 rounded-[22px] font-black text-[12px] uppercase tracking-[.2em] shadow-xl active:scale-[.97] hover:bg-slate-800 transition-all">Enregistrer</button>
             </div>
 
             <!-- Journal rapide -->
             <div class="anim-slide" style="animation-delay:.12s">
-                <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1 mb-3">Journal Maison</p>
+                <div class="flex justify-between items-center px-1 mb-3">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Journal Maison</p>
+                    <button onclick="exportJustificatifsMoisPDF(new Date().getMonth()+1, new Date().getFullYear())"
+                        class="text-[9px] font-black text-violet-600 uppercase hover:text-violet-800 transition-colors">
+                        📋 PDF Justificatifs du mois
+                    </button>
+                </div>
                 <div id="audit-history" class="space-y-2"></div>
             </div>
         </div>
@@ -363,6 +375,7 @@
 
     <script>
         const sb = supabase.createClient(SMMD_CONFIG.url, SMMD_CONFIG.key);
+        let scannedFile = null;
         window.addEventListener('offline', ()=>document.getElementById('offline-banner').classList.remove('hidden'));
         window.addEventListener('online',  ()=>document.getElementById('offline-banner').classList.add('hidden'));
         let userProfile = null, currentType = 'depense';
@@ -454,6 +467,7 @@
 
                 document.getElementById('scan-step-loading').classList.add('hidden');
                 document.getElementById('scan-step-result').classList.remove('hidden');
+                scannedFile = file;
 
             } catch (err) {
                 document.getElementById('scan-step-loading').classList.add('hidden');
@@ -465,17 +479,19 @@
         }
 
         function applyScanResult() {
-            const montant    = document.getElementById('scan-montant').value;
-            const date       = document.getElementById('scan-date').value;
+            const montant     = document.getElementById('scan-montant').value;
+            const date        = document.getElementById('scan-date').value;
             const commentaire = document.getElementById('scan-commentaire').value;
-
-            if (montant)    document.getElementById('tx-amount').value  = montant;
-            if (date)       document.getElementById('tx-date').value    = date;
-            if (commentaire) document.getElementById('tx-comment') && (document.getElementById('tx-comment').value = commentaire)
-                             || document.getElementById('tx-note') && (document.getElementById('tx-note').value = commentaire);
-
+            if (montant)     document.getElementById('tx-amount').value = montant;
+            if (date)        document.getElementById('tx-date').value   = date;
+            if (commentaire) {
+                const el = document.getElementById('tx-comment') || document.getElementById('tx-note');
+                if (el) el.value = commentaire;
+            }
+            const ind = document.getElementById('justif-indicator');
+            if (ind && scannedFile) ind.classList.remove('hidden');
             closeScanModal();
-            showToast('Données importées — vérifiez avant de valider', 'info');
+            showToast('Données importées — justificatif sera joint à la dépense', 'success');
         }
 
         function goToProfil() { switchTab('profil', document.querySelectorAll('.bar-btn')[4]); }
@@ -762,6 +778,10 @@
                             <p class="text-[10px] font-black uppercase text-slate-500 tracking-wide">${escapeHtml(t.profiles?.prenom||'')} ${escapeHtml(t.profiles?.nom||'')} · ${escapeHtml(t.motif||'RECETTE')}</p>
                             <p class="text-[9px] text-slate-300 font-bold">${new Date(t.created_at).toLocaleDateString('fr-FR')}</p>
                             ${t.commentaire?`<p class="text-[10px] font-bold text-slate-700">${escapeHtml(t.commentaire)}</p>`:''}
+                            ${t.justificatif_url?`<div class="flex gap-2 mt-0.5">
+                                <a href="${escapeHtml(t.justificatif_url)}" target="_blank" class="text-[8px] font-black text-blue-500 uppercase hover:text-blue-700">📎 Voir</a>
+                                <button onclick="exportJustificatifPDF('${escapeHtml(t.id)}','${escapeHtml(t.justificatif_url)}','${escapeHtml((t.profiles?.prenom||'')+' '+(t.profiles?.nom||'')+' '+new Date(t.created_at).toLocaleDateString('fr-FR'))}')" class="text-[8px] font-black text-violet-500 uppercase hover:text-violet-700">⬇ PDF</button>
+                            </div>`:''}
                         </div>
                     </div>
                     <div class="text-right">
@@ -817,18 +837,42 @@
             if(!date) return showToast("Date requise","error");
             const btn=document.getElementById('submit-btn');
             btn.textContent='...'; btn.disabled=true;
+
+            // Upload justificatif si présent
+            let justificatif_url = null;
+            if (scannedFile && currentType === 'depense') {
+                btn.textContent = '📎 Upload...';
+                const ext = scannedFile.type.includes('pdf') ? 'pdf' : 'jpg';
+                const path = `${userProfile.maison_id}/${userProfile.id}/${Date.now()}.${ext}`;
+                const { error: upErr } = await sb.storage
+                    .from('justificatifs')
+                    .upload(path, scannedFile, { contentType: scannedFile.type, upsert: false });
+                if (!upErr) {
+                    const { data: urlData } = sb.storage.from('justificatifs').getPublicUrl(path);
+                    justificatif_url = urlData?.publicUrl || null;
+                    if (!justificatif_url) {
+                        const { data: signed } = await sb.storage.from('justificatifs').createSignedUrl(path, 60*60*24*365);
+                        justificatif_url = signed?.signedUrl || null;
+                    }
+                }
+            }
+
             const {error}=await sb.from('transactions').insert([{
                 user_id:userProfile.id, maison_id:userProfile.maison_id, montant:amount,
                 motif:currentType==='recette'?'RECETTE':motif, commentaire:note||null,
                 created_at:new Date(date).toISOString(), type:currentType,
                 methode_paiement:currentType==='recette'?null:method,
-                statut:(currentType==='depense'&&method.startsWith('perso_'))?'attente':'valide'
+                statut:(currentType==='depense'&&method.startsWith('perso_'))?'attente':'valide',
+                justificatif_url
             }]);
             btn.textContent='Enregistrer'; btn.disabled=false;
             if(error){showToast("Erreur : "+error.message,"error");return;}
             document.getElementById('tx-amount').value='';
             document.getElementById('tx-note').value='';
-            showToast("Opération enregistrée !","success");
+            scannedFile = null;
+            const ind = document.getElementById('justif-indicator');
+            if (ind) ind.classList.add('hidden');
+            showToast(justificatif_url ? "Dépense + justificatif enregistrés !" : "Opération enregistrée !","success");
             refreshAll();
         }
 
@@ -1022,6 +1066,114 @@
             await sb.from('notifications').update({ lu: true }).eq('id', id);
             const el = document.querySelector(`[data-notif="${id}"]`);
             if (el) { el.style.cssText='opacity:0;transform:translateY(-8px);transition:all .2s'; setTimeout(()=>el.remove(),200); }
+        }
+
+        // ── EXPORT PDF JUSTIFICATIFS ──
+
+        async function exportJustificatifPDF(txId, justifUrl, label) {
+            showToast("Génération du PDF...", "info");
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+                await addJustifPage(doc, justifUrl, label, true);
+                doc.save(`Justificatif_${label.replace(/[^a-zA-Z0-9]/g,'_')}.pdf`);
+                showToast("PDF téléchargé !", "success");
+            } catch(e) {
+                showToast("Erreur PDF : " + e.message, "error");
+            }
+        }
+
+        async function exportJustificatifsMoisPDF(mois, annee) {
+            const { data: txs } = await sb.from('transactions')
+                .select('*, profiles(prenom,nom)')
+                .eq('maison_id', userProfile.maison_id)
+                .eq('type', 'depense')
+                .not('justificatif_url', 'is', null)
+                .order('created_at', { ascending: true });
+
+            const filtered = (txs||[]).filter(t => {
+                const d = new Date(t.created_at);
+                return d.getMonth()+1 === mois && d.getFullYear() === annee;
+            });
+
+            if (!filtered.length) {
+                showToast(`Aucun justificatif pour ${MOIS_FR[mois-1]} ${annee}`, "warning");
+                return;
+            }
+
+            showToast(`Génération du PDF (${filtered.length} justificatif${filtered.length>1?'s':''})...`, "info");
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+                for (let i = 0; i < filtered.length; i++) {
+                    const t = filtered[i];
+                    if (i > 0) doc.addPage();
+                    const label = `${t.profiles?.prenom||''} ${t.profiles?.nom||''} — ${escapeHtml(t.motif||'')} — ${parseFloat(t.montant).toFixed(2)}€ — ${new Date(t.created_at).toLocaleDateString('fr-FR')}`;
+                    await addJustifPage(doc, t.justificatif_url, label, false);
+                }
+                doc.save(`Justificatifs_${MOIS_FR[mois-1]}_${annee}.pdf`);
+                showToast("PDF téléchargé !", "success");
+            } catch(e) {
+                showToast("Erreur PDF : " + e.message, "error");
+            }
+        }
+
+        async function addJustifPage(doc, url, label, isFirst) {
+            const pageW = doc.internal.pageSize.getWidth();
+            const pageH = doc.internal.pageSize.getHeight();
+            const margin = 15;
+
+            // En-tête
+            doc.setFillColor(15, 23, 42);
+            doc.rect(0, 0, pageW, 18, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'bold');
+            doc.text('SMMD — Justificatif de dépense', margin, 12);
+
+            // Label dépense
+            doc.setTextColor(51, 65, 85);
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.text(label, margin, 26, { maxWidth: pageW - margin*2 });
+
+            // Ligne séparateur
+            doc.setDrawColor(226, 232, 240);
+            doc.line(margin, 30, pageW - margin, 30);
+
+            // Charger et insérer l'image
+            try {
+                const imgData = await fetchImageAsBase64(url);
+                const imgProps = doc.getImageProperties(imgData);
+                const maxW = pageW - margin*2;
+                const maxH = pageH - 45;
+                let w = maxW, h = (imgProps.height * maxW) / imgProps.width;
+                if (h > maxH) { h = maxH; w = (imgProps.width * maxH) / imgProps.height; }
+                const x = (pageW - w) / 2;
+                doc.addImage(imgData, 'JPEG', x, 35, w, h);
+            } catch {
+                doc.setTextColor(239, 68, 68);
+                doc.setFontSize(10);
+                doc.text('Image non disponible', margin, 50);
+            }
+
+            // Pied de page
+            doc.setTextColor(148, 163, 184);
+            doc.setFontSize(7);
+            doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')} par SMMD`, margin, pageH - 8);
+        }
+
+        async function fetchImageAsBase64(url) {
+            // Essayer via proxy Supabase Storage si URL Supabase
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('Image inaccessible');
+            const blob = await res.blob();
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
         }
 
         function logout(){sb.auth.signOut().then(()=>location.href="index.html");}
