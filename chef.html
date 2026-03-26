@@ -712,6 +712,8 @@
                 (membres||[]).map(m=>`<option value="${escapeHtml(m.id)}">${escapeHtml(m.prenom)} ${escapeHtml(m.nom||'')}</option>`).join('');
         }
 
+        let _txCache = {}; // cache des transactions pour l'édition
+
         async function loadJournal() {
             const mois   = document.getElementById('journal-mois').value;
             const annee  = document.getElementById('journal-annee').value;
@@ -732,6 +734,8 @@
                 const d = new Date(t.created_at);
                 return String(d.getMonth()+1).padStart(2,'0') === mois && String(d.getFullYear()) === String(annee);
             });
+            // Stocker dans le cache pour accès par ID
+            filtered.forEach(t => { _txCache[t.id] = t; });
 
             if (!filtered.length) {
                 list.innerHTML = `<div class="bg-white rounded-[28px] border border-slate-100 p-8 text-center">
@@ -767,7 +771,7 @@
                         <div class="text-right flex-shrink-0 ml-2">
                             <p class="font-black text-sm ${t.type==='recette'?'text-emerald-500':'text-slate-900'} mb-2">${t.type==='recette'?'+':'-'}${parseFloat(t.montant).toFixed(2)}€</p>
                             <div class="flex gap-1 justify-end">
-                                <button onclick="ouvrirEditModal(${JSON.stringify(t).replace(/'/g,'&#39;')})"
+                                <button onclick="ouvrirEditById('${escapeHtml(t.id)}')"
                                     class="bg-blue-50 text-blue-600 px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase hover:bg-blue-100 transition-all active:scale-95">✏️</button>
                                 <button onclick="supprimerOperation('${escapeHtml(t.id)}')"
                                     class="bg-red-50 text-red-400 px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase hover:bg-red-100 transition-all active:scale-95">✕</button>
@@ -781,9 +785,18 @@
             showConfirm('Supprimer cette opération ?', async () => {
                 const { error } = await sb.from('transactions').delete().eq('id', id).eq('maison_id', userProfile.maison_id);
                 if (error) { showToast('Erreur : '+error.message,'error'); return; }
+                // Supprimer du cache et recharger immédiatement
+                delete _txCache[id];
                 showToast('Opération supprimée','info');
-                loadJournal(); refreshAll();
+                await loadJournal();
+                refreshAll();
             }, 'Supprimer', true);
+        }
+
+        function ouvrirEditById(id) {
+            const tx = _txCache[id];
+            if (!tx) { showToast('Opération introuvable', 'error'); return; }
+            ouvrirEditModal(tx);
         }
 
         function ouvrirEditModal(tx) {
@@ -832,7 +845,8 @@
             if (error) { showToast('Erreur : '+error.message,'error'); return; }
             fermerEditModal();
             showToast('Opération modifiée !','success');
-            loadJournal(); refreshAll();
+            await loadJournal();
+            refreshAll();
         }
 
         function goToProfil() { switchTab('profil', document.querySelectorAll('.bar-btn')[6]); }
