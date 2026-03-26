@@ -2,7 +2,7 @@
 window.SMMD_CONFIG = {
   url: "https://xccnnckuphxloxfrqtkf.supabase.co",
   key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjY25uY2t1cGh4bG94ZnJxdGtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODA3NjEsImV4cCI6MjA4Mjc1Njc2MX0.1mIEhKfS5OSsaw78f1_Iatni39y8CoIurAd5IXP6n6g",
-  gemini_key: "AIzaSyD_iXwSQsWEbqWFMlCtx4UeYZPrqf1r1K4"
+  gemini_key: "AIzaSyC2bl2zL_deTWDSPfBy_5OgNjpZUFUQgcI"
 };
 
 // Utilitaires partagés
