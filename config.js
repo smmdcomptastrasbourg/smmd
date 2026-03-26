@@ -1,7 +1,8 @@
 // SMMD - Configuration centralisée
 window.SMMD_CONFIG = {
   url: "https://xccnnckuphxloxfrqtkf.supabase.co",
-  key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjY25uY2t1cGh4bG94ZnJxdGtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODA3NjEsImV4cCI6MjA4Mjc1Njc2MX0.1mIEhKfS5OSsaw78f1_Iatni39y8CoIurAd5IXP6n6g"
+  key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjY25uY2t1cGh4bG94ZnJxdGtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODA3NjEsImV4cCI6MjA4Mjc1Njc2MX0.1mIEhKfS5OSsaw78f1_Iatni39y8CoIurAd5IXP6n6g",
+  gemini_key: "AIzaSyD_iXwSQsWEbqWFMlCtx4UeYZPrqf1r1K4"
 };
 
 // Utilitaires partagés
@@ -141,4 +142,63 @@ function confirmPromptDouble() {
 function closePromptDouble() {
   const modal = document.getElementById('smmd-prompt-modal');
   if (modal) modal.classList.add('hidden');
+}
+
+// ============================================================
+// SCAN JUSTIFICATIF — Gemini Vision
+// ============================================================
+async function scanJustificatif(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64 = e.target.result.split(',')[1];
+      const mime   = file.type || 'image/jpeg';
+      try {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${SMMD_CONFIG.gemini_key}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [
+                  {
+                    inline_data: { mime_type: mime, data: base64 }
+                  },
+                  {
+                    text: `Tu es un assistant comptable. Analyse ce justificatif de dépense (ticket de caisse, facture, reçu).
+Extrais les informations suivantes et réponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans explication :
+{
+  "montant": <nombre décimal, ex: 29.90>,
+  "date": "<date au format YYYY-MM-DD>",
+  "commentaire": "<nom du commerce ou description courte, max 40 caractères>",
+  "confiance": "<haute|moyenne|basse>"
+}
+Si tu ne trouves pas une valeur avec certitude, mets null pour ce champ.
+Date du jour pour référence : ${new Date().toISOString().split('T')[0]}`
+                  }
+                ]
+              }],
+              generationConfig: { temperature: 0.1, maxOutputTokens: 256 }
+            })
+          }
+        );
+        if (!res.ok) { reject(new Error('Erreur API Gemini : ' + res.status)); return; }
+        const data = await res.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        // Nettoyer la réponse (enlever éventuels backticks)
+        const clean = text.replace(/```json|```/g, '').trim();
+        try {
+          const parsed = JSON.parse(clean);
+          resolve(parsed);
+        } catch {
+          reject(new Error('Réponse JSON invalide : ' + text));
+        }
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = () => reject(new Error('Erreur lecture fichier'));
+    reader.readAsDataURL(file);
+  });
 }
