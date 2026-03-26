@@ -1164,16 +1164,22 @@
         }
 
         async function fetchImageAsBase64(url) {
-            // Essayer via proxy Supabase Storage si URL Supabase
-            const res = await fetch(url);
+            // Passer par l'Edge Function pour éviter les erreurs CORS
+            const res = await fetch(
+                `${SMMD_CONFIG.url}/functions/v1/scan-ticket/fetch-image`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SMMD_CONFIG.key}`
+                    },
+                    body: JSON.stringify({ imageUrl: url })
+                }
+            );
             if (!res.ok) throw new Error('Image inaccessible');
-            const blob = await res.blob();
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
-            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            return `data:${data.contentType};base64,${data.base64}`;
         }
 
         function logout(){sb.auth.signOut().then(()=>location.href="index.html");}
