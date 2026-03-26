@@ -161,7 +161,7 @@
                             </div>
                         </div>
                     </div>
-                    <button id="scan-submit-btn" onclick="submitFromScan()" class="w-full bg-blue-900 text-white font-black py-5 rounded-[22px] uppercase text-[12px] tracking-[.2em] shadow-xl shadow-blue-900/20 active:scale-[.97] hover:bg-blue-800 transition-all mb-3">
+                    <button id="scan-submit-btn" onclick="validerDepenseScan()" class="w-full bg-blue-900 text-white font-black py-5 rounded-[22px] uppercase text-[12px] tracking-[.2em] shadow-xl shadow-blue-900/20 active:scale-[.97] hover:bg-blue-800 transition-all mb-3">
                         Enregistrer la dépense
                     </button>
                     <button onclick="applyScanResult()" class="w-full bg-slate-100 text-slate-500 font-black py-3.5 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95 transition-all">
@@ -498,20 +498,62 @@
             }
         }
 
+        async function validerDepenseScan() {
+            const amount = parseFloat(document.getElementById('scan-montant').value);
+            const date   = document.getElementById('scan-date').value;
+            const comment= document.getElementById('scan-commentaire').value.trim();
+            const motif  = document.getElementById('scan-motif').value;
+            const method = document.getElementById('scan-method').value;
+            if (!amount||amount<=0) return showToast('Saisissez un montant valide','error');
+            if (!date) return showToast('Saisissez une date','error');
+
+            const btn = document.getElementById('scan-submit-btn');
+            if(btn){btn.textContent='...';btn.disabled=true;}
+
+            // Upload justificatif
+            let justificatif_url = null;
+            if (scannedFile) {
+                const ext = scannedFile.type.includes('pdf') ? 'pdf' : 'jpg';
+                const path = `${userProfile.maison_id}/${userProfile.id}/${Date.now()}.${ext}`;
+                const { error: upErr } = await sb.storage
+                    .from('justificatifs')
+                    .upload(path, scannedFile, { contentType: scannedFile.type, upsert: false });
+                if (!upErr) {
+                    const { data: urlData } = sb.storage.from('justificatifs').getPublicUrl(path);
+                    justificatif_url = urlData?.publicUrl || null;
+                }
+            }
+
+            const { error } = await sb.from('transactions').insert([{
+                user_id: userProfile.id, maison_id: userProfile.maison_id,
+                montant: amount, motif, commentaire: comment||null,
+                created_at: new Date(date).toISOString(),
+                type: 'depense', methode_paiement: method,
+                statut: method.startsWith('perso_') ? 'attente' : 'valide',
+                justificatif_url
+            }]);
+
+            if(btn){btn.textContent='Enregistrer la dépense';btn.disabled=false;}
+            if (error) { showToast('Erreur : '+error.message,'error'); return; }
+            scannedFile = null;
+            closeScanModal();
+            showToast('Dépense enregistrée avec justificatif !','success');
+            refreshAll();
+        }
+
         function applyScanResult() {
+            // Remplir le formulaire manuel à partir du scan (option secondaire)
             const montant     = document.getElementById('scan-montant').value;
             const date        = document.getElementById('scan-date').value;
             const commentaire = document.getElementById('scan-commentaire').value;
-            if (montant)     document.getElementById('tx-amount').value = montant;
-            if (date)        document.getElementById('tx-date').value   = date;
+            if (montant)  document.getElementById('tx-amount').value = montant;
+            if (date)     document.getElementById('tx-date').value   = date;
             if (commentaire) {
-                const el = document.getElementById('tx-comment') || document.getElementById('tx-note');
+                const el = document.getElementById('tx-note');
                 if (el) el.value = commentaire;
             }
-            const ind = document.getElementById('justif-indicator');
-            if (ind && scannedFile) ind.classList.remove('hidden');
             closeScanModal();
-            showToast('Données importées — justificatif sera joint à la dépense', 'success');
+            showToast('Données copiées dans le formulaire', 'info');
         }
 
         function goToProfil() { switchTab('profil', document.querySelectorAll('.bar-btn')[4]); }
@@ -910,7 +952,10 @@
 
         async function loadMotifs() {
             const {data}=await sb.from('motifs').select('nom').order('nom');
-            document.getElementById('tx-motif').innerHTML=(data||[]).map(m=>`<option value="${escapeHtml(m.nom)}">${escapeHtml(m.nom.toUpperCase())}</option>`).join('');
+            const opts=(data||[]).map(m=>`<option value="${escapeHtml(m.nom)}">${escapeHtml(m.nom.toUpperCase())}</option>`).join('');
+            document.getElementById('tx-motif').innerHTML=opts;
+            const scanMotif=document.getElementById('scan-motif');
+            if(scanMotif) scanMotif.innerHTML=opts;
         }
 
         function setTxType(type) {
