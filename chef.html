@@ -647,6 +647,12 @@
             const avs     = (avsRes.data||[]).filter(a => parseInt(a.annee) === annee || String(a.annee) === String(annee));
             const membres = membresRes.data||[];
 
+            // DEBUG — à supprimer après
+            console.log('[RESUME] annee =', annee, typeof annee);
+            console.log('[RESUME] avsRes.data =', avsRes.data);
+            console.log('[RESUME] avs filtrées =', avs);
+            console.log('[RESUME] avsRes.error =', avsRes.error);
+
             const totalAlloc   = avs.reduce((s,a)=>s+parseFloat(a.montant),0);
             const totalDep     = txs.filter(t=>t.type==='depense').reduce((s,t)=>s+parseFloat(t.montant),0);
             const totalRec     = txs.filter(t=>t.type==='recette').reduce((s,t)=>s+parseFloat(t.montant),0);
