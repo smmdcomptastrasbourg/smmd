@@ -508,7 +508,9 @@
             if (!date) return showToast('Saisissez une date','error');
 
             const btn = document.getElementById('scan-submit-btn');
-            if(btn){btn.textContent='...';btn.disabled=true;}
+            const setBtn = (html, disabled) => { if(btn){btn.innerHTML=html;btn.disabled=disabled;} };
+
+            setBtn('<span class="btn-spinner"></span>Upload justificatif...', true);
 
             // Upload justificatif
             let justificatif_url = null;
@@ -521,8 +523,12 @@
                 if (!upErr) {
                     const { data: urlData } = sb.storage.from('justificatifs').getPublicUrl(path);
                     justificatif_url = urlData?.publicUrl || null;
+                } else {
+                    showToast('Erreur upload : ' + upErr.message, 'error');
                 }
             }
+
+            setBtn('<span class="btn-spinner"></span>Enregistrement...', true);
 
             const { error } = await sb.from('transactions').insert([{
                 user_id: userProfile.id, maison_id: userProfile.maison_id,
@@ -533,7 +539,7 @@
                 justificatif_url
             }]);
 
-            if(btn){btn.textContent='Enregistrer la dépense';btn.disabled=false;}
+            setBtn('Enregistrer la dépense', false);
             if (error) { showToast('Erreur : '+error.message,'error'); return; }
             scannedFile = null;
             closeScanModal();
@@ -557,6 +563,19 @@
         }
 
         function goToProfil() { switchTab('profil', document.querySelectorAll('.bar-btn')[4]); }
+
+        function setLoading(btnId, loading, step) {
+            const btn = document.getElementById(btnId);
+            if (!btn) return;
+            if (loading) {
+                btn.disabled = true;
+                btn.dataset.originalText = btn.textContent;
+                btn.innerHTML = `<span class="btn-spinner"></span>${step||'Chargement...'}`;
+            } else {
+                btn.disabled = false;
+                btn.textContent = btn.dataset.originalText || 'Enregistrer';
+            }
+        }
 
         // ── INIT ──
         async function checkAuth() {
@@ -909,44 +928,21 @@
             const method=document.getElementById('tx-method').value;
             if(!amount||amount<=0) return showToast("Montant invalide","error");
             if(!date) return showToast("Date requise","error");
-            const btn=document.getElementById('submit-btn');
-            btn.textContent='...'; btn.disabled=true;
 
-            // Upload justificatif si présent
-            let justificatif_url = null;
-            if (scannedFile && currentType === 'depense') {
-                btn.textContent = '📎 Upload...';
-                const ext = scannedFile.type.includes('pdf') ? 'pdf' : 'jpg';
-                const path = `${userProfile.maison_id}/${userProfile.id}/${Date.now()}.${ext}`;
-                const { error: upErr } = await sb.storage
-                    .from('justificatifs')
-                    .upload(path, scannedFile, { contentType: scannedFile.type, upsert: false });
-                if (!upErr) {
-                    const { data: urlData } = sb.storage.from('justificatifs').getPublicUrl(path);
-                    justificatif_url = urlData?.publicUrl || null;
-                    if (!justificatif_url) {
-                        const { data: signed } = await sb.storage.from('justificatifs').createSignedUrl(path, 60*60*24*365);
-                        justificatif_url = signed?.signedUrl || null;
-                    }
-                }
-            }
-
+            setLoading('submit-btn', true, 'Enregistrement...');
             const {error}=await sb.from('transactions').insert([{
                 user_id:userProfile.id, maison_id:userProfile.maison_id, montant:amount,
                 motif:currentType==='recette'?'RECETTE':motif, commentaire:note||null,
                 created_at:new Date(date).toISOString(), type:currentType,
                 methode_paiement:currentType==='recette'?null:method,
                 statut:(currentType==='depense'&&method.startsWith('perso_'))?'attente':'valide',
-                justificatif_url
+                justificatif_url: null
             }]);
-            btn.textContent='Enregistrer'; btn.disabled=false;
+            setLoading('submit-btn', false);
             if(error){showToast("Erreur : "+error.message,"error");return;}
             document.getElementById('tx-amount').value='';
             document.getElementById('tx-note').value='';
-            scannedFile = null;
-            const ind = document.getElementById('justif-indicator');
-            if (ind) ind.classList.add('hidden');
-            showToast(justificatif_url ? "Dépense + justificatif enregistrés !" : "Opération enregistrée !","success");
+            showToast("Opération enregistrée !","success");
             refreshAll();
         }
 
