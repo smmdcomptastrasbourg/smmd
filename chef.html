@@ -78,6 +78,89 @@
         </div>
     </div>
 
+
+    <!-- MODAL SCAN JUSTIFICATIF -->
+    <div id="scan-modal" class="hidden fixed inset-0 z-[200] flex items-end justify-center p-4 sm:items-center">
+        <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onclick="closeScanModal()"></div>
+        <div class="relative bg-white rounded-[40px] w-full max-w-sm shadow-2xl overflow-hidden anim-slide">
+            <div class="bg-gradient-to-r from-blue-600 to-violet-600 h-1.5"></div>
+            <div class="p-6">
+                <!-- État : sélection fichier -->
+                <div id="scan-step-pick">
+                    <div class="flex justify-center mb-5">
+                        <div class="w-14 h-14 rounded-full bg-blue-50 border-2 border-blue-100 flex items-center justify-center text-3xl">📄</div>
+                    </div>
+                    <h3 class="text-lg font-black text-center tracking-tight mb-1">Scanner un justificatif</h3>
+                    <p class="text-[11px] text-slate-400 font-bold text-center mb-6">Photo, image ou PDF</p>
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <label class="flex flex-col items-center gap-2 bg-slate-50 border-2 border-slate-100 rounded-2xl p-5 cursor-pointer hover:border-blue-200 hover:bg-blue-50 transition-all active:scale-95">
+                            <span class="text-2xl">📷</span>
+                            <span class="text-[10px] font-black uppercase tracking-widest text-slate-600">Appareil photo</span>
+                            <input type="file" accept="image/*" capture="environment" class="hidden" onchange="handleScanFile(this)">
+                        </label>
+                        <label class="flex flex-col items-center gap-2 bg-slate-50 border-2 border-slate-100 rounded-2xl p-5 cursor-pointer hover:border-blue-200 hover:bg-blue-50 transition-all active:scale-95">
+                            <span class="text-2xl">🖼️</span>
+                            <span class="text-[10px] font-black uppercase tracking-widest text-slate-600">Galerie / PDF</span>
+                            <input type="file" accept="image/*,application/pdf" class="hidden" onchange="handleScanFile(this)">
+                        </label>
+                    </div>
+                    <button onclick="closeScanModal()" class="w-full bg-slate-100 text-slate-500 font-black py-3.5 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95">Annuler</button>
+                </div>
+
+                <!-- État : chargement -->
+                <div id="scan-step-loading" class="hidden text-center py-8">
+                    <div class="w-12 h-12 rounded-full border-4 border-blue-100 border-t-blue-600 animate-spin mx-auto mb-4"></div>
+                    <p class="font-black text-[12px] uppercase tracking-widest text-slate-700 mb-1">Analyse en cours...</p>
+                    <p class="text-[10px] text-slate-400 font-bold">Gemini lit votre justificatif</p>
+                </div>
+
+                <!-- État : résultat / vérification -->
+                <div id="scan-step-result" class="hidden">
+                    <div class="flex items-center gap-3 mb-5">
+                        <img id="scan-preview" class="w-16 h-16 rounded-2xl object-cover border border-slate-100 flex-shrink-0" src="" alt="preview">
+                        <div>
+                            <p class="font-black text-[13px] uppercase tracking-wide text-slate-800">Vérifiez les données</p>
+                            <p class="text-[10px] text-slate-400 font-bold mt-0.5">Corrigez si nécessaire</p>
+                            <span id="scan-confiance" class="inline-block mt-1 text-[8px] font-black uppercase px-2 py-0.5 rounded-full"></span>
+                        </div>
+                    </div>
+                    <div class="space-y-3 mb-5">
+                        <div>
+                            <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1 block tracking-widest">Montant (€)</label>
+                            <input type="number" id="scan-montant" step="0.01" min="0" placeholder="0.00"
+                                class="w-full bg-slate-50 p-4 rounded-2xl font-black text-xl outline-none border-2 border-slate-50 focus:border-blue-200 focus:bg-white transition-all text-center">
+                        </div>
+                        <div>
+                            <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1 block tracking-widest">Date</label>
+                            <input type="date" id="scan-date"
+                                class="w-full bg-slate-50 p-4 rounded-2xl font-bold text-sm outline-none border-2 border-slate-50 focus:border-blue-200 focus:bg-white transition-all">
+                        </div>
+                        <div>
+                            <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1 block tracking-widest">Commentaire</label>
+                            <input type="text" id="scan-commentaire" placeholder="Commerce, description..."
+                                class="w-full bg-slate-50 p-4 rounded-2xl font-bold text-sm outline-none border-2 border-slate-50 focus:border-blue-200 focus:bg-white transition-all">
+                        </div>
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="closeScanModal()" class="flex-1 bg-slate-100 text-slate-500 font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95">Annuler</button>
+                        <button onclick="applyScanResult()" class="flex-1 bg-blue-900 text-white font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95 shadow-lg">Utiliser</button>
+                    </div>
+                </div>
+
+                <!-- État : erreur -->
+                <div id="scan-step-error" class="hidden text-center py-6">
+                    <div class="text-4xl mb-3">😕</div>
+                    <p class="font-black text-[13px] uppercase tracking-wide text-slate-700 mb-2">Lecture impossible</p>
+                    <p id="scan-error-msg" class="text-[11px] text-slate-400 font-bold mb-6 leading-relaxed"></p>
+                    <div class="flex gap-3">
+                        <button onclick="closeScanModal()" class="flex-1 bg-slate-100 text-slate-500 font-black py-3.5 rounded-2xl uppercase text-[10px] tracking-widest">Fermer</button>
+                        <button onclick="resetScanModal()" class="flex-1 bg-blue-900 text-white font-black py-3.5 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95">Réessayer</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- NOTIFICATIONS -->
     <div id="notif-container" class="fixed top-0 left-0 right-0 z-[150] px-4 pt-3 space-y-2 pointer-events-none"></div>
 
@@ -177,6 +260,9 @@
                     <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1.5 block tracking-widest">Commentaire</label>
                     <input type="text" id="tx-note" placeholder="Note rapide..." class="w-full bg-slate-50 p-4 rounded-2xl font-bold border-2 border-slate-50 focus:bg-white focus:border-blue-100 outline-none transition-all text-sm">
                 </div>
+                <button onclick="openScanModal()" class="w-full bg-slate-50 border-2 border-dashed border-slate-200 text-slate-400 py-4 rounded-[22px] font-black text-[11px] uppercase tracking-widest hover:border-blue-300 hover:text-blue-500 hover:bg-blue-50 transition-all active:scale-[.97] flex items-center justify-center gap-2">
+                    <span class="text-base">📄</span> Scanner un justificatif
+                </button>
                 <button id="submit-btn" onclick="submitTransaction()" class="w-full bg-slate-900 text-white py-5 rounded-[22px] font-black text-[12px] uppercase tracking-[.2em] shadow-xl active:scale-[.97] hover:bg-slate-800 transition-all">Enregistrer</button>
             </div>
 
@@ -314,6 +400,83 @@
             btn.classList.add('active');
             window.scrollTo({top:0,behavior:'smooth'});
         }
+
+        // ── SCAN JUSTIFICATIF ──
+        function openScanModal() {
+            resetScanModal();
+            document.getElementById('scan-modal').classList.remove('hidden');
+        }
+        function closeScanModal() {
+            document.getElementById('scan-modal').classList.add('hidden');
+        }
+        function resetScanModal() {
+            document.getElementById('scan-step-pick').classList.remove('hidden');
+            document.getElementById('scan-step-loading').classList.add('hidden');
+            document.getElementById('scan-step-result').classList.add('hidden');
+            document.getElementById('scan-step-error').classList.add('hidden');
+        }
+
+        async function handleScanFile(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            // Afficher loading
+            document.getElementById('scan-step-pick').classList.add('hidden');
+            document.getElementById('scan-step-loading').classList.remove('hidden');
+
+            // Preview image
+            if (file.type.startsWith('image/')) {
+                const url = URL.createObjectURL(file);
+                document.getElementById('scan-preview').src = url;
+            } else {
+                document.getElementById('scan-preview').src = '';
+            }
+
+            try {
+                const result = await scanJustificatif(file);
+
+                // Remplir les champs de vérification
+                document.getElementById('scan-montant').value    = result.montant !== null ? result.montant : '';
+                document.getElementById('scan-date').value       = result.date    !== null ? result.date    : new Date().toISOString().split('T')[0];
+                document.getElementById('scan-commentaire').value = result.commentaire || '';
+
+                // Badge confiance
+                const badge = document.getElementById('scan-confiance');
+                const conf  = result.confiance || 'basse';
+                const confMap = {
+                    haute:   { label: '✓ Confiance haute',   cls: 'bg-emerald-100 text-emerald-700' },
+                    moyenne: { label: '~ Confiance moyenne', cls: 'bg-amber-100 text-amber-700'    },
+                    basse:   { label: '! Confiance basse',   cls: 'bg-red-100 text-red-600'         }
+                };
+                badge.textContent  = confMap[conf]?.label || conf;
+                badge.className    = `inline-block mt-1 text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${confMap[conf]?.cls || ''}`;
+
+                document.getElementById('scan-step-loading').classList.add('hidden');
+                document.getElementById('scan-step-result').classList.remove('hidden');
+
+            } catch (err) {
+                document.getElementById('scan-step-loading').classList.add('hidden');
+                document.getElementById('scan-step-error').classList.remove('hidden');
+                document.getElementById('scan-error-msg').textContent = err.message.includes('400')
+                    ? 'Format non supporté ou image illisible. Essayez avec une photo plus nette.'
+                    : 'Impossible de contacter le service d'analyse. Vérifiez votre connexion.';
+            }
+        }
+
+        function applyScanResult() {
+            const montant    = document.getElementById('scan-montant').value;
+            const date       = document.getElementById('scan-date').value;
+            const commentaire = document.getElementById('scan-commentaire').value;
+
+            if (montant)    document.getElementById('tx-amount').value  = montant;
+            if (date)       document.getElementById('tx-date').value    = date;
+            if (commentaire) document.getElementById('tx-comment') && (document.getElementById('tx-comment').value = commentaire)
+                             || document.getElementById('tx-note') && (document.getElementById('tx-note').value = commentaire);
+
+            closeScanModal();
+            showToast('Données importées — vérifiez avant de valider', 'info');
+        }
+
         function goToProfil() { switchTab('profil', document.querySelectorAll('.bar-btn')[4]); }
 
         // ── INIT ──
