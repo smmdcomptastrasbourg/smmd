@@ -639,19 +639,13 @@
 
             const [txRes, avsRes, membresRes] = await Promise.all([
                 sb.from('transactions').select('*, profiles(prenom,nom)').eq('maison_id', userProfile.maison_id),
-                sb.from('allocations_versees').select('*, profiles(prenom,nom)').eq('maison_id', userProfile.maison_id),
+                sb.from('allocations_versees').select('*, profiles!allocations_versees_user_id_fkey(prenom,nom)').eq('maison_id', userProfile.maison_id),
                 sb.from('profiles').select('*').eq('maison_id', userProfile.maison_id)
             ]);
 
             const txs     = (txRes.data||[]).filter(t => new Date(t.created_at).getFullYear() === annee);
             const avs     = (avsRes.data||[]).filter(a => parseInt(a.annee) === annee || String(a.annee) === String(annee));
             const membres = membresRes.data||[];
-
-            // DEBUG — à supprimer après
-            console.log('[RESUME] annee =', annee, typeof annee);
-            console.log('[RESUME] avsRes.data =', avsRes.data);
-            console.log('[RESUME] avs filtrées =', avs);
-            console.log('[RESUME] avsRes.error =', avsRes.error);
 
             const totalAlloc   = avs.reduce((s,a)=>s+parseFloat(a.montant),0);
             const totalDep     = txs.filter(t=>t.type==='depense').reduce((s,t)=>s+parseFloat(t.montant),0);
@@ -1177,7 +1171,7 @@
         }
         async function _doExportExcel(mois, annee) {
             const { data: txData } = await sb.from('transactions').select('*, profiles(prenom,nom)').eq('maison_id', userProfile.maison_id);
-            const { data: avData } = await sb.from('allocations_versees').select('*, profiles(prenom,nom)').eq('maison_id', userProfile.maison_id).eq('mois',parseInt(mois)).eq('annee',parseInt(annee));
+            const { data: avData } = await sb.from('allocations_versees').select('*, profiles!allocations_versees_user_id_fkey(prenom,nom)').eq('maison_id', userProfile.maison_id).eq('mois',parseInt(mois)).eq('annee',parseInt(annee));
             const filteredTx = (txData||[]).filter(t=>t.created_at.includes(`${annee}-${mois}-`));
             let rows=[], totalR=0, totalD=0, motifMap={};
             (avData||[]).forEach(a=>{
