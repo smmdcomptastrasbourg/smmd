@@ -187,7 +187,7 @@ Règles : montant = total TTC final. Date du jour = ${new Date().toISOString().s
   if (!res.ok) {
     const errBody = await res.text().catch(()=>'');
     if (res.status === 400) throw new Error('Image non reconnue. Essayez avec une photo plus nette et bien cadrée.');
-    if (res.status === 403) throw new Error('Clé API invalide ou expirée. Contactez l'administrateur.');
+    if (res.status === 403) throw new Error("Clé API invalide ou expirée. Contactez l'administrateur.");
     if (res.status === 429) throw new Error('Trop de requêtes. Attendez quelques secondes et réessayez.');
     throw new Error('Erreur API (' + res.status + '). Réessayez.');
   }
@@ -241,13 +241,13 @@ function fileToBase64(file) {
         const b64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
         resolve(b64);
       };
-      img.onerror = () => reject(new Error('Impossible de lire l'image.'));
+      img.onerror = () => reject(new Error("Impossible de lire l'image."));
       img.src = url;
     } else {
       // Autres formats (PDF) : lecture directe
       const reader = new FileReader();
       reader.onload = e => resolve(e.target.result.split(',')[1]);
-      reader.onerror = () => reject(new Error('Erreur lecture fichier.'));
+      reader.onerror = () => reject(new Error("Erreur lecture fichier."));
       reader.readAsDataURL(file);
     }
   });
