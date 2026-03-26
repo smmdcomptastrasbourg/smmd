@@ -177,7 +177,11 @@ async function scanJustificatif(file) {
   const data = await res.json();
 
   if (!res.ok) {
-    throw new Error(data.error || `Erreur serveur (${res.status}). Réessayez.`);
+    // Afficher le debug complet si disponible
+    const msg = data._debug_raw
+      ? `${data.error} | RAW: ${data._debug_raw}`
+      : (data.error || `Erreur serveur (${res.status}). Réessayez.`);
+    throw new Error(msg);
   }
 
   return data;
