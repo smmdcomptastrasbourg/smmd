@@ -644,7 +644,7 @@
             ]);
 
             const txs     = (txRes.data||[]).filter(t => new Date(t.created_at).getFullYear() === annee);
-            const avs     = avsRes.data||[];
+            const avs     = avsRes.data || [];
             const membres = membresRes.data||[];
 
             const totalAlloc   = avs.reduce((s,a)=>s+parseFloat(a.montant),0);
