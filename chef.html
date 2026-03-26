@@ -242,6 +242,47 @@
         </div>
     </div>
 
+
+    <!-- MODAL AJOUT JUSTIFICATIF -->
+    <div id="justif-upload-modal" class="hidden fixed inset-0 z-[200] flex items-end justify-center p-4 sm:items-center">
+        <div class="absolute inset-0 bg-slate-900/70 backdrop-blur-sm" onclick="fermerJustifModal()"></div>
+        <div class="relative bg-white rounded-[40px] w-full max-w-sm shadow-2xl overflow-hidden anim-slide">
+            <div class="bg-gradient-to-r from-amber-400 to-orange-500 h-1.5"></div>
+            <div class="p-6">
+                <div class="flex justify-center mb-4">
+                    <div class="w-14 h-14 rounded-full bg-amber-50 border-2 border-amber-200 flex items-center justify-center text-3xl">📎</div>
+                </div>
+                <h3 class="text-lg font-black text-center tracking-tight mb-1">Justificatif</h3>
+                <p class="text-[11px] text-slate-400 font-bold text-center mb-4">Plusieurs photos possibles — assemblées en PDF</p>
+                <input type="hidden" id="justif-tx-id">
+                <div id="justif-previews" class="hidden mb-4">
+                    <div id="justif-preview-grid" class="grid grid-cols-3 gap-2 mb-3"></div>
+                    <p id="justif-preview-count" class="text-[9px] font-black text-slate-400 uppercase text-center tracking-widest"></p>
+                </div>
+                <div class="grid grid-cols-2 gap-3 mb-3">
+                    <label class="flex flex-col items-center gap-2 bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 cursor-pointer hover:border-amber-200 hover:bg-amber-50 transition-all active:scale-95">
+                        <span class="text-2xl">📷</span>
+                        <span class="text-[9px] font-black uppercase tracking-widest text-slate-600 text-center">Photo</span>
+                        <input type="file" accept="image/*" capture="environment" class="hidden" onchange="ajouterPhotosJustif(this)">
+                    </label>
+                    <label class="flex flex-col items-center gap-2 bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 cursor-pointer hover:border-amber-200 hover:bg-amber-50 transition-all active:scale-95">
+                        <span class="text-2xl">🖼️</span>
+                        <span class="text-[9px] font-black uppercase tracking-widest text-slate-600 text-center">Galerie (multi)</span>
+                        <input type="file" accept="image/*" multiple class="hidden" onchange="ajouterPhotosJustif(this)">
+                    </label>
+                </div>
+                <button id="justif-valider-btn" onclick="validerJustificatif()" class="hidden w-full bg-amber-500 text-white font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95 shadow-md mb-3">
+                    ✓ Valider le justificatif
+                </button>
+                <div id="justif-upload-progress" class="hidden bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-3 text-center">
+                    <div class="w-6 h-6 rounded-full border-2 border-blue-200 border-t-blue-600 animate-spin mx-auto mb-2"></div>
+                    <p id="justif-upload-text" class="text-[10px] font-black text-blue-700 uppercase tracking-widest">Traitement...</p>
+                </div>
+                <button onclick="fermerJustifModal()" class="w-full bg-slate-100 text-slate-500 font-black py-3.5 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95">Annuler</button>
+            </div>
+        </div>
+    </div>
+
     <!-- NOTIFICATIONS -->
     <div id="notif-container" class="fixed top-0 left-0 right-0 z-[150] px-4 pt-3 space-y-2 pointer-events-none"></div>
 
@@ -763,7 +804,13 @@
                                 <p class="text-[11px] font-black uppercase text-slate-800">${escapeHtml(t.motif||'RECETTE')}</p>
                                 <p class="text-[9px] text-slate-400 font-bold">${new Date(t.created_at).toLocaleDateString('fr-FR')}${t.commentaire?' · '+escapeHtml(t.commentaire):''}</p>
                                 <span class="text-[8px] uppercase font-black px-2 py-0.5 rounded-full ${t.statut==='attente'?'bg-amber-50 text-amber-500':'bg-emerald-50 text-emerald-600'}">${t.statut==='attente'?'En attente':'Validé'}</span>
-                                ${t.justificatif_url?`<a href="${escapeHtml(t.justificatif_url)}" target="_blank" class="ml-1 text-[8px] font-black text-blue-500 uppercase">📎 Justif</a>`:''}
+                                ${t.type==='depense' ? (t.justificatif_url
+                                    ? `<span class="inline-flex items-center gap-1 mt-0.5">
+                                        <a href="${escapeHtml(t.justificatif_url)}" target="_blank" class="text-[8px] font-black text-emerald-500 uppercase bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">📎 Voir</a>
+                                        <button onclick="ouvrirAjoutJustificatif('${escapeHtml(t.id)}')" class="text-[8px] font-black text-blue-500 uppercase bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100 hover:bg-blue-100 transition-colors">🔄 Remplacer</button>
+                                       </span>`
+                                    : `<button onclick="ouvrirAjoutJustificatif('${escapeHtml(t.id)}')" class="mt-0.5 text-[8px] font-black text-amber-500 uppercase bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100 hover:bg-amber-100 transition-colors">📎 Ajouter justificatif</button>`)
+                                : ''}
                             </div>
                         </div>
                         <div class="text-right flex-shrink-0 ml-2">
@@ -1675,6 +1722,94 @@
                 // Ajouter timestamp pour éviter le cache
                 img.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
             });
+        }
+
+
+        // ── JUSTIFICATIF MODAL (chef) ──
+        let justifPhotos = [];
+
+        function ouvrirAjoutJustificatif(txId) {
+            justifPhotos = [];
+            document.getElementById('justif-tx-id').value = txId;
+            document.getElementById('justif-upload-progress').classList.add('hidden');
+            document.getElementById('justif-preview-grid').innerHTML = '';
+            document.getElementById('justif-previews').classList.add('hidden');
+            document.getElementById('justif-valider-btn').classList.add('hidden');
+            document.getElementById('justif-upload-modal').classList.remove('hidden');
+        }
+        function fermerJustifModal() {
+            document.getElementById('justif-upload-modal').classList.add('hidden');
+        }
+
+        function ajouterPhotosJustif(input) {
+            const files = Array.from(input.files);
+            if (!files.length) return;
+            justifPhotos = [...justifPhotos, ...files];
+            const grid = document.getElementById('justif-preview-grid');
+            const section = document.getElementById('justif-previews');
+            const count = document.getElementById('justif-preview-count');
+            const valBtn = document.getElementById('justif-valider-btn');
+            section.classList.remove('hidden');
+            valBtn.classList.remove('hidden');
+            count.textContent = `${justifPhotos.length} photo${justifPhotos.length>1?'s':''} — assemblées en PDF`;
+            grid.innerHTML = justifPhotos.map((f, i) => {
+                const url = URL.createObjectURL(f);
+                return `<div class="relative">
+                    <img src="${url}" class="w-full h-20 object-cover rounded-xl border border-slate-100">
+                    <button onclick="supprimerPhotoJustifChef(${i})" class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full text-[10px] font-black flex items-center justify-center shadow-md">✕</button>
+                </div>`;
+            }).join('');
+        }
+
+        function supprimerPhotoJustifChef(idx) {
+            justifPhotos.splice(idx, 1);
+            ajouterPhotosJustif({ files: [] });
+        }
+
+        async function validerJustificatif() {
+            if (!justifPhotos.length) return showToast('Ajoutez au moins une photo', 'warning');
+            const txId = document.getElementById('justif-tx-id').value;
+            const prog = document.getElementById('justif-upload-progress');
+            const progTxt = document.getElementById('justif-upload-text');
+            const valBtn = document.getElementById('justif-valider-btn');
+            valBtn.classList.add('hidden');
+            prog.classList.remove('hidden');
+            try {
+                progTxt.textContent = `Assemblage ${justifPhotos.length} photo${justifPhotos.length>1?'s':''}...`;
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+                const pageW = doc.internal.pageSize.getWidth(), pageH = doc.internal.pageSize.getHeight(), margin = 10;
+                for (let i = 0; i < justifPhotos.length; i++) {
+                    if (i > 0) doc.addPage();
+                    progTxt.textContent = `Photo ${i+1}/${justifPhotos.length}...`;
+                    const b64 = await fileToBase64(justifPhotos[i]);
+                    const props = doc.getImageProperties(b64);
+                    const maxW=pageW-margin*2, maxH=pageH-margin*2;
+                    let w=maxW, h=(props.height*maxW)/props.width;
+                    if(h>maxH){h=maxH;w=(props.width*maxH)/props.height;}
+                    doc.addImage(b64,'JPEG',(pageW-w)/2,margin,w,h);
+                }
+                progTxt.textContent = 'Upload...';
+                const pdfBlob = doc.output('blob');
+                const path = `${userProfile.maison_id}/${userProfile.id}/${Date.now()}.pdf`;
+                const { error: upErr } = await sb.storage.from('justificatifs').upload(path, pdfBlob, { contentType: 'application/pdf', upsert: false });
+                if (upErr) throw new Error(upErr.message);
+                progTxt.textContent = 'Enregistrement...';
+                const { data: urlData } = sb.storage.from('justificatifs').getPublicUrl(path);
+                const justificatif_url = urlData?.publicUrl || null;
+                const { error } = await sb.from('transactions').update({ justificatif_url }).eq('id', txId).eq('maison_id', userProfile.maison_id);
+                if (error) throw new Error(error.message);
+                justifPhotos = [];
+                prog.classList.add('hidden');
+                fermerJustifModal();
+                showToast('Justificatif ajouté !', 'success');
+                await loadJournal();
+                refreshSoldes();
+            } catch(e) {
+                prog.classList.add('hidden');
+                valBtn.classList.remove('hidden');
+                showToast('Erreur : ' + e.message, 'error');
+            }
         }
 
         function logout(){sb.auth.signOut().then(()=>location.href="index.html");}
