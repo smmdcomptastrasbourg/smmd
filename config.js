@@ -148,57 +148,107 @@ function closePromptDouble() {
 // SCAN JUSTIFICATIF — Gemini Vision
 // ============================================================
 async function scanJustificatif(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const base64 = e.target.result.split(',')[1];
-      const mime   = file.type || 'image/jpeg';
-      try {
-        const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${SMMD_CONFIG.gemini_key}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{
-                parts: [
-                  {
-                    inline_data: { mime_type: mime, data: base64 }
-                  },
-                  {
-                    text: `Tu es un assistant comptable. Analyse ce justificatif de dépense (ticket de caisse, facture, reçu).
-Extrais les informations suivantes et réponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans explication :
-{
-  "montant": <nombre décimal, ex: 29.90>,
-  "date": "<date au format YYYY-MM-DD>",
-  "commentaire": "<nom du commerce ou description courte, max 40 caractères>",
-  "confiance": "<haute|moyenne|basse>"
+  // Redimensionner l'image si trop grande (max 1024px, améliore la vitesse)
+  const base64 = await fileToBase64(file);
+
+  // Déterminer le bon mime type
+  let mime = file.type;
+  if (!mime || mime === 'application/octet-stream') mime = 'image/jpeg';
+  // Gemini ne supporte pas les PDF en inline_data — on avertit
+  if (mime === 'application/pdf') {
+    throw new Error('Les PDF ne sont pas encore supportés. Prenez une photo du document.');
+  }
+
+  const prompt = `Tu es un assistant comptable expert. Analyse ce justificatif de dépense (ticket de caisse, facture, reçu).
+Extrais les informations et réponds UNIQUEMENT avec un JSON valide sur une seule ligne, sans markdown ni backticks :
+{"montant":<nombre ex:29.90 ou null>,"date":"<YYYY-MM-DD ou null>","commentaire":"<commerce max 40 car ou null>","confiance":"<haute|moyenne|basse>"}
+Règles : montant = total TTC final. Date du jour = ${new Date().toISOString().split('T')[0]}. Si incertain mets null.`;
+
+  const body = {
+    contents: [{
+      parts: [
+        { inline_data: { mime_type: mime, data: base64 } },
+        { text: prompt }
+      ]
+    }],
+    generationConfig: { temperature: 0.1, maxOutputTokens: 300 }
+  };
+
+  let res;
+  try {
+    res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${SMMD_CONFIG.gemini_key}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+    );
+  } catch (netErr) {
+    throw new Error('Pas de connexion réseau. Vérifiez votre connexion et réessayez.');
+  }
+
+  if (!res.ok) {
+    const errBody = await res.text().catch(()=>'');
+    if (res.status === 400) throw new Error('Image non reconnue. Essayez avec une photo plus nette et bien cadrée.');
+    if (res.status === 403) throw new Error('Clé API invalide ou expirée. Contactez l'administrateur.');
+    if (res.status === 429) throw new Error('Trop de requêtes. Attendez quelques secondes et réessayez.');
+    throw new Error('Erreur API (' + res.status + '). Réessayez.');
+  }
+
+  const data = await res.json();
+
+  // Extraire le texte de la réponse
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  if (!text) throw new Error('Réponse vide de Gemini. Réessayez avec une meilleure photo.');
+
+  // Nettoyer : enlever markdown, espaces
+  const clean = text.replace(/```json|```/gi, '').replace(/\n/g, ' ').trim();
+
+  // Parser le JSON
+  try {
+    const parsed = JSON.parse(clean);
+    // Normaliser le montant (virgule → point)
+    if (typeof parsed.montant === 'string') {
+      parsed.montant = parseFloat(parsed.montant.replace(',', '.')) || null;
+    }
+    return parsed;
+  } catch {
+    // Tenter d'extraire un JSON partiel avec regex
+    const match = clean.match(/\{[^}]+\}/);
+    if (match) {
+      try { return JSON.parse(match[0]); } catch {}
+    }
+    throw new Error('Impossible de lire le ticket. Essayez avec une photo plus nette, bien éclairée et droite.');
+  }
 }
-Si tu ne trouves pas une valeur avec certitude, mets null pour ce champ.
-Date du jour pour référence : ${new Date().toISOString().split('T')[0]}`
-                  }
-                ]
-              }],
-              generationConfig: { temperature: 0.1, maxOutputTokens: 256 }
-            })
-          }
-        );
-        if (!res.ok) { reject(new Error('Erreur API Gemini : ' + res.status)); return; }
-        const data = await res.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        // Nettoyer la réponse (enlever éventuels backticks)
-        const clean = text.replace(/```json|```/g, '').trim();
-        try {
-          const parsed = JSON.parse(clean);
-          resolve(parsed);
-        } catch {
-          reject(new Error('Réponse JSON invalide : ' + text));
+
+// Convertir fichier en base64 avec redimensionnement optionnel
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    if (file.type.startsWith('image/')) {
+      // Redimensionner via canvas pour alléger l'envoi
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const MAX = 1600;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+          else       { w = Math.round(w * MAX / h); h = MAX; }
         }
-      } catch (err) {
-        reject(err);
-      }
-    };
-    reader.onerror = () => reject(new Error('Erreur lecture fichier'));
-    reader.readAsDataURL(file);
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(url);
+        // JPEG qualité 0.85 pour réduire la taille
+        const b64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+        resolve(b64);
+      };
+      img.onerror = () => reject(new Error('Impossible de lire l'image.'));
+      img.src = url;
+    } else {
+      // Autres formats (PDF) : lecture directe
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result.split(',')[1]);
+      reader.onerror = () => reject(new Error('Erreur lecture fichier.'));
+      reader.readAsDataURL(file);
+    }
   });
 }
