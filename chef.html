@@ -1164,9 +1164,9 @@
         }
 
         async function fetchImageAsBase64(url) {
-            // Passer par l'Edge Function pour éviter les erreurs CORS
+            // Edge Function dédiée pour récupérer l'image sans erreur CORS
             const res = await fetch(
-                `${SMMD_CONFIG.url}/functions/v1/scan-ticket/fetch-image`,
+                `${SMMD_CONFIG.url}/functions/v1/fetch-image`,
                 {
                     method: 'POST',
                     headers: {
@@ -1176,7 +1176,7 @@
                     body: JSON.stringify({ imageUrl: url })
                 }
             );
-            if (!res.ok) throw new Error('Image inaccessible');
+            if (!res.ok) throw new Error('Image inaccessible (status ' + res.status + ')');
             const data = await res.json();
             if (data.error) throw new Error(data.error);
             return `data:${data.contentType};base64,${data.base64}`;
