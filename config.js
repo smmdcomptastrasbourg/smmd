@@ -175,7 +175,7 @@ Règles : montant = total TTC final. Date du jour = ${new Date().toISOString().s
   };
 
   // Liste de modèles à essayer en cascade
-  const MODELS = ['gemini-1.5-flash-8b', 'gemini-1.5-flash', 'gemini-2.0-flash-lite'];
+  const MODELS = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash'];
   let res = null;
 
   for (let attempt = 0; attempt < MODELS.length; attempt++) {
