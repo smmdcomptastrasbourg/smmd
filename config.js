@@ -2,7 +2,6 @@
 window.SMMD_CONFIG = {
   url: "https://xccnnckuphxloxfrqtkf.supabase.co",
   key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjY25uY2t1cGh4bG94ZnJxdGtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODA3NjEsImV4cCI6MjA4Mjc1Njc2MX0.1mIEhKfS5OSsaw78f1_Iatni39y8CoIurAd5IXP6n6g",
-  gemini_key: "AIzaSyC2bl2zL_deTWDSPfBy_5OgNjpZUFUQgcI"
 };
 
 // Utilitaires partagés
@@ -145,90 +144,43 @@ function closePromptDouble() {
 }
 
 // ============================================================
-// SCAN JUSTIFICATIF — Gemini Vision
+// SCAN JUSTIFICATIF — via Edge Function Supabase (clé cachée côté serveur)
 // ============================================================
 async function scanJustificatif(file) {
-  // Redimensionner l'image si trop grande (max 1024px, améliore la vitesse)
+  // Redimensionner l'image avant envoi
   const base64 = await fileToBase64(file);
 
-  // Déterminer le bon mime type
   let mime = file.type;
   if (!mime || mime === 'application/octet-stream') mime = 'image/jpeg';
-  // Gemini ne supporte pas les PDF en inline_data — on avertit
   if (mime === 'application/pdf') {
     throw new Error('Les PDF ne sont pas encore supportés. Prenez une photo du document.');
   }
 
-  const prompt = `Tu es un assistant comptable expert. Analyse ce justificatif de dépense (ticket de caisse, facture, reçu).
-Extrais les informations et réponds UNIQUEMENT avec un JSON valide sur une seule ligne, sans markdown ni backticks :
-{"montant":<nombre ex:29.90 ou null>,"date":"<YYYY-MM-DD ou null>","commentaire":"<commerce max 40 car ou null>","confiance":"<haute|moyenne|basse>"}
-Règles : montant = total TTC final. Date du jour = ${new Date().toISOString().split('T')[0]}. Si incertain mets null.`;
-
-  const body = {
-    contents: [{
-      parts: [
-        { inline_data: { mime_type: mime, data: base64 } },
-        { text: prompt }
-      ]
-    }],
-    generationConfig: { temperature: 0.1, maxOutputTokens: 300 }
-  };
-
-  // Liste de modèles à essayer en cascade
-  const MODELS = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash'];
-  let res = null;
-
-  for (let attempt = 0; attempt < MODELS.length; attempt++) {
-    const model = MODELS[attempt];
-    try {
-      res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${SMMD_CONFIG.gemini_key}`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
-      );
-    } catch (netErr) {
-      throw new Error('Pas de connexion réseau. Vérifiez votre connexion et réessayez.');
-    }
-
-    if (res.ok) break; // succès
-
-    if (res.status === 429) {
-      if (attempt < MODELS.length - 1) {
-        // Essayer le modèle suivant après un court délai
-        await new Promise(r => setTimeout(r, 2000));
-        continue;
+  // Appel à l'Edge Function Supabase — la clé Gemini reste côté serveur
+  let res;
+  try {
+    res = await fetch(
+      `${SMMD_CONFIG.url}/functions/v1/scan-ticket`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SMMD_CONFIG.key}`
+        },
+        body: JSON.stringify({ base64, mime })
       }
-      throw new Error('Quota dépassé sur tous les modèles. Attendez 1 minute et réessayez.');
-    }
-    if (res.status === 400) throw new Error('Image non reconnue. Essayez avec une photo plus nette et bien cadrée.');
-    if (res.status === 403) throw new Error("Clé API invalide. Vérifiez votre clé dans config.js.");
-    throw new Error('Erreur API (' + res.status + '). Réessayez.');
+    );
+  } catch (netErr) {
+    throw new Error('Pas de connexion réseau. Vérifiez votre connexion et réessayez.');
   }
 
   const data = await res.json();
 
-  // Extraire le texte de la réponse
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  if (!text) throw new Error('Réponse vide de Gemini. Réessayez avec une meilleure photo.');
-
-  // Nettoyer : enlever markdown, espaces
-  const clean = text.replace(/```json|```/gi, '').replace(/\n/g, ' ').trim();
-
-  // Parser le JSON
-  try {
-    const parsed = JSON.parse(clean);
-    // Normaliser le montant (virgule → point)
-    if (typeof parsed.montant === 'string') {
-      parsed.montant = parseFloat(parsed.montant.replace(',', '.')) || null;
-    }
-    return parsed;
-  } catch {
-    // Tenter d'extraire un JSON partiel avec regex
-    const match = clean.match(/\{[^}]+\}/);
-    if (match) {
-      try { return JSON.parse(match[0]); } catch {}
-    }
-    throw new Error('Impossible de lire le ticket. Essayez avec une photo plus nette, bien éclairée et droite.');
+  if (!res.ok) {
+    throw new Error(data.error || `Erreur serveur (${res.status}). Réessayez.`);
   }
+
+  return data;
 }
 
 // Convertir fichier en base64 avec redimensionnement optionnel
