@@ -55,6 +55,19 @@
         .bar-btn span { color: #94a3b8; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; transition: color 0.2s; }
         .bar-btn.active svg { stroke: #1e3a8a; transform: translateY(-2px); }
         .bar-btn.active span { color: #1e3a8a; }
+
+        /* BOUTON CHARGEMENT */
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .btn-spinner {
+            display: inline-block;
+            width: 14px; height: 14px;
+            border: 2px solid rgba(255,255,255,.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin .7s linear infinite;
+            vertical-align: middle;
+            margin-right: 6px;
+        }
     </style>
 </head>
 <body class="text-slate-900 min-h-screen pb-24">
@@ -143,14 +156,32 @@
                                 class="w-full bg-slate-50 p-4 rounded-2xl font-bold text-sm outline-none border-2 border-slate-50 focus:border-blue-200 focus:bg-white transition-all">
                         </div>
                         <div>
+                            <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1 block tracking-widest">Motif</label>
+                            <div class="relative">
+                                <select id="scan-motif" class="w-full bg-slate-50 p-4 rounded-2xl font-bold text-sm outline-none border-2 border-slate-50 focus:bg-white appearance-none"></select>
+                                <svg class="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                            </div>
+                        </div>
+                        <div>
                             <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1 block tracking-widest">Commentaire</label>
                             <input type="text" id="scan-commentaire" placeholder="Commerce, description..."
                                 class="w-full bg-slate-50 p-4 rounded-2xl font-bold text-sm outline-none border-2 border-slate-50 focus:border-blue-200 focus:bg-white transition-all">
                         </div>
+                        <div>
+                            <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1 block tracking-widest">Moyen de paiement</label>
+                            <div class="relative">
+                                <select id="scan-method" class="w-full bg-slate-50 p-4 rounded-2xl font-bold text-sm outline-none border-2 border-slate-50 focus:bg-white appearance-none">
+                                    <option value="cb_maison">💳 CB MAISON</option>
+                                    <option value="perso_cb">📱 CARTE PERSO — À rembourser</option>
+                                    <option value="perso_liq">💵 ESPÈCES — À rembourser</option>
+                                </select>
+                                <svg class="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                            </div>
+                        </div>
                     </div>
                     <div class="flex gap-3">
                         <button onclick="closeScanModal()" class="flex-1 bg-slate-100 text-slate-500 font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95">Annuler</button>
-                        <button onclick="applyScanResult()" class="flex-1 bg-blue-900 text-white font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95 shadow-lg">Utiliser</button>
+                        <button onclick="validerDepenseScan()" class="btn-enregistrer flex-1 bg-blue-900 text-white font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95 shadow-lg">Enregistrer</button>
                     </div>
                 </div>
 
@@ -164,6 +195,40 @@
                         <button onclick="resetScanModal()" class="flex-1 bg-blue-900 text-white font-black py-3.5 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95">Réessayer</button>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- MODAL AJOUT JUSTIFICATIF A POSTERIORI -->
+    <div id="justif-upload-modal" class="hidden fixed inset-0 z-[200] flex items-end justify-center p-4 sm:items-center">
+        <div class="absolute inset-0 bg-slate-900/70 backdrop-blur-sm" onclick="fermerJustifModal()"></div>
+        <div class="relative bg-white rounded-[40px] w-full max-w-sm shadow-2xl overflow-hidden anim-slide">
+            <div class="bg-gradient-to-r from-amber-400 to-orange-500 h-1.5"></div>
+            <div class="p-6">
+                <div class="flex justify-center mb-4">
+                    <div class="w-14 h-14 rounded-full bg-amber-50 border-2 border-amber-200 flex items-center justify-center text-3xl">📎</div>
+                </div>
+                <h3 class="text-lg font-black text-center tracking-tight mb-1">Ajouter un justificatif</h3>
+                <p class="text-[11px] text-slate-400 font-bold text-center mb-5">Obligatoire pour être remboursé</p>
+                <input type="hidden" id="justif-tx-id">
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <label class="flex flex-col items-center gap-2 bg-slate-50 border-2 border-slate-100 rounded-2xl p-5 cursor-pointer hover:border-amber-200 hover:bg-amber-50 transition-all active:scale-95">
+                        <span class="text-2xl">📷</span>
+                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-600">Appareil photo</span>
+                        <input type="file" accept="image/*" capture="environment" class="hidden" onchange="uploadJustificatif(this)">
+                    </label>
+                    <label class="flex flex-col items-center gap-2 bg-slate-50 border-2 border-slate-100 rounded-2xl p-5 cursor-pointer hover:border-amber-200 hover:bg-amber-50 transition-all active:scale-95">
+                        <span class="text-2xl">🖼️</span>
+                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-600">Galerie / PDF</span>
+                        <input type="file" accept="image/*,application/pdf" class="hidden" onchange="uploadJustificatif(this)">
+                    </label>
+                </div>
+                <div id="justif-upload-progress" class="hidden bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-4 text-center">
+                    <div class="w-6 h-6 rounded-full border-2 border-blue-200 border-t-blue-600 animate-spin mx-auto mb-2"></div>
+                    <p id="justif-upload-text" class="text-[10px] font-black text-blue-700 uppercase tracking-widest">Upload en cours...</p>
+                </div>
+                <button onclick="fermerJustifModal()" class="w-full bg-slate-100 text-slate-500 font-black py-3.5 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95">Annuler</button>
             </div>
         </div>
     </div>
@@ -455,21 +520,128 @@
             }
         }
 
-        function applyScanResult() {
-            const montant    = document.getElementById('scan-montant').value;
-            const date       = document.getElementById('scan-date').value;
-            const commentaire = document.getElementById('scan-commentaire').value;
+        async function validerDepenseScan() {
+            const amount = parseFloat(document.getElementById('scan-montant').value);
+            const date   = document.getElementById('scan-date').value;
+            const comment= document.getElementById('scan-commentaire').value.trim();
+            const motif  = document.getElementById('scan-motif').value;
+            const method = document.getElementById('scan-method').value;
+            if (!amount||amount<=0) return showToast('Saisissez un montant valide','error');
+            if (!date) return showToast('Saisissez une date','error');
 
-            if (montant)    document.getElementById('tx-amount').value  = montant;
-            if (date)       document.getElementById('tx-date').value    = date;
-            if (commentaire) document.getElementById('tx-comment') && (document.getElementById('tx-comment').value = commentaire)
-                             || document.getElementById('tx-note') && (document.getElementById('tx-note').value = commentaire);
+            // Bouton dans le modal scan
+            const btn = document.querySelector('#scan-step-result .btn-enregistrer');
+            const setBtn = (html, disabled) => { if(btn){btn.innerHTML=html;btn.disabled=disabled;} };
 
+            setBtn('<span class="btn-spinner"></span>Upload justificatif...', true);
+
+            // Upload justificatif
+            let justificatif_url = null;
+            if (scannedFile) {
+                const ext = scannedFile.type.includes('pdf') ? 'pdf' : 'jpg';
+                const path = `${userProfile.maison_id}/${userProfile.id}/${Date.now()}.${ext}`;
+                const { error: upErr } = await sb.storage
+                    .from('justificatifs')
+                    .upload(path, scannedFile, { contentType: scannedFile.type, upsert: false });
+                if (!upErr) {
+                    const { data: urlData } = sb.storage.from('justificatifs').getPublicUrl(path);
+                    justificatif_url = urlData?.publicUrl || null;
+                } else {
+                    showToast('Erreur upload justificatif', 'error');
+                }
+            }
+
+            setBtn('<span class="btn-spinner"></span>Enregistrement...', true);
+
+            const { error } = await sb.from('transactions').insert([{
+                user_id: userProfile.id, maison_id: userProfile.maison_id,
+                montant: amount, motif, commentaire: comment||null,
+                created_at: new Date(date).toISOString(),
+                type: 'depense', methode_paiement: method,
+                statut: method.startsWith('perso_') ? 'attente' : 'valide',
+                justificatif_url
+            }]);
+
+            setBtn('Enregistrer', false);
+            if (error) { showToast('Erreur : '+error.message,'error'); return; }
+            scannedFile = null;
             closeScanModal();
-            showToast('Données importées — vérifiez avant de valider', 'info');
+            showToast('Dépense enregistrée avec justificatif !','success');
+            await refreshDashboard(); await loadRefundHistory();
         }
 
         function goToProfil() { switchTab('profil', document.querySelectorAll('.bar-btn')[3]); }
+
+        function setLoading(btnId, loading, steps) {
+            const btn = document.getElementById(btnId);
+            if (!btn) return;
+            if (loading) {
+                btn.disabled = true;
+                btn.dataset.originalText = btn.textContent;
+                btn.innerHTML = `<span class="btn-spinner"></span>${steps||'Chargement...'}`;
+            } else {
+                btn.disabled = false;
+                btn.textContent = btn.dataset.originalText || 'Enregistrer';
+            }
+        }
+
+        function setLoadingStep(btnId, step) {
+            const btn = document.getElementById(btnId);
+            if (!btn || !btn.disabled) return;
+            btn.innerHTML = `<span class="btn-spinner"></span>${step}`;
+        }
+
+        function ouvrirAjoutJustificatif(txId) {
+            document.getElementById('justif-tx-id').value = txId;
+            document.getElementById('justif-upload-progress').classList.add('hidden');
+            document.getElementById('justif-upload-modal').classList.remove('hidden');
+        }
+        function fermerJustifModal() {
+            document.getElementById('justif-upload-modal').classList.add('hidden');
+        }
+
+        async function uploadJustificatif(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const txId = document.getElementById('justif-tx-id').value;
+            const prog = document.getElementById('justif-upload-progress');
+            const progText = document.getElementById('justif-upload-text');
+
+            // Étape 1 — Upload
+            prog.classList.remove('hidden');
+            if(progText) progText.textContent = 'Upload en cours...';
+
+            const ext = file.type.includes('pdf') ? 'pdf' : 'jpg';
+            const path = `${userProfile.maison_id}/${userProfile.id}/${Date.now()}.${ext}`;
+            const { error: upErr } = await sb.storage
+                .from('justificatifs')
+                .upload(path, file, { contentType: file.type, upsert: false });
+
+            if (upErr) {
+                prog.classList.add('hidden');
+                showToast('Erreur upload : ' + upErr.message, 'error');
+                return;
+            }
+
+            // Étape 2 — Enregistrement
+            if(progText) progText.textContent = 'Enregistrement...';
+
+            const { data: urlData } = sb.storage.from('justificatifs').getPublicUrl(path);
+            const justificatif_url = urlData?.publicUrl || null;
+
+            const { error } = await sb.from('transactions')
+                .update({ justificatif_url })
+                .eq('id', txId)
+                .eq('user_id', userProfile.id);
+
+            prog.classList.add('hidden');
+            if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+
+            fermerJustifModal();
+            showToast('Justificatif ajouté ! Le chef peut maintenant vous rembourser.', 'success');
+            await loadRefundHistory();
+            await refreshDashboard();
+        }
 
         // ── INIT ──
         async function init() {
@@ -622,17 +794,31 @@
                         </div>
                     </div>
                     <div class="divide-y divide-slate-50">
-                        ${[...month.attente,...month.valide].map(t=>`
-                        <div class="px-5 py-3 flex justify-between items-center">
-                            <div class="flex items-center gap-3">
-                                <span class="w-2 h-2 rounded-full flex-shrink-0 ${t.statut==='attente'?'bg-amber-400':'bg-emerald-400'}"></span>
-                                <div>
+                        ${[...month.attente,...month.valide].map(t=>{
+                            const needsJustif = t.statut==='attente' && !t.justificatif_url;
+                            return `
+                        <div class="px-5 py-3 flex justify-between items-start">
+                            <div class="flex items-start gap-3 flex-1 min-w-0">
+                                <span class="w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${t.statut==='attente'?'bg-amber-400':'bg-emerald-400'}"></span>
+                                <div class="min-w-0 flex-1">
                                     <p class="text-[10px] font-bold text-slate-700">${escapeHtml(t.motif||'-')}</p>
                                     <p class="text-[8px] text-slate-400">${new Date(t.created_at).toLocaleDateString('fr-FR')}${t.commentaire?' · '+escapeHtml(t.commentaire):''}</p>
+                                    ${needsJustif
+                                        ? `<button onclick="ouvrirAjoutJustificatif('${escapeHtml(t.id)}')"
+                                            class="mt-1 text-[8px] font-black text-amber-500 uppercase bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100 hover:bg-amber-100 transition-colors">
+                                            ⚠️ Justificatif requis
+                                          </button>`
+                                        : t.justificatif_url
+                                            ? `<a href="${escapeHtml(t.justificatif_url)}" target="_blank"
+                                                class="mt-1 inline-block text-[8px] font-black text-emerald-500 uppercase bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                                                ✓ Justificatif joint
+                                              </a>`
+                                            : ''}
                                 </div>
                             </div>
-                            <p class="font-black text-[12px] text-slate-800">${parseFloat(t.montant).toFixed(2)}€</p>
-                        </div>`).join('')}
+                            <p class="font-black text-[12px] text-slate-800 flex-shrink-0 ml-2">${parseFloat(t.montant).toFixed(2)}€</p>
+                        </div>`;
+                        }).join('')}
                     </div>
                 </div>`;
             }).join('');
@@ -659,7 +845,14 @@
             if(error){showToast("Erreur","error");return;}
             document.getElementById('tx-amount').value='';
             document.getElementById('tx-comment').value='';
-            showToast("Opération enregistrée !","success");
+            const needsJustif = currentType==='depense' && method && method.startsWith('perso_');
+            if (needsJustif) {
+                showToast("Dépense enregistrée — ajoutez le justificatif dans Remboursements", "warning");
+                // Basculer sur l'onglet Remboursements après 1.5s
+                setTimeout(() => switchTab('remboursements', document.querySelectorAll('.bar-btn')[1]), 1500);
+            } else {
+                showToast("Opération enregistrée !", "success");
+            }
             await refreshDashboard(); await loadRefundHistory();
         }
 
@@ -676,7 +869,10 @@
 
         async function loadMotifs() {
             const {data}=await sb.from('motifs').select('*').order('nom');
-            document.getElementById('tx-motif').innerHTML=(data||[]).map(m=>`<option value="${escapeHtml(m.nom)}">${escapeHtml(m.nom.toUpperCase())}</option>`).join('');
+            const opts=(data||[]).map(m=>`<option value="${escapeHtml(m.nom)}">${escapeHtml(m.nom.toUpperCase())}</option>`).join('');
+            document.getElementById('tx-motif').innerHTML=opts;
+            const scanMotif=document.getElementById('scan-motif');
+            if(scanMotif) scanMotif.innerHTML=opts;
         }
 
         function setTxType(type) {
