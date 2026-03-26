@@ -1164,22 +1164,38 @@
         }
 
         async function fetchImageAsBase64(url) {
-            // Edge Function dédiée pour récupérer l'image sans erreur CORS
-            const res = await fetch(
-                `${SMMD_CONFIG.url}/functions/v1/fetch-image`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${SMMD_CONFIG.key}`
-                    },
-                    body: JSON.stringify({ imageUrl: url })
-                }
-            );
-            if (!res.ok) throw new Error('Image inaccessible (status ' + res.status + ')');
-            const data = await res.json();
-            if (data.error) throw new Error(data.error);
-            return `data:${data.contentType};base64,${data.base64}`;
+            // Bucket public Supabase — fetch direct avec mode cors
+            try {
+                const res = await fetch(url, { mode: 'cors' });
+                if (!res.ok) throw new Error('status ' + res.status);
+                const blob = await res.blob();
+                return await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+            } catch(e) {
+                // Fallback : charger via un élément Image HTML (contourne certains CORS)
+                return await loadImageViaCanvas(url);
+            }
+        }
+
+        function loadImageViaCanvas(url) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    canvas.getContext('2d').drawImage(img, 0, 0);
+                    resolve(canvas.toDataURL('image/jpeg', 0.92));
+                };
+                img.onerror = () => reject(new Error('Image non chargeable'));
+                // Ajouter timestamp pour éviter le cache
+                img.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+            });
         }
 
         function logout(){sb.auth.signOut().then(()=>location.href="index.html");}
