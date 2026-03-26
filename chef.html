@@ -458,9 +458,9 @@
             } catch (err) {
                 document.getElementById('scan-step-loading').classList.add('hidden');
                 document.getElementById('scan-step-error').classList.remove('hidden');
-                document.getElementById('scan-error-msg').textContent = err.message.includes('400')
-                    ? 'Format non supporté ou image illisible. Essayez avec une photo plus nette.'
-                    : "Impossible de contacter le service d'analyse. Vérifiez votre connexion.";
+                // Afficher le message d'erreur précis retourné par scanJustificatif
+                document.getElementById('scan-error-msg').textContent = err.message || "Erreur inconnue. Réessayez.";
+                console.error('[SCAN]', err);
             }
         }
 
