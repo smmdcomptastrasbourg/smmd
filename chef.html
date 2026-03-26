@@ -639,12 +639,12 @@
 
             const [txRes, avsRes, membresRes] = await Promise.all([
                 sb.from('transactions').select('*, profiles(prenom,nom)').eq('maison_id', userProfile.maison_id),
-                sb.from('allocations_versees').select('*, profiles(prenom,nom)').eq('maison_id', userProfile.maison_id).eq('annee', annee),
+                sb.from('allocations_versees').select('*, profiles(prenom,nom)').eq('maison_id', userProfile.maison_id),
                 sb.from('profiles').select('*').eq('maison_id', userProfile.maison_id)
             ]);
 
             const txs     = (txRes.data||[]).filter(t => new Date(t.created_at).getFullYear() === annee);
-            const avs     = avsRes.data || [];
+            const avs     = (avsRes.data||[]).filter(a => parseInt(a.annee) === annee || String(a.annee) === String(annee));
             const membres = membresRes.data||[];
 
             const totalAlloc   = avs.reduce((s,a)=>s+parseFloat(a.montant),0);
