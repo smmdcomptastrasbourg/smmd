@@ -499,49 +499,36 @@
     </main>
 
     <!-- BOTTOM BAR -->
-    <div id="bottom-bar" class="fixed bottom-0 left-0 right-0 z-50 px-2 py-2">
+    <div id="bottom-bar" class="fixed bottom-0 left-0 right-0 z-50">
         <div id="bottom-bar-inner">
-            <button class="bar-btn active flex flex-col items-center gap-1 px-3 py-2 rounded-2xl" onclick="switchTab('saisie',this)">
-                <svg class="w-5 h-5" fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+            <button class="bar-btn active" onclick="switchTab('saisie',this)">
+                <svg fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
                 <span>Saisie</span>
             </button>
-            <button class="bar-btn flex flex-col items-center gap-1 px-3 py-2 rounded-2xl" onclick="switchTab('journal',this);loadJournal()">
-                <svg class="w-5 h-5" fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+            <button class="bar-btn" onclick="switchTab('journal',this);loadJournal()">
+                <svg fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
                 <span>Journal</span>
             </button>
-            <button class="bar-btn flex flex-col items-center gap-1 px-3 py-2 rounded-2xl" onclick="switchTab('remboursements',this)">
-                <svg class="w-5 h-5" fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            <button class="bar-btn" onclick="switchTab('remboursements',this)">
+                <svg fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                 <span>Remboursements</span>
             </button>
-            <button id="bar-versements" class="bar-btn flex flex-col items-center gap-1 px-3 py-2 rounded-2xl relative" onclick="switchTab('versements',this)">
-                <svg class="w-5 h-5" fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <button id="bar-versements" class="bar-btn relative" onclick="switchTab('versements',this)">
+                <svg fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span id="bar-dot" class="hidden absolute top-0.5 right-0.5 w-2 h-2 bg-amber-500 rounded-full pulse-amber"></span>
                 <span>Versements</span>
-                <span id="bar-dot" class="hidden absolute top-1.5 right-2.5 w-2 h-2 bg-amber-500 rounded-full pulse-amber"></span>
             </button>
-            <button class="bar-btn flex flex-col items-center gap-1 px-3 py-2 rounded-2xl" onclick="toggleDrawer()">
-                <svg class="w-5 h-5" fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
-                <span>Plus</span>
+            <button class="bar-btn" onclick="switchTab('membres',this)">
+                <svg fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                <span>Membres</span>
             </button>
-        </div>
-    </div>
-
-    <!-- NAV DRAWER -->
-    <div id="nav-drawer-backdrop" class="hidden fixed inset-0 z-[60] bg-slate-900/40 backdrop-blur-sm" onclick="closeDrawer()"></div>
-    <div id="nav-drawer" class="closed fixed bottom-0 left-0 right-0 z-[70] bg-white rounded-t-[32px] shadow-2xl p-6 pb-8">
-        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-6"></div>
-        <p class="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-4">Navigation</p>
-        <div class="grid grid-cols-3 gap-3">
-            <button onclick="switchTabAndClose('membres')" class="drawer-btn flex flex-col items-center gap-2 bg-slate-50 p-4 rounded-2xl active:scale-95 transition-all">
-                <svg class="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                <span class="text-[10px] font-black uppercase text-slate-700 tracking-wide">Membres</span>
+            <button class="bar-btn" onclick="switchTab('resume',this);loadResumeAnnuel()">
+                <svg fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                <span>Résumé</span>
             </button>
-            <button onclick="switchTabAndClose('resume');loadResumeAnnuel()" class="drawer-btn flex flex-col items-center gap-2 bg-slate-50 p-4 rounded-2xl active:scale-95 transition-all">
-                <svg class="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-                <span class="text-[10px] font-black uppercase text-slate-700 tracking-wide">Résumé</span>
-            </button>
-            <button onclick="switchTabAndClose('profil')" class="drawer-btn flex flex-col items-center gap-2 bg-slate-50 p-4 rounded-2xl active:scale-95 transition-all">
-                <svg class="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                <span class="text-[10px] font-black uppercase text-slate-700 tracking-wide">Profil</span>
+            <button class="bar-btn" onclick="switchTab('profil',this)">
+                <svg fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                <span>Profil</span>
             </button>
         </div>
     </div>
@@ -909,32 +896,7 @@
             refreshAll();
         }
 
-
-        function toggleDrawer() {
-            const drawer = document.getElementById('nav-drawer');
-            const backdrop = document.getElementById('nav-drawer-backdrop');
-            if (drawer.classList.contains('open')) {
-                closeDrawer();
-            } else {
-                drawer.classList.remove('closed');
-                drawer.classList.add('open');
-                backdrop.classList.remove('hidden');
-            }
-        }
-        function closeDrawer() {
-            document.getElementById('nav-drawer').classList.remove('open');
-            document.getElementById('nav-drawer').classList.add('closed');
-            document.getElementById('nav-drawer-backdrop').classList.add('hidden');
-        }
-        function switchTabAndClose(name) {
-            closeDrawer();
-            document.querySelectorAll('.section-panel').forEach(s=>s.classList.remove('active'));
-            document.getElementById('section-'+name).classList.add('active');
-            document.querySelectorAll('.bar-btn').forEach(b=>b.classList.remove('active'));
-            window.scrollTo({top:0,behavior:'smooth'});
-        }
-
-        function goToProfil() { switchTabAndClose('profil'); }
+        function goToProfil() { switchTab('profil', document.querySelectorAll('.bar-btn')[6]); }
 
         async function initResumeAnnee() {
             const sel = document.getElementById('resume-annee');
