@@ -505,7 +505,8 @@
     </main>
 
     <!-- BOTTOM BAR -->
-    <div id="bottom-bar" class="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around px-2 py-2">
+    <div id="bottom-bar" class="fixed bottom-0 left-0 right-0 z-50 block px-2 py-2">
+        <div id="bottom-bar-inner">
         <button class="bar-btn active flex flex-col items-center gap-1 px-3 py-2 rounded-2xl" onclick="switchTab('saisie',this)">
             <svg class="w-5 h-5" fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
             <span>Saisie</span>
@@ -530,6 +531,7 @@
             <svg class="w-5 h-5" fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
             <span>Profil</span>
         </button>
+        </div>
     </div>
 
     <script>
