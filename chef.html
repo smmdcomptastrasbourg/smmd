@@ -1710,7 +1710,23 @@
                 // Récupérer le base64 depuis la DB si disponible
                 let base64 = null;
                 const { data: txData } = await sb.from('transactions').select('justificatif_base64').eq('id', txId).maybeSingle();
-                if (txData?.justificatif_base64) base64 = txData.justificatif_base64;
+                if (txData?.justificatif_base64) {
+                    base64 = txData.justificatif_base64;
+                } else {
+                    // Pas de base64 — fetch via Edge Function
+                    try {
+                        const res = await fetch(`${SMMD_CONFIG.url}/functions/v1/generate-pdf`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SMMD_CONFIG.key}` },
+                            body: JSON.stringify({ imageUrls: [justifUrl] })
+                        });
+                        if (res.ok) {
+                            const data = await res.json();
+                            const img = data.images?.[0];
+                            if (img?.base64) base64 = `data:${img.contentType};base64,${img.base64}`;
+                        }
+                    } catch(e) { /* continuer sans base64 */ }
+                }
 
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -1740,15 +1756,43 @@
                 return;
             }
 
-            showToast(`Génération du PDF (${filtered.length} justificatif${filtered.length>1?'s':''})...`, "info");
+            showToast(`Chargement des images...`, "info");
             try {
+                // Séparer ceux qui ont déjà le base64 et ceux qui doivent être fetchés
+                const needFetch = filtered.filter(t => !t.justificatif_base64);
+                const imageCache = {};
+
+                if (needFetch.length > 0) {
+                    // Batch fetch via Edge Function (server-side, pas de CORS)
+                    const urls = needFetch.map(t => t.justificatif_url);
+                    const res = await fetch(`${SMMD_CONFIG.url}/functions/v1/generate-pdf`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${SMMD_CONFIG.key}`
+                        },
+                        body: JSON.stringify({ imageUrls: urls })
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        (data.images || []).forEach((img, i) => {
+                            if (img.base64) {
+                                imageCache[needFetch[i].id] = `data:${img.contentType};base64,${img.base64}`;
+                            }
+                        });
+                    }
+                }
+
+                showToast(`Génération du PDF (${filtered.length} justificatif${filtered.length>1?'s':''})...`, "info");
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
                 for (let i = 0; i < filtered.length; i++) {
                     const t = filtered[i];
                     if (i > 0) doc.addPage();
                     const label = `${t.profiles?.prenom||''} ${t.profiles?.nom||''} — ${escapeHtml(t.motif||'')} — ${parseFloat(t.montant).toFixed(2)}€ — ${new Date(t.created_at).toLocaleDateString('fr-FR')}`;
-                    await addJustifPage(doc, t.justificatif_url, label, false, t.justificatif_base64||null);
+                    // Priorité : base64 DB > cache Edge Function > fetch URL
+                    const base64 = t.justificatif_base64 || imageCache[t.id] || null;
+                    await addJustifPage(doc, t.justificatif_url, label, false, base64);
                 }
                 doc.save(`Justificatifs_${MOIS_FR[mois-1]}_${annee}.pdf`);
                 showToast("PDF téléchargé !", "success");
