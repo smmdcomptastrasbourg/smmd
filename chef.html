@@ -824,6 +824,11 @@
 
             setBtn('Enregistrer la dépense', false);
             if (error) { showToast('Erreur : '+error.message,'error'); return; }
+            // Sauvegarder les images en base64 dans la table dédiée
+            if (insertData?.[0]?.id) {
+                const allPhotos = [scannedFile, ...extraPhotos].filter(Boolean);
+                await sauvegarderImagesJustificatif(insertData[0].id, allPhotos);
+            }
             scannedFile = null;
             closeScanModal();
             showToast('Dépense enregistrée avec justificatif !','success');
@@ -1707,30 +1712,9 @@
         async function exportJustificatifPDF(txId, justifUrl, label) {
             showToast("Génération du PDF...", "info");
             try {
-                // Récupérer le base64 depuis la DB si disponible
-                let base64 = null;
-                const { data: txData } = await sb.from('transactions').select('justificatif_base64').eq('id', txId).maybeSingle();
-                if (txData?.justificatif_base64) {
-                    base64 = txData.justificatif_base64;
-                } else {
-                    // Pas de base64 — fetch via Edge Function
-                    try {
-                        const res = await fetch(`${SMMD_CONFIG.url}/functions/v1/generate-pdf`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SMMD_CONFIG.key}` },
-                            body: JSON.stringify({ imageUrls: [justifUrl] })
-                        });
-                        if (res.ok) {
-                            const data = await res.json();
-                            const img = data.images?.[0];
-                            if (img?.base64) base64 = `data:${img.contentType};base64,${img.base64}`;
-                        }
-                    } catch(e) { /* continuer sans base64 */ }
-                }
-
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-                await addJustifPage(doc, justifUrl, label, true, base64);
+                await addJustifPage(doc, txId, label, true);
                 doc.save(`Justificatif_${label.replace(/[^a-zA-Z0-9]/g,'_')}.pdf`);
                 showToast("PDF téléchargé !", "success");
             } catch(e) {
@@ -1758,41 +1742,13 @@
 
             showToast(`Chargement des images...`, "info");
             try {
-                // Séparer ceux qui ont déjà le base64 et ceux qui doivent être fetchés
-                const needFetch = filtered.filter(t => !t.justificatif_base64);
-                const imageCache = {};
-
-                if (needFetch.length > 0) {
-                    // Batch fetch via Edge Function (server-side, pas de CORS)
-                    const urls = needFetch.map(t => t.justificatif_url);
-                    const res = await fetch(`${SMMD_CONFIG.url}/functions/v1/generate-pdf`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${SMMD_CONFIG.key}`
-                        },
-                        body: JSON.stringify({ imageUrls: urls })
-                    });
-                    if (res.ok) {
-                        const data = await res.json();
-                        (data.images || []).forEach((img, i) => {
-                            if (img.base64) {
-                                imageCache[needFetch[i].id] = `data:${img.contentType};base64,${img.base64}`;
-                            }
-                        });
-                    }
-                }
-
                 showToast(`Génération du PDF (${filtered.length} justificatif${filtered.length>1?'s':''})...`, "info");
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
                 for (let i = 0; i < filtered.length; i++) {
                     const t = filtered[i];
-                    if (i > 0) doc.addPage();
                     const label = `${t.profiles?.prenom||''} ${t.profiles?.nom||''} — ${escapeHtml(t.motif||'')} — ${parseFloat(t.montant).toFixed(2)}€ — ${new Date(t.created_at).toLocaleDateString('fr-FR')}`;
-                    // Priorité : base64 DB > cache Edge Function > fetch URL
-                    const base64 = t.justificatif_base64 || imageCache[t.id] || null;
-                    await addJustifPage(doc, t.justificatif_url, label, false, base64);
+                    await addJustifPage(doc, t.id, label, i === 0);
                 }
                 doc.save(`Justificatifs_${MOIS_FR[mois-1]}_${annee}.pdf`);
                 showToast("PDF téléchargé !", "success");
@@ -1801,60 +1757,73 @@
             }
         }
 
-        async function addJustifPage(doc, url, label, isFirst, base64) {
+        function addPageHeader(doc, label) {
             const pageW = doc.internal.pageSize.getWidth();
-            const pageH = doc.internal.pageSize.getHeight();
             const margin = 15;
-
-            // En-tête
             doc.setFillColor(15, 23, 42);
             doc.rect(0, 0, pageW, 18, 'F');
             doc.setTextColor(255, 255, 255);
             doc.setFontSize(10);
             doc.setFont('helvetica', 'bold');
             doc.text('SMMD — Justificatif de dépense', margin, 12);
-
-            // Label dépense
             doc.setTextColor(51, 65, 85);
             doc.setFontSize(9);
             doc.setFont('helvetica', 'normal');
             doc.text(label, margin, 26, { maxWidth: pageW - margin*2 });
-
-            // Ligne séparateur
             doc.setDrawColor(226, 232, 240);
             doc.line(margin, 30, pageW - margin, 30);
+        }
 
-            // Insérer l'image — priorité au base64 stocké en base
+        function addPageFooter(doc) {
+            const pageW = doc.internal.pageSize.getWidth();
+            const pageH = doc.internal.pageSize.getHeight();
+            doc.setTextColor(148, 163, 184);
+            doc.setFontSize(7);
+            doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')} par SMMD`, 15, pageH - 8);
+        }
+
+        function addImageToPage(doc, imgData) {
+            const pageW = doc.internal.pageSize.getWidth();
+            const pageH = doc.internal.pageSize.getHeight();
+            const margin = 15;
             try {
-                let imgData = null;
-                if (base64 && base64.startsWith('data:')) {
-                    // Base64 disponible directement — pas de fetch nécessaire
-                    imgData = base64;
-                } else {
-                    // Fallback : tenter de charger depuis l'URL
-                    imgData = await fetchImageAsBase64(url);
-                }
                 const imgProps = doc.getImageProperties(imgData);
                 const maxW = pageW - margin*2;
                 const maxH = pageH - 45;
                 let w = maxW, h = (imgProps.height * maxW) / imgProps.width;
                 if (h > maxH) { h = maxH; w = (imgProps.width * maxH) / imgProps.height; }
-                const x = (pageW - w) / 2;
                 const fmt = imgData.includes('data:image/png') ? 'PNG' : 'JPEG';
-                doc.addImage(imgData, fmt, x, 35, w, h);
-            } catch(imgErr) {
+                doc.addImage(imgData, fmt, (pageW - w) / 2, 35, w, h);
+            } catch(e) {
                 doc.setTextColor(239, 68, 68);
                 doc.setFontSize(9);
                 doc.text('Image non disponible', margin, 50);
-                doc.setTextColor(100, 100, 100);
-                doc.setFontSize(7);
-                doc.text(url.slice(0, 90), margin, 57, { maxWidth: pageW - margin*2 });
+            }
+        }
+
+        // addJustifPage — génère une ou plusieurs pages selon le nb d'images
+        async function addJustifPage(doc, txId, label, isFirst) {
+            // Charger les images depuis la table justificatifs_images
+            const images = await chargerImagesJustificatif(txId);
+
+            if (!images.length) {
+                // Aucune image en base — page vide avec message
+                if (!isFirst) doc.addPage();
+                addPageHeader(doc, label);
+                doc.setTextColor(239, 68, 68);
+                doc.setFontSize(9);
+                doc.text('Aucun justificatif disponible pour cette dépense.', 15, 50);
+                addPageFooter(doc);
+                return;
             }
 
-            // Pied de page
-            doc.setTextColor(148, 163, 184);
-            doc.setFontSize(7);
-            doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')} par SMMD`, margin, pageH - 8);
+            // Une page par image
+            for (let i = 0; i < images.length; i++) {
+                if (!isFirst || i > 0) doc.addPage();
+                addPageHeader(doc, images.length > 1 ? `${label} (${i+1}/${images.length})` : label);
+                addImageToPage(doc, images[i].base64);
+                addPageFooter(doc);
+            }
         }
 
         async function fetchImageAsBase64(url) {
@@ -2024,6 +1993,8 @@
                 const justificatif_url = urlData?.publicUrl || null;
                 const { error } = await sb.from('transactions').update({ justificatif_url, justificatif_base64: _lastBase64 }).eq('id', txId).eq('maison_id', userProfile.maison_id);
                 if (error) throw new Error(error.message);
+                // Sauvegarder les images originales en base64
+                await sauvegarderImagesJustificatif(txId, justifPhotos);
                 justifPhotos = [];
                 prog.classList.add('hidden');
                 fermerJustifModal();
@@ -2048,6 +2019,69 @@
         function switchTab(name) { _goTab(name); }
         function menuGo(name, cb) { _goTab(name, cb); }
         function goSaisie() { _goTab('saisie'); }
+
+        // ── JUSTIFICATIFS IMAGES — sauvegarde base64 en table ──
+
+        // Redimensionner une image avant stockage (max 1200px, qualité 0.82)
+        async function resizeImageToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                const url = URL.createObjectURL(file);
+                img.onload = () => {
+                    const MAX = 1200;
+                    let w = img.width, h = img.height;
+                    if (w > MAX || h > MAX) {
+                        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+                        else       { w = Math.round(w * MAX / h); h = MAX; }
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w; canvas.height = h;
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    URL.revokeObjectURL(url);
+                    resolve(canvas.toDataURL('image/jpeg', 0.82));
+                };
+                img.onerror = () => reject(new Error('Impossible de lire l\'image'));
+                img.src = url;
+            });
+        }
+
+        // Sauvegarder les images d'un justificatif en base
+        async function sauvegarderImagesJustificatif(txId, photos) {
+            // Supprimer les anciennes images pour cette transaction
+            await sb.from('justificatifs_images').delete().eq('transaction_id', txId);
+            // Insérer les nouvelles
+            const inserts = [];
+            for (let i = 0; i < photos.length; i++) {
+                let base64;
+                if (typeof photos[i] === 'string') {
+                    // Déjà en base64 (datauristring)
+                    base64 = photos[i];
+                } else {
+                    // File object — redimensionner
+                    base64 = await resizeImageToBase64(photos[i]);
+                }
+                inserts.push({
+                    transaction_id: txId,
+                    ordre: i,
+                    base64,
+                    mime_type: 'image/jpeg'
+                });
+            }
+            if (inserts.length) {
+                const { error } = await sb.from('justificatifs_images').insert(inserts);
+                if (error) console.error('Erreur sauvegarde images:', error.message);
+            }
+        }
+
+        // Récupérer les images d'un justificatif
+        async function chargerImagesJustificatif(txId) {
+            const { data } = await sb.from('justificatifs_images')
+                .select('base64, mime_type, ordre')
+                .eq('transaction_id', txId)
+                .order('ordre', { ascending: true });
+            return data || [];
+        }
+
         function goToProfil() { _goTab('profil'); }
 
         function _goTab(name, cb) {
