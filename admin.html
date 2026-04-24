@@ -462,6 +462,22 @@
             if(error) showToast("Erreur","error"); else loadMotifs();
         }
 
+        async function loadUrlAsBase64ViaEdge(url) {
+            try {
+                const res = await fetch(`${SMMD_CONFIG.url}/functions/v1/generate-pdf`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SMMD_CONFIG.key}` },
+                    body: JSON.stringify({ imageUrls: [url] })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const img = data.images?.[0];
+                    if (img?.base64) return `data:${img.contentType};base64,${img.base64}`;
+                }
+            } catch(e) {}
+            return null;
+        }
+
         async function migrateJustificatifs() {
             const btn = document.getElementById('btn-migrate');
             const prog = document.getElementById('migration-progress');
@@ -489,7 +505,11 @@
                 return;
             }
 
-            const toMigrate = txs.filter(t => t.justificatif_url && !t.justificatif_base64);
+            // Vérifier quelles transactions n'ont pas encore d'images dans la table
+            const { data: alreadyMigrated } = await sb.from('justificatifs_images')
+                .select('transaction_id');
+            const migratedIds = new Set((alreadyMigrated||[]).map(r => r.transaction_id));
+            const toMigrate = (txs||[]).filter(t => t.justificatif_url && !migratedIds.has(t.id));
             const total = toMigrate.length;
 
             if (total === 0) {
@@ -505,17 +525,25 @@
 
             for (const tx of toMigrate) {
                 status.textContent = `Migration ${done+1}/${total}...`;
-                bar.style.width = `${Math.round(done/total*100)}%`;
+                bar.style.width = `${Math.round((done+failed)/total*100)}%`;
                 detail.textContent = tx.justificatif_url.split('/').pop();
 
                 try {
-                    // Charger l'image/PDF depuis l'URL
-                    const base64 = await loadUrlAsBase64(tx.justificatif_url);
+                    // Vérifier si déjà migré dans justificatifs_images
+                    const { data: existing } = await sb.from('justificatifs_images')
+                        .select('id').eq('transaction_id', tx.id).limit(1);
+                    if (existing && existing.length > 0) { done++; continue; }
+
+                    // Charger depuis l'URL via Edge Function
+                    const base64 = await loadUrlAsBase64ViaEdge(tx.justificatif_url);
                     if (base64) {
-                        const { error: upErr } = await sb.from('transactions')
-                            .update({ justificatif_base64: base64 })
-                            .eq('id', tx.id);
-                        if (upErr) failed++;
+                        const { error: insErr } = await sb.from('justificatifs_images').insert([{
+                            transaction_id: tx.id,
+                            ordre: 0,
+                            base64,
+                            mime_type: 'image/jpeg'
+                        }]);
+                        if (insErr) { failed++; console.warn(insErr.message); }
                         else done++;
                     } else {
                         failed++;
