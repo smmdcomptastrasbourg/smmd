@@ -818,7 +818,8 @@
                 created_at: new Date(date).toISOString(),
                 type: 'depense', methode_paiement: method,
                 statut: method.startsWith('perso_') ? 'attente' : 'valide',
-                justificatif_url
+                justificatif_url,
+                justificatif_base64: justificatif_url ? _lastBase64 : null
             }]);
 
             setBtn('Enregistrer la dépense', false);
@@ -1706,9 +1707,14 @@
         async function exportJustificatifPDF(txId, justifUrl, label) {
             showToast("Génération du PDF...", "info");
             try {
+                // Récupérer le base64 depuis la DB si disponible
+                let base64 = null;
+                const { data: txData } = await sb.from('transactions').select('justificatif_base64').eq('id', txId).maybeSingle();
+                if (txData?.justificatif_base64) base64 = txData.justificatif_base64;
+
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-                await addJustifPage(doc, justifUrl, label, true);
+                await addJustifPage(doc, justifUrl, label, true, base64);
                 doc.save(`Justificatif_${label.replace(/[^a-zA-Z0-9]/g,'_')}.pdf`);
                 showToast("PDF téléchargé !", "success");
             } catch(e) {
@@ -1742,7 +1748,7 @@
                     const t = filtered[i];
                     if (i > 0) doc.addPage();
                     const label = `${t.profiles?.prenom||''} ${t.profiles?.nom||''} — ${escapeHtml(t.motif||'')} — ${parseFloat(t.montant).toFixed(2)}€ — ${new Date(t.created_at).toLocaleDateString('fr-FR')}`;
-                    await addJustifPage(doc, t.justificatif_url, label, false);
+                    await addJustifPage(doc, t.justificatif_url, label, false, t.justificatif_base64||null);
                 }
                 doc.save(`Justificatifs_${MOIS_FR[mois-1]}_${annee}.pdf`);
                 showToast("PDF téléchargé !", "success");
@@ -1751,7 +1757,7 @@
             }
         }
 
-        async function addJustifPage(doc, url, label, isFirst) {
+        async function addJustifPage(doc, url, label, isFirst, base64) {
             const pageW = doc.internal.pageSize.getWidth();
             const pageH = doc.internal.pageSize.getHeight();
             const margin = 15;
@@ -1774,20 +1780,31 @@
             doc.setDrawColor(226, 232, 240);
             doc.line(margin, 30, pageW - margin, 30);
 
-            // Charger et insérer l'image
+            // Insérer l'image — priorité au base64 stocké en base
             try {
-                const imgData = await fetchImageAsBase64(url);
+                let imgData = null;
+                if (base64 && base64.startsWith('data:')) {
+                    // Base64 disponible directement — pas de fetch nécessaire
+                    imgData = base64;
+                } else {
+                    // Fallback : tenter de charger depuis l'URL
+                    imgData = await fetchImageAsBase64(url);
+                }
                 const imgProps = doc.getImageProperties(imgData);
                 const maxW = pageW - margin*2;
                 const maxH = pageH - 45;
                 let w = maxW, h = (imgProps.height * maxW) / imgProps.width;
                 if (h > maxH) { h = maxH; w = (imgProps.width * maxH) / imgProps.height; }
                 const x = (pageW - w) / 2;
-                doc.addImage(imgData, 'JPEG', x, 35, w, h);
-            } catch {
+                const fmt = imgData.includes('data:image/png') ? 'PNG' : 'JPEG';
+                doc.addImage(imgData, fmt, x, 35, w, h);
+            } catch(imgErr) {
                 doc.setTextColor(239, 68, 68);
-                doc.setFontSize(10);
+                doc.setFontSize(9);
                 doc.text('Image non disponible', margin, 50);
+                doc.setTextColor(100, 100, 100);
+                doc.setFontSize(7);
+                doc.text(url.slice(0, 90), margin, 57, { maxWidth: pageW - margin*2 });
             }
 
             // Pied de page
@@ -1797,37 +1814,85 @@
         }
 
         async function fetchImageAsBase64(url) {
-            // Bucket public Supabase — fetch direct avec mode cors
+            // Stratégie 1 : fetch direct (fonctionne si CORS configuré côté Supabase)
             try {
-                const res = await fetch(url, { mode: 'cors' });
-                if (!res.ok) throw new Error('status ' + res.status);
-                const blob = await res.blob();
-                return await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(blob);
-                });
-            } catch(e) {
-                // Fallback : charger via un élément Image HTML (contourne certains CORS)
-                return await loadImageViaCanvas(url);
-            }
+                const res = await fetch(url, { mode: 'cors', cache: 'no-cache' });
+                if (res.ok) {
+                    const blob = await res.blob();
+                    return await blobToBase64(blob);
+                }
+            } catch(e) { /* continuer */ }
+
+            // Stratégie 2 : fetch sans mode cors (same-origin ou no-cors)
+            try {
+                const res = await fetch(url);
+                if (res.ok) {
+                    const blob = await res.blob();
+                    return await blobToBase64(blob);
+                }
+            } catch(e) { /* continuer */ }
+
+            // Stratégie 3 : Image HTML + canvas (toujours disponible)
+            return await loadImageViaCanvas(url);
+        }
+
+        function blobToBase64(blob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
         }
 
         function loadImageViaCanvas(url) {
             return new Promise((resolve, reject) => {
                 const img = new Image();
+                // Essai 1 : avec crossOrigin anonymous
                 img.crossOrigin = 'anonymous';
                 img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    canvas.getContext('2d').drawImage(img, 0, 0);
-                    resolve(canvas.toDataURL('image/jpeg', 0.92));
+                    try {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.naturalWidth || img.width;
+                        canvas.height = img.naturalHeight || img.height;
+                        canvas.getContext('2d').drawImage(img, 0, 0);
+                        resolve(canvas.toDataURL('image/jpeg', 0.90));
+                    } catch(e) {
+                        // Canvas tainted — essai sans crossOrigin
+                        const img2 = new Image();
+                        img2.onload = () => {
+                            const canvas2 = document.createElement('canvas');
+                            canvas2.width = img2.naturalWidth || 800;
+                            canvas2.height = img2.naturalHeight || 600;
+                            try {
+                                canvas2.getContext('2d').drawImage(img2, 0, 0);
+                                resolve(canvas2.toDataURL('image/jpeg', 0.90));
+                            } catch(e2) {
+                                reject(new Error('Image non chargeable (CORS)'));
+                            }
+                        };
+                        img2.onerror = () => reject(new Error('Image introuvable'));
+                        img2.src = url;
+                    }
                 };
-                img.onerror = () => reject(new Error('Image non chargeable'));
-                // Ajouter timestamp pour éviter le cache
-                img.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+                img.onerror = () => {
+                    // Essai sans crossOrigin
+                    const img3 = new Image();
+                    img3.onload = () => {
+                        try {
+                            const canvas3 = document.createElement('canvas');
+                            canvas3.width = img3.naturalWidth || 800;
+                            canvas3.height = img3.naturalHeight || 600;
+                            canvas3.getContext('2d').drawImage(img3, 0, 0);
+                            resolve(canvas3.toDataURL('image/jpeg', 0.90));
+                        } catch(e) {
+                            reject(new Error('Image non chargeable'));
+                        }
+                    };
+                    img3.onerror = () => reject(new Error('Image introuvable'));
+                    img3.src = url;
+                };
+                img.src = url;
             });
         }
 
@@ -1904,7 +1969,7 @@
                 progTxt.textContent = 'Enregistrement...';
                 const { data: urlData } = sb.storage.from('justificatifs').getPublicUrl(path);
                 const justificatif_url = urlData?.publicUrl || null;
-                const { error } = await sb.from('transactions').update({ justificatif_url }).eq('id', txId).eq('maison_id', userProfile.maison_id);
+                const { error } = await sb.from('transactions').update({ justificatif_url, justificatif_base64: _lastBase64 }).eq('id', txId).eq('maison_id', userProfile.maison_id);
                 if (error) throw new Error(error.message);
                 justifPhotos = [];
                 prog.classList.add('hidden');
