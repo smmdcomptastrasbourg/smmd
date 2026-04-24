@@ -535,7 +535,28 @@
         }
 
         async function loadUrlAsBase64(url) {
-            // Essai 1 : fetch direct
+            // Stratégie 1 : Edge Function Supabase (server-side, pas de CORS)
+            try {
+                const res = await fetch(
+                    `${SMMD_CONFIG.url}/functions/v1/fetch-image`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${SMMD_CONFIG.key}`
+                        },
+                        body: JSON.stringify({ imageUrl: url })
+                    }
+                );
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.base64 && data.contentType) {
+                        return `data:${data.contentType};base64,${data.base64}`;
+                    }
+                }
+            } catch(e) { console.warn('Edge Function failed:', e.message); }
+
+            // Stratégie 2 : fetch direct (si CORS configuré)
             try {
                 const res = await fetch(url, { mode: 'cors', cache: 'no-cache' });
                 if (res.ok) {
@@ -549,21 +570,7 @@
                 }
             } catch(e) {}
 
-            // Essai 2 : fetch sans mode
-            try {
-                const res = await fetch(url);
-                if (res.ok) {
-                    const blob = await res.blob();
-                    return await new Promise((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onload = () => resolve(reader.result);
-                        reader.onerror = reject;
-                        reader.readAsDataURL(blob);
-                    });
-                }
-            } catch(e) {}
-
-            // Essai 3 : Image HTML + canvas
+            // Stratégie 3 : Image HTML + canvas
             return await new Promise((resolve) => {
                 const img = new Image();
                 img.crossOrigin = 'anonymous';
