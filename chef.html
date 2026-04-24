@@ -1814,25 +1814,34 @@
         }
 
         async function fetchImageAsBase64(url) {
-            // Stratégie 1 : fetch direct (fonctionne si CORS configuré côté Supabase)
+            // Stratégie 1 : Edge Function (server-side, pas de CORS)
+            try {
+                const res = await fetch(
+                    `${SMMD_CONFIG.url}/functions/v1/fetch-image`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${SMMD_CONFIG.key}`
+                        },
+                        body: JSON.stringify({ imageUrl: url })
+                    }
+                );
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.base64 && data.contentType) {
+                        return `data:${data.contentType};base64,${data.base64}`;
+                    }
+                }
+            } catch(e) { /* continuer */ }
+
+            // Stratégie 2 : fetch direct
             try {
                 const res = await fetch(url, { mode: 'cors', cache: 'no-cache' });
-                if (res.ok) {
-                    const blob = await res.blob();
-                    return await blobToBase64(blob);
-                }
-            } catch(e) { /* continuer */ }
+                if (res.ok) return await blobToBase64(await res.blob());
+            } catch(e) {}
 
-            // Stratégie 2 : fetch sans mode cors (same-origin ou no-cors)
-            try {
-                const res = await fetch(url);
-                if (res.ok) {
-                    const blob = await res.blob();
-                    return await blobToBase64(blob);
-                }
-            } catch(e) { /* continuer */ }
-
-            // Stratégie 3 : Image HTML + canvas (toujours disponible)
+            // Stratégie 3 : canvas
             return await loadImageViaCanvas(url);
         }
 
