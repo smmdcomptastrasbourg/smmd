@@ -605,6 +605,7 @@
     <script>
         const sb = supabase.createClient(SMMD_CONFIG.url, SMMD_CONFIG.key);
         let scannedFile = null;
+        let _lastBase64 = null;
         window.addEventListener('offline', ()=>document.getElementById('offline-banner').classList.remove('hidden'));
         window.addEventListener('online',  ()=>document.getElementById('offline-banner').classList.add('hidden'));
         let userProfile = null, currentType = 'depense';
@@ -818,8 +819,7 @@
                 created_at: new Date(date).toISOString(),
                 type: 'depense', methode_paiement: method,
                 statut: method.startsWith('perso_') ? 'attente' : 'valide',
-                justificatif_url,
-                justificatif_base64: justificatif_url ? _lastBase64 : null
+                justificatif_url
             }]);
 
             setBtn('Enregistrer la dépense', false);
@@ -1991,7 +1991,7 @@
                 progTxt.textContent = 'Enregistrement...';
                 const { data: urlData } = sb.storage.from('justificatifs').getPublicUrl(path);
                 const justificatif_url = urlData?.publicUrl || null;
-                const { error } = await sb.from('transactions').update({ justificatif_url, justificatif_base64: _lastBase64 }).eq('id', txId).eq('maison_id', userProfile.maison_id);
+                const { error } = await sb.from('transactions').update({ justificatif_url }).eq('id', txId).eq('maison_id', userProfile.maison_id);
                 if (error) throw new Error(error.message);
                 // Sauvegarder les images originales en base64
                 await sauvegarderImagesJustificatif(txId, justifPhotos);
