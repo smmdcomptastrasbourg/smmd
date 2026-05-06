@@ -798,18 +798,22 @@
 
             setBtn('<span class="btn-spinner"></span>Enregistrement...', true);
 
-            const { error } = await sb.from('transactions').insert([{
+            const { data: insertData, error } = await sb.from('transactions').insert([{
                 user_id: userProfile.id, maison_id: userProfile.maison_id,
                 montant: amount, motif, commentaire: comment||null,
                 created_at: new Date(date).toISOString(),
                 type: 'depense', methode_paiement: method,
                 statut: method.startsWith('perso_') ? 'attente' : 'valide',
-                justificatif_url,
-                justificatif_base64: justificatif_url ? _lastBase64 : null
-            }]);
+                justificatif_url
+            }]).select('id');
 
             setBtn('Enregistrer', false);
             if (error) { showToast('Erreur : '+error.message,'error'); return; }
+            // Sauvegarder les images en base64 dans la table dédiée
+            if (insertData?.[0]?.id) {
+                const allPhotos = [scannedFile, ...extraPhotos].filter(Boolean);
+                await sauvegarderImagesJustificatif(insertData[0].id, allPhotos);
+            }
             scannedFile = null;
             closeScanModal();
             showToast('Dépense enregistrée avec justificatif !','success');
@@ -1239,11 +1243,14 @@
                 const justificatif_url = urlData?.publicUrl || null;
 
                 const { error } = await sb.from('transactions')
-                    .update({ justificatif_url, justificatif_base64: _lastBase64 })
+                    .update({ justificatif_url })
                     .eq('id', txId)
                     .eq('user_id', userProfile.id);
 
                 if (error) throw new Error(error.message);
+
+                // Sauvegarder les images originales en base64
+                await sauvegarderImagesJustificatif(txId, justifPhotos);
 
                 justifPhotos = [];
                 prog.classList.add('hidden');
@@ -1716,6 +1723,69 @@
         function switchTab(name) { _goTab(name); }
         function menuGo(name, cb) { _goTab(name, cb); }
         function goSaisie() { _goTab('saisie'); }
+
+        // ── JUSTIFICATIFS IMAGES — sauvegarde base64 en table ──
+
+        // Redimensionner une image avant stockage (max 1200px, qualité 0.82)
+        async function resizeImageToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                const url = URL.createObjectURL(file);
+                img.onload = () => {
+                    const MAX = 1200;
+                    let w = img.width, h = img.height;
+                    if (w > MAX || h > MAX) {
+                        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+                        else       { w = Math.round(w * MAX / h); h = MAX; }
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w; canvas.height = h;
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    URL.revokeObjectURL(url);
+                    resolve(canvas.toDataURL('image/jpeg', 0.82));
+                };
+                img.onerror = () => reject(new Error('Impossible de lire l\'image'));
+                img.src = url;
+            });
+        }
+
+        // Sauvegarder les images d'un justificatif en base
+        async function sauvegarderImagesJustificatif(txId, photos) {
+            // Supprimer les anciennes images pour cette transaction
+            await sb.from('justificatifs_images').delete().eq('transaction_id', txId);
+            // Insérer les nouvelles
+            const inserts = [];
+            for (let i = 0; i < photos.length; i++) {
+                let base64;
+                if (typeof photos[i] === 'string') {
+                    // Déjà en base64 (datauristring)
+                    base64 = photos[i];
+                } else {
+                    // File object — redimensionner
+                    base64 = await resizeImageToBase64(photos[i]);
+                }
+                inserts.push({
+                    transaction_id: txId,
+                    ordre: i,
+                    base64,
+                    mime_type: 'image/jpeg'
+                });
+            }
+            if (inserts.length) {
+                const { error } = await sb.from('justificatifs_images').insert(inserts);
+                if (error) console.error('Erreur sauvegarde images:', error.message);
+            }
+        }
+
+        // Récupérer les images d'un justificatif
+        async function chargerImagesJustificatif(txId) {
+            const { data } = await sb.from('justificatifs_images')
+                .select('base64, mime_type, ordre')
+                .eq('transaction_id', txId)
+                .order('ordre', { ascending: true });
+            return data || [];
+        }
+
         function goToProfil() { _goTab('profil'); }
 
         function _goTab(name, cb) {
