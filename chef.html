@@ -1855,6 +1855,9 @@
 
         function goToProfil() { _goTab('profil'); }
 
+        let _navOpen = false;
+        let _activeTab = 'saisie';
+
         function _goTab(name, cb) {
             _navOpen && _closeNav();
             _activeTab = name;
