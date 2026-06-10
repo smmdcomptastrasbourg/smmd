@@ -1289,12 +1289,6 @@
         }
 
         function validerMois(uid, moisKey, montant) {
-            // Vérifier qu'il n'y a pas de dépenses sans justificatif
-            const missing = document.querySelectorAll(`[data-mois-key="${uid}-${moisKey}"] .sans-justif`).length;
-            if (missing > 0) {
-                showToast(`${missing} dépense${missing>1?'s':''} sans justificatif — remboursement impossible`, 'error');
-                return;
-            }
             showConfirm(`Confirmer le virement de ${montant}€ pour ce mois ?`, ()=>_doValiderMois(uid, moisKey, montant), 'Valider');
         }
         async function _doValiderMois(uid, moisKey, montant) {
@@ -1314,12 +1308,6 @@
         }
 
         function validerTout(uid, montantTotal) {
-            // Compter les dépenses sans justificatif pour ce membre
-            const sans = Array.from(document.querySelectorAll('.sans-justif-' + uid)).length;
-            if (sans > 0) {
-                showToast(`${sans} dépense${sans>1?'s':''} sans justificatif pour ce membre`, 'error');
-                return;
-            }
             showConfirm(`Confirmer le virement global de ${montantTotal.toFixed(2)}€ ?`, ()=>_doValiderTout(uid, montantTotal), 'Valider');
         }
         async function _doValiderTout(uid, montantTotal) {
