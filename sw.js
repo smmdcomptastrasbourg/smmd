@@ -1,4 +1,4 @@
-const CACHE = 'smmd-v4';
+const CACHE = 'smmd-v5';
 const ASSETS = [
     './',
     './index.html',
@@ -7,17 +7,17 @@ const ASSETS = [
     './admin.html',
     './config.js',
     './manifest.json',
-    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
-    'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
-    // Note: tailwindcss CDN intentionnellement exclu (bloque CORS depuis SW)
+    './icon-192.png',
+    './icon-192-maskable.png',
+    './icon-512.png',
+    './icon-512-maskable.png'
 ];
 
 self.addEventListener('install', e => {
     e.waitUntil(
         caches.open(CACHE)
             .then(c => c.addAll(ASSETS))
-            .catch(() => {}) // Ne pas bloquer l'install si un asset échoue
+            .catch(() => {})
             .then(() => self.skipWaiting())
     );
 });
@@ -33,14 +33,17 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
     const url = new URL(e.request.url);
 
-    // Ne jamais cacher : Supabase API, tailwindcss CDN, Edge Functions
+    // Ne jamais cacher : Supabase, CDNs externes, Edge Functions
     if (url.hostname.includes('supabase.co') ||
         url.hostname.includes('tailwindcss.com') ||
-        url.hostname.includes('googleapis.com')) {
+        url.hostname.includes('googleapis.com') ||
+        url.hostname.includes('jsdelivr.net') ||
+        url.hostname.includes('cdnjs.cloudflare.com') ||
+        url.hostname.includes('fonts.gstatic.com')) {
         return;
     }
 
-    // Assets statiques → network-first avec fallback cache
+    // Assets locaux → network-first avec fallback cache
     e.respondWith(
         fetch(e.request)
             .then(res => {
