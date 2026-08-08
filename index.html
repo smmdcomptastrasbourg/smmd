@@ -203,7 +203,50 @@
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
         }
+
+        // ── INSTALLATION PWA ──
+        let _deferredPrompt = null;
+
+        window.addEventListener('beforeinstallprompt', e => {
+            e.preventDefault();
+            _deferredPrompt = e;
+            document.getElementById('install-banner').classList.remove('hidden');
+        });
+
+        window.addEventListener('appinstalled', () => {
+            document.getElementById('install-banner').classList.add('hidden');
+            _deferredPrompt = null;
+        });
+
+        async function installApp() {
+            if (!_deferredPrompt) {
+                // iOS — afficher instructions
+                const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+                if (isIos) {
+                    alert('Sur iPhone : appuyez sur le bouton Partager (□↑), puis "Sur l\'écran d\'accueil"');
+                } else {
+                    alert('Ouvrez le menu de votre navigateur (⋮) et sélectionnez "Ajouter à l\'écran d\'accueil"');
+                }
+                return;
+            }
+            _deferredPrompt.prompt();
+            const { outcome } = await _deferredPrompt.userChoice;
+            _deferredPrompt = null;
+            document.getElementById('install-banner').classList.add('hidden');
+        }
+
         checkSession();
     </script>
+    <!-- BOUTON INSTALLER PWA -->
+    <div id="install-banner" class="hidden fixed bottom-6 left-4 right-4 z-50">
+        <button id="install-btn" onclick="installApp()"
+            class="w-full flex items-center justify-center gap-3 bg-white text-red-900 font-black py-4 rounded-[22px] shadow-2xl text-[13px] uppercase tracking-widest active:scale-[.97] transition-all border-2 border-red-100">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            Installer l'application
+        </button>
+    </div>
+
 </body>
 </html>
