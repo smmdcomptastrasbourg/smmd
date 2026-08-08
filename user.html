@@ -1413,7 +1413,6 @@
             await loadVersementsHistory();
             await checkNotifications();
             await checkAllocVersee();
-            hideSplash();
             initPullToRefresh(async () => { await refreshDashboard(); await loadRefundHistory(); });
         }
 
@@ -2018,6 +2017,8 @@
                 setTimeout(() => splash.remove(), 500);
             }
         }
+        // Sécurité : forcer la disparition du splash après 5s max
+        setTimeout(hideSplash, 5000);
 
         // ── ANIMATION ✓ APRÈS SAISIE ──
         function showSuccess(label = 'Enregistré !') {
@@ -2102,7 +2103,11 @@
         // ── TRANSITIONS ONGLETS ── (ordre pour direction)
         const TAB_ORDER = ['saisie','journal','remboursements','versements','resume','profil'];
 
-        init();
+        async function safeInit() {
+            try { await init(); } catch(e) { console.error('Init error:', e); }
+            finally { hideSplash(); }
+        }
+        safeInit();
     </script>
 
     <!-- FAB SAISIE (gauche) -->
