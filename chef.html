@@ -160,10 +160,132 @@
         .nav-item.active-tab span { color: #1e3a8a; }
         .nav-divider { height: 1px; background: #f1f5f9; margin: 0 12px; }
 
+
+        /* ── SPLASH SCREEN ── */
+        #splash {
+            position: fixed; inset: 0; z-index: 999;
+            background: linear-gradient(160deg, #0f172a 0%, #1e3a8a 60%, #312e81 100%);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        #splash.hide { opacity: 0; transform: scale(1.05); pointer-events: none; }
+        #splash-logo { font-size: 64px; animation: splashBounce 0.8s cubic-bezier(.4,0,.2,1) both; }
+        #splash-title { color: white; font-size: 28px; font-weight: 900; font-style: italic;
+                        letter-spacing: -.02em; margin-top: 16px;
+                        animation: splashSlide 0.6s .2s cubic-bezier(.4,0,.2,1) both; }
+        #splash-sub { color: rgba(255,255,255,.4); font-size: 11px; font-weight: 800;
+                      text-transform: uppercase; letter-spacing: .3em; margin-top: 8px;
+                      animation: splashSlide 0.6s .35s cubic-bezier(.4,0,.2,1) both; }
+        #splash-bar { width: 120px; height: 3px; background: rgba(255,255,255,.15);
+                      border-radius: 99px; margin-top: 48px; overflow: hidden;
+                      animation: splashSlide 0.4s .5s both; }
+        #splash-bar-fill { height: 100%; background: white; border-radius: 99px;
+                           animation: splashLoad 1.2s .5s cubic-bezier(.4,0,.2,1) forwards; }
+        @keyframes splashBounce {
+            0%   { opacity:0; transform: scale(0.3) rotate(-10deg); }
+            60%  { transform: scale(1.15) rotate(5deg); }
+            100% { opacity:1; transform: scale(1) rotate(0); }
+        }
+        @keyframes splashSlide {
+            from { opacity:0; transform: translateY(12px); }
+            to   { opacity:1; transform: translateY(0); }
+        }
+        @keyframes splashLoad {
+            from { width: 0%; }
+            to   { width: 100%; }
+        }
+
+        /* ── TRANSITIONS ONGLETS ── */
+        .section-panel { display: none; }
+        .section-panel.active {
+            display: block;
+            animation: tabSlideIn 0.3s cubic-bezier(.4,0,.2,1) both;
+        }
+        .section-panel.slide-left  { animation: tabSlideInLeft  0.3s cubic-bezier(.4,0,.2,1) both; }
+        .section-panel.slide-right { animation: tabSlideInRight 0.3s cubic-bezier(.4,0,.2,1) both; }
+        @keyframes tabSlideIn      { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes tabSlideInLeft  { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }
+        @keyframes tabSlideInRight { from { opacity:0; transform:translateX(-40px); } to { opacity:1; transform:translateX(0); } }
+
+        /* ── PULL TO REFRESH ── */
+        #ptr-indicator {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            background: linear-gradient(160deg, #0f172a, #1e3a8a);
+            color: white; font-size: 11px; font-weight: 800; text-transform: uppercase;
+            letter-spacing: .1em; padding: 12px;
+            transform: translateY(-100%); transition: transform 0.2s;
+        }
+        #ptr-indicator.visible { transform: translateY(0); }
+        #ptr-spinner {
+            width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3);
+            border-top-color: white; border-radius: 50%;
+        }
+        #ptr-spinner.spin { animation: spin .7s linear infinite; }
+
+        /* ── SWIPE TO DELETE ── */
+        .swipe-item { position: relative; overflow: hidden; touch-action: pan-y; }
+        .swipe-item-inner { transition: transform 0.2s; background: white; position: relative; z-index: 1; }
+        .swipe-delete-btn {
+            position: absolute; right: 0; top: 0; bottom: 0;
+            width: 80px; background: #ef4444;
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 20px; z-index: 0;
+        }
+
+        /* ── ANIMATION ✓ APRÈS SAISIE ── */
+        #success-overlay {
+            position: fixed; inset: 0; z-index: 500;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(15,23,42,.85); backdrop-filter: blur(8px);
+            opacity: 0; pointer-events: none; transition: opacity 0.3s;
+        }
+        #success-overlay.show { opacity: 1; pointer-events: all; }
+        #success-circle {
+            width: 100px; height: 100px; border-radius: 50%;
+            background: linear-gradient(135deg, #10b981, #059669);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 48px;
+            transform: scale(0);
+            transition: transform 0.4s cubic-bezier(.4,0,.2,1);
+            box-shadow: 0 0 0 0 rgba(16,185,129,.4);
+        }
+        #success-overlay.show #success-circle {
+            transform: scale(1);
+            animation: successPulse 0.6s .3s ease;
+        }
+        #success-label {
+            color: white; font-size: 16px; font-weight: 900; text-transform: uppercase;
+            letter-spacing: .1em; margin-top: 20px; opacity: 0;
+            transition: opacity 0.3s .2s;
+        }
+        #success-overlay.show #success-label { opacity: 1; }
+        @keyframes successPulse {
+            0%   { box-shadow: 0 0 0 0 rgba(16,185,129,.6); }
+            70%  { box-shadow: 0 0 0 30px rgba(16,185,129,0); }
+            100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+        }
+
     </style>
 </head>
 <body class="text-slate-900 min-h-screen pb-6">
 
+
+    <!-- SPLASH SCREEN -->
+    <div id="splash">
+        <div id="splash-logo">🏠</div>
+        <div id="splash-title">SMMD</div>
+        <div id="splash-sub">Système de comptabilité</div>
+        <div id="splash-bar"><div id="splash-bar-fill"></div></div>
+    </div>
+
+    <!-- SUCCESS OVERLAY -->
+    <div id="success-overlay">
+        <div id="success-circle">✓</div>
+        <div id="success-label">Enregistré !</div>
+    </div>
+
+    <div id="ptr-indicator"><div id="ptr-spinner"></div><span>Tirer pour actualiser</span></div>
     <div id="offline-banner" class="hidden fixed top-0 left-0 right-0 z-[300] bg-amber-500 text-white text-center text-[11px] font-bold py-2 px-4 shadow-md">
         ⚠️ Pas de connexion réseau
     </div>
@@ -893,7 +1015,9 @@
                     </div>
                 </div>
                 ${filtered.map((t,i)=>`
-                <div class="bg-white rounded-[20px] border border-slate-100 p-4 anim-slide" style="animation-delay:${i*.03}s">
+                <div class="swipe-item rounded-[20px] anim-slide" style="animation-delay:${i*.03}s" data-swipe-id="${escapeHtml(t.id)}">
+                    <div class="swipe-delete-btn rounded-[20px]">🗑️</div>
+                    <div class="swipe-item-inner bg-white rounded-[20px] border border-slate-100 p-4">
                     <div class="flex justify-between items-start">
                         <div class="flex items-start gap-3 flex-1 min-w-0">
                             <div class="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5 ${t.type==='recette'?'bg-emerald-400':t.statut==='attente'?'bg-amber-400':'bg-blue-900'}"></div>
@@ -921,7 +1045,15 @@
                             </div>
                         </div>
                     </div>
+                    </div>
                 </div>`).join('')}`;
+            // Init swipe-to-delete on journal items
+            setTimeout(() => {
+                document.querySelectorAll('.swipe-item').forEach(el => {
+                    const id = el.dataset.swipeId;
+                    if (id) initSwipeDelete(el, () => supprimerOperation(id));
+                });
+            }, 100);
         }
 
         function supprimerOperation(id) {
@@ -1483,7 +1615,7 @@
             if(error){showToast("Erreur : "+error.message,"error");return;}
             document.getElementById('tx-amount').value='';
             document.getElementById('tx-note').value='';
-            showToast("Opération enregistrée !","success");
+            showSuccess('Enregistré !');
             refreshAll();
         }
 
@@ -1863,10 +1995,21 @@
 
         function _goTab(name, cb) {
             _navOpen && _closeNav();
+            const prevIdx = TAB_ORDER.indexOf(_activeTab);
+            const nextIdx = TAB_ORDER.indexOf(name);
+            const dir = nextIdx > prevIdx ? 'slide-left' : 'slide-right';
             _activeTab = name;
-            document.querySelectorAll('.section-panel').forEach(s=>s.classList.remove('active'));
+            document.querySelectorAll('.section-panel').forEach(s => {
+                s.classList.remove('active','slide-left','slide-right');
+            });
             const el = document.getElementById('section-'+name);
-            if (el) el.classList.add('active');
+            if (el) {
+                el.classList.add('active');
+                if (prevIdx !== nextIdx && prevIdx !== -1 && nextIdx !== -1) {
+                    el.classList.add(dir);
+                    setTimeout(() => el.classList.remove(dir), 350);
+                }
+            }
             window.scrollTo({top:0,behavior:'smooth'});
             if (cb) setTimeout(cb, 50);
             _updateFabIcon();
@@ -1985,6 +2128,99 @@
         }
 
         function logout(){sb.auth.signOut().then(()=>location.href='index.html');}
+
+        // ── SPLASH SCREEN ──
+        function hideSplash() {
+            const splash = document.getElementById('splash');
+            if (splash) {
+                splash.classList.add('hide');
+                setTimeout(() => splash.remove(), 500);
+            }
+        }
+
+        // ── ANIMATION ✓ APRÈS SAISIE ──
+        function showSuccess(label = 'Enregistré !') {
+            const overlay = document.getElementById('success-overlay');
+            const lbl = document.getElementById('success-label');
+            if (!overlay) return;
+            if (lbl) lbl.textContent = label;
+            overlay.classList.add('show');
+            setTimeout(() => overlay.classList.remove('show'), 1800);
+        }
+
+        // ── PULL TO REFRESH ──
+        let _ptrStartY = 0, _ptrActive = false, _ptrThreshold = 80;
+
+        function initPullToRefresh(refreshFn) {
+            const indicator = document.getElementById('ptr-indicator');
+            const spinner = document.getElementById('ptr-spinner');
+
+            document.addEventListener('touchstart', e => {
+                if (window.scrollY === 0) _ptrStartY = e.touches[0].clientY;
+            }, { passive: true });
+
+            document.addEventListener('touchmove', e => {
+                if (!_ptrStartY) return;
+                const diff = e.touches[0].clientY - _ptrStartY;
+                if (diff > 30 && window.scrollY === 0) {
+                    indicator.classList.add('visible');
+                    _ptrActive = diff > _ptrThreshold;
+                    spinner.style.transform = `rotate(${diff * 3}deg)`;
+                }
+            }, { passive: true });
+
+            document.addEventListener('touchend', async () => {
+                if (_ptrActive) {
+                    spinner.classList.add('spin');
+                    indicator.querySelector('span') && (indicator.querySelector('span').textContent = 'Actualisation...');
+                    await refreshFn();
+                    spinner.classList.remove('spin');
+                }
+                indicator.classList.remove('visible');
+                _ptrStartY = 0; _ptrActive = false;
+            });
+        }
+
+        // ── SWIPE TO DELETE ──
+        function initSwipeDelete(el, onDelete) {
+            let startX = 0, currentX = 0, swiping = false;
+            const inner = el.querySelector('.swipe-item-inner');
+            if (!inner) return;
+
+            el.addEventListener('touchstart', e => {
+                startX = e.touches[0].clientX;
+                swiping = true;
+            }, { passive: true });
+
+            el.addEventListener('touchmove', e => {
+                if (!swiping) return;
+                currentX = e.touches[0].clientX - startX;
+                if (currentX < 0) {
+                    inner.style.transform = `translateX(${Math.max(currentX, -80)}px)`;
+                }
+            }, { passive: true });
+
+            el.addEventListener('touchend', () => {
+                if (currentX < -50) {
+                    inner.style.transform = 'translateX(-80px)';
+                    // Confirmer suppression après 1s ou au tap
+                    setTimeout(() => {
+                        if (confirm('Supprimer cette opération ?')) {
+                            onDelete();
+                        } else {
+                            inner.style.transform = '';
+                        }
+                    }, 100);
+                } else {
+                    inner.style.transform = '';
+                }
+                swiping = false; currentX = 0;
+            });
+        }
+
+        // ── TRANSITIONS ONGLETS ── (ordre pour direction)
+        const TAB_ORDER = ['saisie','journal','remboursements','versements','resume','profil'];
+
         checkAuth();
     </script>
 
