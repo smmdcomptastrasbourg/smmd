@@ -308,6 +308,120 @@
         .push-close { font-size: 16px; opacity: .5; cursor: pointer; flex-shrink: 0; padding: 4px; }
         .push-close:hover { opacity: 1; }
 
+
+        /* ══════════════════════════════════════
+           DESIGN PREMIUM — SMMD
+        ══════════════════════════════════════ */
+
+        /* ── DARK MODE ── */
+        @media (prefers-color-scheme: dark) {
+            body { background: #0f0a0a !important; }
+            .bg-white  { background: #1c1010 !important; }
+            .bg-slate-50 { background: #2a1a1a !important; }
+            .bg-slate-100 { background: #2a1a1a !important; }
+            .text-slate-900 { color: #f5f0f0 !important; }
+            .text-slate-800 { color: #ede5e5 !important; }
+            .text-slate-700 { color: #d4c4c4 !important; }
+            .text-slate-600 { color: #b8a0a0 !important; }
+            .text-slate-400 { color: #8a6a6a !important; }
+            .border-slate-100 { border-color: #2e1818 !important; }
+            .border-slate-200 { border-color: #3a2020 !important; }
+            select, input { background: #2a1a1a !important; color: #f0e8e8 !important; border-color: #3a2020 !important; }
+            #main-nav { border-radius: 0 0 40px 40px; }
+            .section-panel { color: #f0e8e8; }
+        }
+
+        /* ── GRADIENT CARDS ── */
+        .card-gradient-red {
+            background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 50%, #b91c1c 100%);
+            box-shadow: 0 8px 32px rgba(153,27,27,.35), 0 2px 8px rgba(0,0,0,.15);
+        }
+        .card-gradient-green {
+            background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+            box-shadow: 0 8px 32px rgba(6,78,59,.3);
+        }
+        .card-gradient-amber {
+            background: linear-gradient(135deg, #78350f 0%, #92400e 100%);
+            box-shadow: 0 8px 32px rgba(120,53,15,.3);
+        }
+        .card-glass {
+            background: rgba(255,255,255,.08);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,.12);
+        }
+
+        /* ── SHADOW PREMIUM ── */
+        .shadow-premium {
+            box-shadow: 0 4px 24px rgba(0,0,0,.08), 0 1px 4px rgba(0,0,0,.04);
+        }
+        .shadow-premium-red {
+            box-shadow: 0 8px 32px rgba(153,27,27,.2), 0 2px 8px rgba(0,0,0,.08);
+        }
+
+        /* ── SKELETON LOADER ── */
+        @keyframes shimmer {
+            0%   { background-position: -400px 0; }
+            100% { background-position: 400px 0; }
+        }
+        .skeleton {
+            background: linear-gradient(90deg,
+                rgba(255,255,255,.06) 0%,
+                rgba(255,255,255,.18) 40%,
+                rgba(255,255,255,.06) 80%
+            );
+            background-size: 400px 100%;
+            animation: shimmer 1.4s ease-in-out infinite;
+            border-radius: 12px;
+        }
+        .skeleton-dark {
+            background: linear-gradient(90deg,
+                #f1f5f9 0%, #e2e8f0 40%, #f1f5f9 80%
+            );
+            background-size: 400px 100%;
+            animation: shimmer 1.4s ease-in-out infinite;
+            border-radius: 12px;
+        }
+
+        /* ── MOTIF ICONS ── */
+        .motif-icon {
+            width: 36px; height: 36px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; flex-shrink: 0;
+        }
+
+        /* ── MICRO-ANIMATIONS ── */
+        @keyframes tapFeedback {
+            0%   { transform: scale(1); }
+            40%  { transform: scale(.95); }
+            100% { transform: scale(1); }
+        }
+        .tap-animate:active { animation: tapFeedback .2s ease; }
+
+        /* ── AMOUNT DISPLAY ── */
+        .amount-display {
+            font-size: clamp(2rem, 8vw, 3.5rem);
+            font-weight: 900;
+            font-style: italic;
+            letter-spacing: -.03em;
+            line-height: 1;
+        }
+
+        /* ── BADGE PREMIUM ── */
+        .badge-premium {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 10px; border-radius: 999px;
+            font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em;
+        }
+
+        /* ── CARD HOVER ── */
+        .card-interactive {
+            transition: transform .15s, box-shadow .15s;
+        }
+        .card-interactive:active {
+            transform: scale(.98);
+        }
+
     </style>
 </head>
 <body class="text-slate-900 min-h-screen pb-6">
@@ -761,7 +875,7 @@
                 </button>
             </div>
 
-            <div class="bg-white rounded-[28px] border border-slate-100 p-6 anim-slide" style="animation-delay:.05s">
+            <div class="bg-white rounded-[28px] border border-slate-100 shadow-premium p-6 anim-slide" style="animation-delay:.05s">
                 <p class="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-3">Mon IBAN</p>
                 <input type="text" id="settings-iban" placeholder="FR76..."
                     class="w-full bg-slate-50 p-4 rounded-2xl border-2 border-slate-50 font-mono text-xs outline-none focus:border-red-200 focus:bg-white transition-all uppercase mb-1">
@@ -769,7 +883,7 @@
                 <button onclick="updateIban()" class="w-full bg-slate-800 text-white text-[10px] font-black py-3.5 rounded-xl uppercase tracking-widest hover:bg-slate-700 transition-all">Mettre à jour</button>
             </div>
 
-            <div class="bg-white rounded-[28px] border border-slate-100 p-6 anim-slide" style="animation-delay:.1s">
+            <div class="bg-white rounded-[28px] border border-slate-100 shadow-premium p-6 anim-slide" style="animation-delay:.1s">
                 <p class="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-3">Changer le mot de passe</p>
                 <input type="password" id="settings-pass" placeholder="Nouveau mot de passe (6 car. min.)"
                     class="w-full bg-slate-50 p-4 rounded-2xl border-2 border-slate-50 font-bold outline-none focus:border-red-200 focus:bg-white transition-all mb-3">
@@ -1037,7 +1151,7 @@
             const annee  = document.getElementById('journal-annee').value;
             const membre = document.getElementById('journal-membre').value;
             const list   = document.getElementById('journal-list');
-            list.innerHTML = `<div class="text-center py-8"><div class="w-8 h-8 rounded-full border-2 border-slate-200 border-t-red-700 animate-spin mx-auto"></div></div>`;
+            renderJournalSkeleton(list);
 
             let query = sb.from('transactions')
                 .select('*, profiles(prenom,nom)')
@@ -1070,7 +1184,7 @@
             filtered.forEach(t => { _txCache[t.id] = t; });
 
             if (!filtered.length) {
-                list.innerHTML = `<div class="bg-white rounded-[28px] border border-slate-100 p-8 text-center">
+                list.innerHTML = `<div class="bg-white rounded-[28px] border border-slate-100 shadow-premium p-8 text-center">
                     <p class="text-slate-300 text-[11px] font-black uppercase tracking-widest">Aucune opération ce mois</p>
                 </div>`;
                 return;
@@ -1093,7 +1207,7 @@
                     <div class="swipe-item-inner bg-white rounded-[20px] border border-slate-100 p-4">
                     <div class="flex justify-between items-start">
                         <div class="flex items-start gap-3 flex-1 min-w-0">
-                            <div class="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5 ${t.type==='recette'?'bg-emerald-400':t.statut==='attente'?'bg-amber-400':'bg-red-900'}"></div>
+                            ${motifIconHTML(t.motif, t.type)}
                             <div class="min-w-0 flex-1">
                                 <p class="text-[10px] font-black text-slate-400 uppercase">${escapeHtml(t.profiles?.prenom||'')} ${escapeHtml(t.profiles?.nom||'')}</p>
                                 <p class="text-[11px] font-black uppercase text-slate-800">${escapeHtml(t.motif||'RECETTE')}</p>
@@ -1256,11 +1370,11 @@
                         <p class="text-[8px] font-black uppercase text-slate-400 tracking-widest mb-1">Allocations reçues</p>
                         <p class="text-2xl font-black text-emerald-600">${totalAlloc.toFixed(2)}€</p>
                     </div>
-                    <div class="bg-white rounded-[24px] border border-slate-100 p-5">
+                    <div class="bg-white rounded-[24px] border border-slate-100 shadow-premium p-5">
                         <p class="text-[8px] font-black uppercase text-slate-400 tracking-widest mb-1">Dépenses maison</p>
                         <p class="text-2xl font-black text-slate-800">${totalDep.toFixed(2)}€</p>
                     </div>
-                    <div class="bg-white rounded-[24px] border border-slate-100 p-5">
+                    <div class="bg-white rounded-[24px] border border-slate-100 shadow-premium p-5">
                         <p class="text-[8px] font-black uppercase text-slate-400 tracking-widest mb-1">Recettes</p>
                         <p class="text-2xl font-black text-red-700">+${totalRec.toFixed(2)}€</p>
                     </div>
@@ -1274,7 +1388,7 @@
                     <p class="text-[10px] font-black text-amber-700 uppercase tracking-widest">⚠️ ${totalAttente.toFixed(2)}€ en attente de remboursement</p>
                 </div>`:''}
 
-                <div class="bg-white rounded-[28px] border border-slate-100 overflow-hidden anim-slide" style="animation-delay:.05s">
+                <div class="bg-white rounded-[28px] border border-slate-100 shadow-premium overflow-hidden anim-slide" style="animation-delay:.05s">
                     <div class="px-5 py-4 border-b border-slate-50">
                         <p class="text-[10px] font-black uppercase tracking-widest text-slate-700">Par membre</p>
                     </div>
@@ -1294,7 +1408,7 @@
                 </div>
 
                 ${topMotifs.length>0?`
-                <div class="bg-white rounded-[28px] border border-slate-100 overflow-hidden anim-slide" style="animation-delay:.1s">
+                <div class="bg-white rounded-[28px] border border-slate-100 shadow-premium overflow-hidden anim-slide" style="animation-delay:.1s">
                     <div class="px-5 py-4 border-b border-slate-50">
                         <p class="text-[10px] font-black uppercase tracking-widest text-slate-700">Top dépenses maison</p>
                     </div>
@@ -2342,7 +2456,8 @@
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('confirm-ok').addEventListener('click', () => {
                 document.getElementById('confirm-modal').classList.remove('open');
-                if (_confirmCallback) { _confirmCallback(); _confirmCallback = null; }
+                vibrate([8]);
+            if (_confirmCallback) { _confirmCallback(); _confirmCallback = null; }
             });
             document.getElementById('confirm-cancel').addEventListener('click', () => {
                 document.getElementById('confirm-modal').classList.remove('open');
@@ -2374,6 +2489,59 @@
             }
         }
 
+
+        // ── ICÔNES PAR MOTIF ──
+        const MOTIF_ICONS = {
+            'alimentaire':  { emoji: '🛒', bg: '#fef3c7', color: '#92400e' },
+            'pastorale':    { emoji: '✝️', bg: '#fce7f3', color: '#9d174d' },
+            'transport':    { emoji: '🚗', bg: '#dbeafe', color: '#1e40af' },
+            'santé':        { emoji: '💊', bg: '#d1fae5', color: '#065f46' },
+            'sante':        { emoji: '💊', bg: '#d1fae5', color: '#065f46' },
+            'entretien':    { emoji: '🔧', bg: '#f3f4f6', color: '#374151' },
+            'vêtements':    { emoji: '👕', bg: '#ede9fe', color: '#5b21b6' },
+            'vetements':    { emoji: '👕', bg: '#ede9fe', color: '#5b21b6' },
+            'loisirs':      { emoji: '🎭', bg: '#fce7f3', color: '#be185d' },
+            'formation':    { emoji: '📚', bg: '#dbeafe', color: '#1d4ed8' },
+            'bureau':       { emoji: '📎', bg: '#f3f4f6', color: '#374151' },
+            'téléphone':    { emoji: '📱', bg: '#d1fae5', color: '#047857' },
+            'telephone':    { emoji: '📱', bg: '#d1fae5', color: '#047857' },
+            'electricité':  { emoji: '⚡', bg: '#fef9c3', color: '#854d0e' },
+            'electricite':  { emoji: '⚡', bg: '#fef9c3', color: '#854d0e' },
+            'eau':          { emoji: '💧', bg: '#dbeafe', color: '#1d4ed8' },
+            'repas':        { emoji: '🍽️', bg: '#fef3c7', color: '#92400e' },
+            'sortie':       { emoji: '🎉', bg: '#fce7f3', color: '#9d174d' },
+            'recette':      { emoji: '💚', bg: '#d1fae5', color: '#065f46' },
+            'autre':        { emoji: '📋', bg: '#f3f4f6', color: '#374151' },
+        };
+
+        function getMotifIcon(motif, type) {
+            if (type === 'recette') return MOTIF_ICONS['recette'];
+            const key = (motif || 'autre').toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            return MOTIF_ICONS[key] || { emoji: '📋', bg: '#f3f4f6', color: '#374151' };
+        }
+
+        function motifIconHTML(motif, type) {
+            const icon = getMotifIcon(motif, type);
+            return `<div class="motif-icon" style="background:${icon.bg}">
+                <span style="font-size:18px">${icon.emoji}</span>
+            </div>`;
+        }
+
+        function renderJournalSkeleton(list) {
+            list.innerHTML = Array(4).fill(0).map(() => `
+                <div class="bg-white rounded-[20px] border border-slate-100 p-4 shadow-premium">
+                    <div class="flex items-center gap-3">
+                        <div class="skeleton-dark w-9 h-9 rounded-xl flex-shrink-0"></div>
+                        <div class="flex-1 space-y-2">
+                            <div class="skeleton-dark h-3 w-3/4 rounded-lg"></div>
+                            <div class="skeleton-dark h-2.5 w-1/2 rounded-lg"></div>
+                        </div>
+                        <div class="skeleton-dark h-4 w-16 rounded-lg"></div>
+                    </div>
+                </div>`).join('');
+        }
+
         function logout(){sb.auth.signOut().then(()=>location.href='index.html');}
 
         // ── SPLASH SCREEN ──
@@ -2388,7 +2556,12 @@
         setTimeout(hideSplash, 5000);
 
         // ── ANIMATION ✓ APRÈS SAISIE ──
+        function vibrate(pattern=[10]) {
+            if (navigator.vibrate) navigator.vibrate(pattern);
+        }
+
         function showSuccess(label = 'Enregistré !') {
+            vibrate([15, 50, 15]);
             const overlay = document.getElementById('success-overlay');
             const lbl = document.getElementById('success-label');
             if (!overlay) return;
@@ -2475,7 +2648,7 @@
     </script>
 
     <!-- FAB SAISIE (gauche) -->
-    <button id="fab-saisie" onclick="goSaisie()" aria-label="Nouvelle saisie">
+    <button id="fab-saisie" class="tap-animate" onclick="goSaisie()" aria-label="Nouvelle saisie">
         <svg width="24" height="24" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
         </svg>
