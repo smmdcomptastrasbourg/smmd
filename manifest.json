@@ -1,17 +1,36 @@
 {
   "short_name": "SMMD",
-  "name": "SMMD Comptabilité des maisons",
+  "name": "SMMD Comptabilité des Maisons",
   "icons": [
     {
-      "src": "https://fav.farm/🏠",
+      "src": "./icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-192-maskable.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./icon-512.png",
       "type": "image/png",
       "sizes": "512x512",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512-maskable.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
     }
   ],
   "start_url": "./index.html",
   "display": "standalone",
-  "theme_color": "#1e40af",
-  "background_color": "#ffffff",
-  "orientation": "portrait"
+  "theme_color": "#7f1d1d",
+  "background_color": "#7f1d1d",
+  "orientation": "portrait",
+  "description": "Système de comptabilité des maisons religieuses SMMD"
 }
