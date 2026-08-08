@@ -207,8 +207,8 @@
                         </label>
                         <label class="flex flex-col items-center gap-2 bg-slate-50 border-2 border-slate-100 rounded-2xl p-5 cursor-pointer hover:border-blue-200 hover:bg-blue-50 transition-all active:scale-95">
                             <span class="text-2xl">🖼️</span>
-                            <span class="text-[10px] font-black uppercase tracking-widest text-slate-600">Galerie (multi)</span>
-                            <input type="file" accept="image/*" multiple class="hidden" onchange="handleScanFile(this)">
+                            <span class="text-[10px] font-black uppercase tracking-widest text-slate-600">Galerie / PDF</span>
+                            <input type="file" accept="image/*,application/pdf" multiple class="hidden" onchange="handleScanFile(this)">
                         </label>
                     </div>
                     <button onclick="closeScanModal()" class="w-full bg-slate-100 text-slate-500 font-black py-3.5 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95">Annuler</button>
@@ -372,8 +372,8 @@
                     </label>
                     <label class="flex flex-col items-center gap-2 bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 cursor-pointer hover:border-amber-200 hover:bg-amber-50 transition-all active:scale-95">
                         <span class="text-2xl">🖼️</span>
-                        <span class="text-[9px] font-black uppercase tracking-widest text-slate-600 text-center">Galerie (multi)</span>
-                        <input type="file" accept="image/*" multiple class="hidden" onchange="ajouterPhotosJustif(this)">
+                        <span class="text-[9px] font-black uppercase tracking-widest text-slate-600 text-center">Galerie / PDF</span>
+                        <input type="file" accept="image/*,application/pdf" multiple class="hidden" onchange="ajouterPhotosJustif(this)">
                     </label>
                 </div>
                 <button id="justif-valider-btn" onclick="validerJustificatif()" class="hidden w-full bg-amber-500 text-white font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95 shadow-md mb-3">
@@ -904,7 +904,7 @@
                                 <span class="text-[8px] uppercase font-black px-2 py-0.5 rounded-full ${t.statut==='attente'?'bg-amber-50 text-amber-500':'bg-emerald-50 text-emerald-600'}">${t.statut==='attente'?'En attente':'Validé'}</span>
                                 ${t.type==='depense' ? (t.justificatif_url
                                     ? `<span class="inline-flex items-center gap-1 mt-0.5">
-                                        <a href="${escapeHtml(t.justificatif_url)}" target="_blank" class="text-[8px] font-black text-emerald-500 uppercase bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">📎 Voir</a>
+                                        <a href="${escapeHtml(t.justificatif_url)}" target="_blank" class="text-[8px] font-black text-emerald-500 uppercase bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">${t.justificatif_url?.includes('.pdf') ? '📄 PDF' : '📎 Voir'}</a>
                                         <button onclick="ouvrirAjoutJustificatif('${escapeHtml(t.id)}')" class="text-[8px] font-black text-blue-500 uppercase bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100 hover:bg-blue-100 transition-colors">🔄 Remplacer</button>
                                        </span>`
                                     : `<button onclick="ouvrirAjoutJustificatif('${escapeHtml(t.id)}')" class="mt-0.5 text-[8px] font-black text-amber-500 uppercase bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100 hover:bg-amber-100 transition-colors">📎 Ajouter justificatif</button>`)
@@ -1783,6 +1783,16 @@
 
         // Redimensionner une image avant stockage (max 1200px, qualité 0.82)
         async function resizeImageToBase64(file) {
+            // PDF — stocker directement en base64
+            if (file.type === 'application/pdf') {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = () => reject(new Error('Impossible de lire le PDF'));
+                    reader.readAsDataURL(file);
+                });
+            }
+            // Image — redimensionner
             return new Promise((resolve, reject) => {
                 const img = new Image();
                 const url = URL.createObjectURL(file);
@@ -1823,7 +1833,9 @@
                     transaction_id: txId,
                     ordre: i,
                     base64,
-                    mime_type: 'image/jpeg'
+                    mime_type: (typeof photos[i] === 'string'
+                        ? (photos[i].includes('application/pdf') ? 'application/pdf' : 'image/jpeg')
+                        : (photos[i]?.type || 'image/jpeg'))
                 });
             }
             if (inserts.length) {
