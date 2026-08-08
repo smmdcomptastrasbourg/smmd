@@ -152,9 +152,7 @@ async function scanJustificatif(file) {
 
   let mime = file.type;
   if (!mime || mime === 'application/octet-stream') mime = 'image/jpeg';
-  if (mime === 'application/pdf') {
-    throw new Error('Les PDF ne sont pas encore supportés. Prenez une photo du document.');
-  }
+  // PDF non supporté — l'UI ne propose plus cette option
 
   // Appel à l'Edge Function Supabase — la clé Gemini reste côté serveur
   let res;
