@@ -314,22 +314,124 @@
         ══════════════════════════════════════ */
 
         /* ── DARK MODE ── */
+        
+        /* ══════════════════════════════════════
+           DARK MODE COMPLET
+        ══════════════════════════════════════ */
         @media (prefers-color-scheme: dark) {
-            body { background: #0f0a0a !important; }
-            .bg-white  { background: #1c1010 !important; }
-            .bg-slate-50 { background: #2a1a1a !important; }
-            .bg-slate-100 { background: #2a1a1a !important; }
-            .text-slate-900 { color: #f5f0f0 !important; }
-            .text-slate-800 { color: #ede5e5 !important; }
-            .text-slate-700 { color: #d4c4c4 !important; }
-            .text-slate-600 { color: #b8a0a0 !important; }
-            .text-slate-400 { color: #8a6a6a !important; }
-            .border-slate-100 { border-color: #2e1818 !important; }
-            .border-slate-200 { border-color: #3a2020 !important; }
-            select, input { background: #2a1a1a !important; color: #f0e8e8 !important; border-color: #3a2020 !important; }
-            #main-nav { border-radius: 0 0 40px 40px; }
-            .section-panel { color: #f0e8e8; }
+            /* Body & fond */
+            body { background: #0f0a0a !important; color: #f0e8e8; }
+
+            /* Nav (gradient sombre rouge) */
+            #main-nav { background: linear-gradient(160deg, #0f0505 0%, #4c0d0d 60%, #5c1010 100%) !important; }
+
+            /* Cartes blanches → sombres */
+            .bg-white  { background: #1c1010 !important; color: #f0e8e8; }
+            .bg-white\/95 { background: rgba(28,16,16,.95) !important; }
+
+            /* Fonds gris → gris sombre */
+            .bg-slate-50  { background: #2a1818 !important; }
+            .bg-slate-100 { background: #2a1818 !important; }
+
+            /* Textes */
+            .text-slate-900 { color: #f5eeee !important; }
+            .text-slate-800 { color: #ede0e0 !important; }
+            .text-slate-700 { color: #d4c0c0 !important; }
+            .text-slate-600 { color: #b89898 !important; }
+            .text-slate-500 { color: #a07878 !important; }
+            .text-slate-400 { color: #886060 !important; }
+            .text-slate-300 { color: #705050 !important; }
+
+            /* Bordures */
+            .border-slate-50  { border-color: #2e1818 !important; }
+            .border-slate-100 { border-color: #3a2020 !important; }
+            .border-slate-200 { border-color: #4a2828 !important; }
+
+            /* Inputs */
+            input, select, textarea {
+                background: #2a1818 !important;
+                color: #f0e8e8 !important;
+                border-color: #3a2020 !important;
+            }
+            input::placeholder { color: #705050 !important; }
+
+            /* ── MODALS ── */
+            #scan-modal > div:last-child,
+            #edit-modal > div:last-child,
+            #justif-upload-modal > div:last-child,
+            #confirm-modal #confirm-box,
+            #alloc-reminder-modal > div:last-child {
+                background: #1c1010 !important;
+                color: #f0e8e8;
+            }
+
+            /* Fond modal backdrop */
+            #scan-modal .absolute.inset-0,
+            #edit-modal .absolute.inset-0,
+            #justif-upload-modal .absolute.inset-0,
+            #alloc-reminder-modal .absolute.inset-0 {
+                background: rgba(0,0,0,.85) !important;
+            }
+
+            /* Labels dans modals */
+            #scan-modal label, #edit-modal label,
+            #justif-upload-modal label, #alloc-reminder-modal label {
+                color: #886060 !important;
+            }
+
+            /* Titres modals */
+            #scan-modal h3, #edit-modal h3,
+            #justif-upload-modal h3, #alloc-reminder-modal h3,
+            #confirm-msg {
+                color: #f0e8e8 !important;
+            }
+
+            /* FAB menu popup */
+            #nav-menu { background: #1c1010 !important; border-color: #3a2020 !important; }
+            .nav-item:active { background: #2a1818 !important; }
+            .nav-item span { color: #d4c0c0 !important; }
+
+            /* Boutons secondaires */
+            .bg-slate-100 { background: #2a1818 !important; }
+            .text-slate-500 { color: #886060 !important; }
+
+            /* Sections journal */
+            .swipe-item-inner { background: #1c1010 !important; }
+            .swipe-item-inner .text-slate-800 { color: #ede0e0 !important; }
+
+            /* Nav compact */
+            #nav-compact { color: white; }
+
+            /* Résumé annuel */
+            .divide-slate-50 > * + * { border-color: #2e1818 !important; }
+            .border-slate-50 { border-color: #2e1818 !important; }
+
+            /* Remboursements */
+            #refund-history .bg-white { background: #1c1010 !important; }
+
+            /* Success overlay */
+            #success-overlay { background: rgba(0,0,0,.9) !important; }
+
+            /* Confirm modal */
+            #confirm-modal { background: rgba(0,0,0,.85) !important; }
+
+            /* PTR indicator déjà rouge ok */
+
+            /* Skeleton en mode sombre */
+            .skeleton-dark {
+                background: linear-gradient(90deg, #2a1818 0%, #3a2020 40%, #2a1818 80%) !important;
+                background-size: 400px 100% !important;
+                animation: shimmer 1.4s ease-in-out infinite !important;
+            }
+
+            /* Saisie form */
+            #section-saisie .bg-white { background: #1c1010 !important; }
+            #section-saisie input, #section-saisie select { background: #2a1818 !important; }
+
+            /* Boutons dégradé rouge restent tels quels */
+            .bg-red-900, .bg-red-800, .bg-red-700 { /* inchangé */ }
         }
+
 
         /* ── GRADIENT CARDS ── */
         .card-gradient-red {
