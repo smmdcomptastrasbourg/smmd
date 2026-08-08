@@ -298,6 +298,31 @@
         }
         #confirm-modal.open #confirm-box { transform: translateY(0); }
 
+
+        /* ── NOTIFICATION PUSH IN-APP ── */
+        #push-container {
+            position: fixed; top: 12px; left: 12px; right: 12px; z-index: 300;
+            display: flex; flex-direction: column; gap: 8px;
+            pointer-events: none;
+        }
+        .push-notif {
+            background: linear-gradient(135deg, #1a0505, #7f1d1d);
+            color: white; border-radius: 20px; padding: 14px 16px;
+            display: flex; align-items: center; gap: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,.3);
+            pointer-events: all;
+            animation: pushIn .4s cubic-bezier(.4,0,.2,1) both;
+        }
+        .push-notif.hide { animation: pushOut .3s cubic-bezier(.4,0,.2,1) forwards; }
+        @keyframes pushIn  { from{opacity:0;transform:translateY(-20px) scale(.95)} to{opacity:1;transform:translateY(0) scale(1)} }
+        @keyframes pushOut { from{opacity:1;transform:translateY(0)} to{opacity:0;transform:translateY(-12px)} }
+        .push-icon { font-size: 22px; flex-shrink: 0; }
+        .push-body  { flex: 1; min-width: 0; }
+        .push-title { font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; }
+        .push-msg   { font-size: 11px; font-weight: 600; opacity: .8; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .push-close { font-size: 16px; opacity: .5; cursor: pointer; flex-shrink: 0; padding: 4px; }
+        .push-close:hover { opacity: 1; }
+
     </style>
 </head>
 <body class="text-slate-900 min-h-screen pb-6">
@@ -1483,6 +1508,8 @@
                     filter: `user_id=eq.${userProfile.id}`
                 }, payload => {
                     afficherNotif(payload.new);
+                    // Push notification
+                    showPushNotif('Remboursement', payload.new.message || 'Nouveau virement reçu', '💸');
                 })
                 .subscribe();
         }
@@ -1941,6 +1968,30 @@
                 _confirmCallback = null;
             });
         });
+
+
+        // ── NOTIFICATIONS PUSH IN-APP ──
+        function showPushNotif(title, msg, icon='🔔', duration=5000) {
+            const container = document.getElementById('push-container');
+            if (!container) return;
+            const el = document.createElement('div');
+            el.className = 'push-notif';
+            el.innerHTML = `
+                <span class="push-icon">${icon}</span>
+                <div class="push-body">
+                    <div class="push-title">${escapeHtml(title)}</div>
+                    <div class="push-msg">${escapeHtml(msg)}</div>
+                </div>
+                <span class="push-close" onclick="this.parentElement.classList.add('hide');setTimeout(()=>this.parentElement.remove(),300)">✕</span>
+            `;
+            container.appendChild(el);
+            if (duration > 0) {
+                setTimeout(() => {
+                    el.classList.add('hide');
+                    setTimeout(() => el.remove(), 300);
+                }, duration);
+            }
+        }
 
         function logout(){sb.auth.signOut().then(()=>window.location.href="index.html");}
         
