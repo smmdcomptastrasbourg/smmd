@@ -1299,7 +1299,7 @@
                                 <span class="text-[8px] uppercase font-black px-2 py-0.5 rounded-full ${t.statut==='attente'?'bg-amber-50 text-amber-500':'bg-emerald-50 text-emerald-600'}">${t.statut==='attente'?'En attente':'Validé'}</span>
                                 ${t.type==='depense' ? (t.justificatif_url
                                     ? `<span class="inline-flex items-center gap-1 mt-0.5 flex-wrap">
-                                        <a href="${escapeHtml(t.justificatif_url)}" target="_blank" class="text-[8px] font-black text-emerald-500 uppercase bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">${t.justificatif_url?.includes('.pdf') ? '📄 PDF' : '📎 Voir'}</a>
+                                        <button onclick="previewJustificatif('${escapeHtml(t.id)}','${escapeHtml(t.justificatif_url||'')}')" class="text-[8px] font-black text-emerald-500 uppercase bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 hover:bg-emerald-100">${t.justificatif_url?.includes('.pdf') ? '📄 PDF' : '📎 Voir'}</button>
                                         <button onclick="exportJustificatifUser('${escapeHtml(t.id)}','${new Date(t.created_at).toLocaleDateString('fr-FR').replace(/\//g,'-')}_${escapeHtml(t.motif||'depense')}')" class="text-[8px] font-black text-red-600 uppercase bg-red-50 px-2 py-0.5 rounded-full border border-red-100 hover:bg-red-100 transition-colors">⬇ Télécharger</button>
                                         <button onclick="ouvrirAjoutJustificatif('${escapeHtml(t.id)}')" class="text-[8px] font-black text-red-600 uppercase bg-red-50 px-2 py-0.5 rounded-full border border-red-100 hover:bg-red-100 transition-colors">🔄 Remplacer</button>
                                        </span>`
@@ -2265,6 +2265,29 @@
                 </div>`).join('');
         }
 
+
+        async function previewJustificatif(txId, justifUrl) {
+            // Try justificatif_url first (direct Storage URL — works for PDF and images)
+            if (justifUrl) {
+                window.open(justifUrl, '_blank');
+                return;
+            }
+            // Fallback: load from justificatifs_images table
+            const images = await chargerImagesJustificatif(txId);
+            if (!images.length) { showToast('Aucun justificatif disponible', 'warning'); return; }
+            const img = images[0];
+            if (img.mime_type?.includes('pdf')) {
+                const b64data = img.base64.includes(',') ? img.base64.split(',')[1] : img.base64;
+                const binary = atob(b64data);
+                const bytes = new Uint8Array(binary.length);
+                for (let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i);
+                const blob = new Blob([bytes],{type:'application/pdf'});
+                window.open(URL.createObjectURL(blob),'_blank');
+            } else {
+                window.open(img.base64,'_blank');
+            }
+        }
+
         function logout(){sb.auth.signOut().then(()=>window.location.href="index.html");}
         
 
@@ -2393,16 +2416,31 @@
                 }
                 const cleanLabel = label.replace(/[^a-zA-Z0-9]/g, '_');
                 if (images.length === 1) {
-                    const a = document.createElement('a');
-                    a.href = images[0].base64;
-                    const ext = images[0].mime_type?.includes('pdf') ? 'pdf' : images[0].mime_type?.includes('png') ? 'png' : 'jpg';
-                    a.download = `Justificatif_${cleanLabel}.${ext}`;
-                    a.click();
+                    const img = images[0];
+                    const ext = img.mime_type?.includes('pdf') ? 'pdf' : img.mime_type?.includes('png') ? 'png' : 'jpg';
+                    if (img.mime_type?.includes('pdf')) {
+                        // PDF — convertir base64 en blob pour mobile
+                        const b64data = img.base64.split(',')[1];
+                        const binary = atob(b64data);
+                        const bytes = new Uint8Array(binary.length);
+                        for (let i=0; i<binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                        const blob = new Blob([bytes], {type:'application/pdf'});
+                        const url = URL.createObjectURL(blob);
+                        window.open(url, '_blank');
+                        setTimeout(() => URL.revokeObjectURL(url), 10000);
+                    } else {
+                        const a = document.createElement('a');
+                        a.href = img.base64;
+                        a.download = `Justificatif_${cleanLabel}.${ext}`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                    }
                 } else {
                     const zip = new JSZip();
                     images.forEach((img, i) => {
                         const ext = img.mime_type?.includes('pdf') ? 'pdf' : img.mime_type?.includes('png') ? 'png' : 'jpg';
-                        const b64 = img.base64.split(',')[1];
+                        const b64 = img.base64 && img.base64.includes(',') ? img.base64.split(',')[1] : img.base64;
                         zip.file(`fichier_${i+1}.${ext}`, b64, { base64: true });
                     });
                     const blob = await zip.generateAsync({ type: 'blob' });
