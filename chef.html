@@ -1319,7 +1319,7 @@
                                 <span class="text-[8px] uppercase font-black px-2 py-0.5 rounded-full ${t.statut==='attente'?'bg-amber-50 text-amber-500':'bg-emerald-50 text-emerald-600'}">${t.statut==='attente'?'En attente':'Validé'}</span>
                                 ${t.type==='depense' ? (t.justificatif_url
                                     ? `<span class="inline-flex items-center gap-1 mt-0.5">
-                                        <a href="${escapeHtml(t.justificatif_url)}" target="_blank" class="text-[8px] font-black text-emerald-500 uppercase bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">${t.justificatif_url?.includes('.pdf') ? '📄 PDF' : '📎 Voir'}</a>
+                                        <button onclick="previewJustificatif('${escapeHtml(t.id)}','${escapeHtml(t.justificatif_url||'')}')" class="text-[8px] font-black text-emerald-500 uppercase bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 hover:bg-emerald-100">${t.justificatif_url?.includes('.pdf') ? '📄 PDF' : '📎 Voir'}</button>
                                         <button onclick="ouvrirAjoutJustificatif('${escapeHtml(t.id)}')" class="text-[8px] font-black text-red-600 uppercase bg-red-50 px-2 py-0.5 rounded-full border border-red-100 hover:bg-red-100 transition-colors">🔄 Remplacer</button>
                                        </span>`
                                     : `<button onclick="ouvrirAjoutJustificatif('${escapeHtml(t.id)}')" class="mt-0.5 text-[8px] font-black text-amber-500 uppercase bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100 hover:bg-amber-100 transition-colors">📎 Ajouter justificatif</button>`)
@@ -2644,6 +2644,29 @@
                         <div class="skeleton-dark h-4 w-16 rounded-lg"></div>
                     </div>
                 </div>`).join('');
+        }
+
+
+        async function previewJustificatif(txId, justifUrl) {
+            // Try justificatif_url first (direct Storage URL — works for PDF and images)
+            if (justifUrl) {
+                window.open(justifUrl, '_blank');
+                return;
+            }
+            // Fallback: load from justificatifs_images table
+            const images = await chargerImagesJustificatif(txId);
+            if (!images.length) { showToast('Aucun justificatif disponible', 'warning'); return; }
+            const img = images[0];
+            if (img.mime_type?.includes('pdf')) {
+                const b64data = img.base64.includes(',') ? img.base64.split(',')[1] : img.base64;
+                const binary = atob(b64data);
+                const bytes = new Uint8Array(binary.length);
+                for (let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i);
+                const blob = new Blob([bytes],{type:'application/pdf'});
+                window.open(URL.createObjectURL(blob),'_blank');
+            } else {
+                window.open(img.base64,'_blank');
+            }
         }
 
         function logout(){sb.auth.signOut().then(()=>location.href='index.html');}
