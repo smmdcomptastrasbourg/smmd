@@ -2647,27 +2647,113 @@
         }
 
 
+
+        // ── VIEWER JUSTIFICATIFS ──
+        let _viewerImages = [];
+        let _viewerIdx = 0;
+
         async function previewJustificatif(txId, justifUrl) {
-            // Try justificatif_url first (direct Storage URL — works for PDF and images)
-            if (justifUrl) {
-                window.open(justifUrl, '_blank');
+            const images = await chargerImagesJustificatif(txId);
+
+            if (!images.length) {
+                // Pas d'images en base — ouvrir l'URL Storage si disponible
+                if (justifUrl) {
+                    window.open(justifUrl, '_blank');
+                } else {
+                    showToast('Aucun justificatif disponible', 'warning');
+                }
                 return;
             }
-            // Fallback: load from justificatifs_images table
-            const images = await chargerImagesJustificatif(txId);
-            if (!images.length) { showToast('Aucun justificatif disponible', 'warning'); return; }
-            const img = images[0];
-            if (img.mime_type?.includes('pdf')) {
-                const b64data = img.base64.includes(',') ? img.base64.split(',')[1] : img.base64;
-                const binary = atob(b64data);
-                const bytes = new Uint8Array(binary.length);
-                for (let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i);
-                const blob = new Blob([bytes],{type:'application/pdf'});
-                window.open(URL.createObjectURL(blob),'_blank');
+
+            _viewerImages = images;
+            _viewerIdx = 0;
+            ouvrirViewer(0);
+        }
+
+        function ouvrirViewer(idx) {
+            _viewerIdx = idx;
+            const img = _viewerImages[idx];
+            const modal = document.getElementById('viewer-modal');
+            const title = document.getElementById('viewer-title');
+            const nav = document.getElementById('viewer-nav');
+            const counter = document.getElementById('viewer-counter');
+
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+
+            // Title
+            title.textContent = `Justificatif ${_viewerImages.length > 1 ? `(${idx+1}/${_viewerImages.length})` : ''}`;
+
+            // Navigation
+            if (_viewerImages.length > 1) {
+                nav.classList.remove('hidden');
+                counter.textContent = `${idx+1} / ${_viewerImages.length}`;
             } else {
-                window.open(img.base64,'_blank');
+                nav.classList.add('hidden');
+            }
+
+            // Show correct viewer
+            const isPdf = img.mime_type?.includes('pdf');
+            document.getElementById('viewer-img-container').classList.toggle('hidden', isPdf);
+            document.getElementById('viewer-pdf-container').classList.toggle('hidden', !isPdf);
+
+            if (isPdf) {
+                // PDF — bouton télécharger
+                document.getElementById('viewer-pdf-download').onclick = () => telechargerJustificatif(img);
+                document.getElementById('viewer-download').onclick = () => telechargerJustificatif(img);
+            } else {
+                // Image
+                document.getElementById('viewer-img').src = img.base64;
+                document.getElementById('viewer-download').onclick = () => telechargerJustificatif(img);
             }
         }
+
+        function viewerNav(dir) {
+            const newIdx = _viewerIdx + dir;
+            if (newIdx >= 0 && newIdx < _viewerImages.length) {
+                ouvrirViewer(newIdx);
+            }
+        }
+
+        function fermerViewer() {
+            document.getElementById('viewer-modal').classList.add('hidden');
+            document.getElementById('viewer-img').src = '';
+            document.body.style.overflow = '';
+        }
+
+        function telechargerJustificatif(img) {
+            const ext = img.mime_type?.includes('pdf') ? 'pdf' : img.mime_type?.includes('png') ? 'png' : 'jpg';
+            const b64 = img.base64.includes(',') ? img.base64.split(',')[1] : img.base64;
+            const mime = img.mime_type || 'image/jpeg';
+
+            try {
+                const binary = atob(b64);
+                const bytes = new Uint8Array(binary.length);
+                for (let i=0; i<binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                const blob = new Blob([bytes], {type: mime});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `justificatif_${Date.now()}.${ext}`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(url), 5000);
+            } catch(e) {
+                // Fallback — data URI direct
+                const a = document.createElement('a');
+                a.href = img.base64;
+                a.download = `justificatif_${Date.now()}.${ext}`;
+                a.click();
+            }
+        }
+
+        // Fermer viewer avec swipe down ou Escape
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') fermerViewer();
+            if (e.key === 'ArrowLeft') viewerNav(-1);
+            if (e.key === 'ArrowRight') viewerNav(1);
+        });
 
         function logout(){sb.auth.signOut().then(()=>location.href='index.html');}
 
@@ -2816,6 +2902,40 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
         </svg>
     </button>
+
+    <!-- MODAL VIEWER JUSTIFICATIF -->
+    <div id="viewer-modal" class="hidden fixed inset-0 z-[300] flex flex-col" style="background:#000">
+        <div class="flex items-center justify-between px-4 py-3" style="background:#1c1010">
+            <p id="viewer-title" class="text-white font-black text-[12px] uppercase tracking-widest truncate flex-1"></p>
+            <div class="flex gap-3 ml-3">
+                <button id="viewer-download" class="text-white/70 hover:text-white text-[11px] font-black uppercase">⬇ Télécharger</button>
+                <button onclick="fermerViewer()" class="text-white/70 hover:text-white text-[22px] leading-none">✕</button>
+            </div>
+        </div>
+        <div class="flex-1 relative overflow-hidden">
+            <!-- Image viewer -->
+            <div id="viewer-img-container" class="hidden w-full h-full flex items-center justify-center overflow-auto" style="background:#111">
+                <img id="viewer-img" class="max-w-full object-contain" style="max-height:100vh">
+            </div>
+            <!-- PDF viewer -->
+            <div id="viewer-pdf-container" class="hidden w-full h-full flex flex-col items-center justify-center" style="background:#2a1818">
+                <div class="text-center p-8">
+                    <div class="text-6xl mb-4">📄</div>
+                    <p class="text-white font-black text-[16px] mb-2">Document PDF</p>
+                    <p class="text-white/50 text-[11px] mb-6">Les PDF ne peuvent pas être affichés directement dans l'app</p>
+                    <button id="viewer-pdf-download" class="bg-red-800 text-white font-black px-8 py-4 rounded-2xl uppercase text-[12px] tracking-widest active:scale-95">
+                        ⬇ Télécharger le PDF
+                    </button>
+                </div>
+            </div>
+            <!-- Multi-images navigation -->
+            <div id="viewer-nav" class="hidden absolute bottom-4 left-0 right-0 flex justify-center gap-3 items-center">
+                <button id="viewer-prev" onclick="viewerNav(-1)" class="w-10 h-10 bg-black/50 text-white rounded-full flex items-center justify-center text-lg">‹</button>
+                <span id="viewer-counter" class="text-white text-[11px] font-black bg-black/50 px-3 py-1 rounded-full"></span>
+                <button id="viewer-next" onclick="viewerNav(1)" class="w-10 h-10 bg-black/50 text-white rounded-full flex items-center justify-center text-lg">›</button>
+            </div>
+        </div>
+    </div>
 
 </body>
 </html>
