@@ -2557,17 +2557,15 @@
             okBtn.className = `flex-1 ${danger ? 'bg-red-600' : 'bg-red-800'} text-white font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95 shadow-lg`;
             document.getElementById('confirm-modal').classList.add('open');
         }
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('confirm-ok').addEventListener('click', () => {
-                document.getElementById('confirm-modal').classList.remove('open');
-                vibrate([8]);
+        function _confirmOk() {
+            document.getElementById('confirm-modal').classList.remove('open');
+            vibrate([8]);
             if (_confirmCallback) { _confirmCallback(); _confirmCallback = null; }
-            });
-            document.getElementById('confirm-cancel').addEventListener('click', () => {
-                document.getElementById('confirm-modal').classList.remove('open');
-                _confirmCallback = null;
-            });
-        });
+        }
+        function _confirmCancel() {
+            document.getElementById('confirm-modal').classList.remove('open');
+            _confirmCallback = null;
+        }
 
 
         // ── NOTIFICATIONS PUSH IN-APP ──
