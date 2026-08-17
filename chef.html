@@ -2935,5 +2935,17 @@
         </div>
     </div>
 
+    <!-- MODAL CONFIRMATION CUSTOM -->
+    <div id="confirm-modal">
+        <div id="confirm-box">
+            <p id="confirm-icon" class="text-center text-4xl mb-3"></p>
+            <p id="confirm-msg" class="text-[14px] font-black text-center text-slate-800 mb-6 leading-snug"></p>
+            <div class="flex gap-3">
+                <button id="confirm-cancel" onclick="_confirmCancel()" class="flex-1 bg-slate-100 text-slate-500 font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95 transition-all">Annuler</button>
+                <button id="confirm-ok" onclick="_confirmOk()" class="flex-1 bg-red-600 text-white font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95 shadow-lg transition-all">Confirmer</button>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
