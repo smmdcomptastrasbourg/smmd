@@ -409,6 +409,76 @@ function souscriptionRealtime() {
 
 function souscriptionMessages(convId) {}
 
+
+// ── MENU ACTION (appui long sur ses propres messages) ──
+let _longPressTimer = null;
+let _actionMsgId   = null;
+let _actionMsgText = null;
+
+function startLongPress(msgId, msgText) {
+    _longPressTimer = setTimeout(() => {
+        if (navigator.vibrate) navigator.vibrate(15);
+        ouvrirActionMenu(msgId, msgText);
+    }, 600);
+}
+function cancelLongPress() {
+    clearTimeout(_longPressTimer);
+}
+
+function ouvrirActionMenu(msgId, msgText) {
+    _actionMsgId   = msgId;
+    _actionMsgText = msgText;
+    const preview = document.getElementById('msg-action-preview');
+    if (preview) preview.textContent = msgText || '(media)';
+    const editBtn = document.getElementById('btn-edit-msg');
+    if (editBtn) editBtn.style.display = msgText ? 'flex' : 'none';
+    document.getElementById('msg-action-menu').style.display = 'block';
+}
+function fermerActionMenu() {
+    document.getElementById('msg-action-menu').style.display = 'none';
+    _actionMsgId = null;
+}
+
+function confirmerSuppressionMsg() {
+    const id = _actionMsgId;
+    fermerActionMenu();
+    showConfirm('Supprimer ce message ?', async () => {
+        await sb.from('messages')
+            .update({ deleted_at: new Date().toISOString(), contenu: null, media_base64: null })
+            .eq('id', id).eq('sender_id', userProfile.id);
+    }, 'Supprimer', true);
+}
+
+// ── MODIFIER MESSAGE ──
+function ouvrirEditionMsg() {
+    const text = _actionMsgText;
+    const id   = _actionMsgId;
+    fermerActionMenu();
+    _actionMsgId   = id;   // restore after fermerActionMenu nulled it
+    _actionMsgText = text;
+    const input = document.getElementById('edit-msg-input');
+    if (input) input.value = text || '';
+    document.getElementById('msg-edit-modal').style.display = 'block';
+    if (input) input.focus();
+}
+function fermerEditionMsg() {
+    document.getElementById('msg-edit-modal').style.display = 'none';
+}
+async function sauvegarderEditionMsg() {
+    const input   = document.getElementById('edit-msg-input');
+    const newText = input?.value.trim();
+    if (!newText) { showToast('Le message ne peut pas être vide', 'warning'); return; }
+    if (newText === _actionMsgText) { fermerEditionMsg(); return; }
+    const { error } = await sb.from('messages')
+        .update({ contenu: newText })
+        .eq('id', _actionMsgId)
+        .eq('sender_id', userProfile.id);
+    if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+    fermerEditionMsg();
+    await chargerMessages();
+    showToast('Message modifié ✓', 'success');
+}
+
 // ── INIT ──
 async function init() {
     const { data: { user } } = await sb.auth.getUser();
@@ -797,9 +867,6 @@ function _viewMedia(msgId, type) {
     if (type === 'image') voirImage(base64);
     else telechargerPDF(base64, 'document.pdf');
 }
-
-let _longPressTimer = null;
-        function cancelLongPress() { clearTimeout(_longPressTimer); }
 
 
 function souscriptionMessages(convId) {
