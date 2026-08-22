@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>SMMD — Messages</title>
+<link rel="icon" href="./icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#7f1d1d">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,700;0,900;1,900&display=swap');
+*{-webkit-tap-highlight-color:transparent;box-sizing:border-box;}
+body{font-family:'Inter',sans-serif;background:#f1f5f9;overscroll-behavior:none;}
+
+/* DARK MODE */
+@media(prefers-color-scheme:dark){
+  body{background:#0f0a0a;}
+  #screen-list{background:#0f0a0a;}
+  #screen-chat{background:#1a0a0a;}
+  .conv-item{background:#1c1010;border-color:#2e1818;}
+  .conv-item:active{background:#2a1818;}
+  .conv-name{color:#f0e8e8;}
+  .conv-last{color:#886060;}
+  .conv-time{color:#886060;}
+  #chat-header{background:linear-gradient(135deg,#4c0d0d,#7f1d1d);}
+  #msg-input-bar{background:#1c1010;border-color:#2e1818;}
+  #msg-input{background:#2a1818;color:#f0e8e8;}
+  #msg-input::placeholder{color:#705050;}
+  .msg-other{background:#2a1818;color:#f0e8e8;}
+  .msg-time-other{color:#705050;}
+  .no-conv{color:#705050;}
+  .search-input{background:#2a1818;color:#f0e8e8;border-color:#3a2020;}
+  .section-title{color:#886060;}
+  .new-conv-btn{background:#2a1818;border-color:#3a2020;color:#f0e8e8;}
+  .media-preview-bar{background:#1c1010;border-color:#2e1818;}
+}
+
+/* SCREENS */
+#screen-list,#screen-chat{position:fixed;inset:0;display:flex;flex-direction:column;transition:transform .3s cubic-bezier(.4,0,.2,1);}
+#screen-chat{transform:translateX(100%);}
+#screen-chat.active{transform:translateX(0);}
+
+/* HEADER */
+.chat-header{
+  background:linear-gradient(135deg,#7f1d1d,#991b1b);
+  padding:12px 16px;
+  padding-top:max(12px,env(safe-area-inset-top));
+  color:white;flex-shrink:0;
+}
+
+/* CONV LIST */
+.conv-item{
+  display:flex;align-items:center;gap:12px;
+  background:white;border-bottom:1px solid #f1f5f9;
+  padding:14px 16px;cursor:pointer;transition:background .15s;
+}
+.conv-item:active{background:#fef2f2;}
+.conv-avatar{
+  width:48px;height:48px;border-radius:50%;
+  background:linear-gradient(135deg,#7f1d1d,#991b1b);
+  display:flex;align-items:center;justify-content:center;
+  color:white;font-weight:900;font-size:18px;flex-shrink:0;
+}
+.conv-name{font-weight:900;font-size:14px;color:#1e293b;}
+.conv-last{font-size:12px;color:#94a3b8;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;}
+.conv-time{font-size:10px;color:#94a3b8;font-weight:700;flex-shrink:0;}
+.conv-badge{background:#991b1b;color:white;font-size:10px;font-weight:900;min-width:20px;height:20px;border-radius:99px;display:flex;align-items:center;justify-content:center;padding:0 5px;flex-shrink:0;}
+
+/* MESSAGES */
+#messages-list{flex:1;overflow-y:auto;padding:16px 12px;display:flex;flex-direction:column;gap:6px;}
+.msg-row{display:flex;flex-direction:column;max-width:78%;}
+.msg-row.mine{align-self:flex-end;align-items:flex-end;}
+.msg-row.other{align-self:flex-start;align-items:flex-start;}
+.msg-bubble{
+  padding:10px 14px;border-radius:20px;
+  font-size:14px;font-weight:500;line-height:1.4;
+  word-break:break-word;position:relative;
+}
+.msg-row.mine .msg-bubble{
+  background:linear-gradient(135deg,#991b1b,#7f1d1d);
+  color:white;border-bottom-right-radius:4px;
+}
+.msg-row.other .msg-bubble{
+  background:white;color:#1e293b;
+  border-bottom-left-radius:4px;
+  box-shadow:0 1px 4px rgba(0,0,0,.08);
+}
+.msg-meta{display:flex;align-items:center;gap:4px;margin-top:2px;padding:0 4px;}
+.msg-time{font-size:10px;color:#94a3b8;font-weight:700;}
+.msg-time-other{font-size:10px;color:#94a3b8;font-weight:700;}
+.msg-check{font-size:11px;}
+.msg-check.read{color:#3b82f6;}
+.msg-check.sent{color:#94a3b8;}
+
+/* Deleted message */
+.msg-deleted{font-style:italic;opacity:.5;}
+
+/* Media in message */
+.msg-img{max-width:220px;border-radius:12px;cursor:pointer;display:block;margin-bottom:4px;}
+.msg-pdf{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.15);padding:8px 12px;border-radius:12px;cursor:pointer;margin-bottom:4px;}
+.msg-pdf-icon{font-size:24px;}
+.msg-pdf-name{font-size:12px;font-weight:700;}
+
+/* Date separator */
+.date-sep{text-align:center;margin:12px 0;}
+.date-sep span{background:#e2e8f0;color:#64748b;font-size:11px;font-weight:700;padding:4px 12px;border-radius:99px;}
+
+/* INPUT BAR */
+#msg-input-bar{
+  background:white;border-top:1px solid #f1f5f9;
+  padding:10px 12px;padding-bottom:max(10px,env(safe-area-inset-bottom));
+  display:flex;align-items:flex-end;gap-8px;flex-shrink:0;gap:8px;
+}
+#msg-input{
+  flex:1;background:#f8fafc;border:1.5px solid #e2e8f0;
+  border-radius:24px;padding:10px 16px;font-size:14px;
+  outline:none;resize:none;max-height:120px;font-family:inherit;
+  transition:border-color .2s;
+}
+#msg-input:focus{border-color:#fca5a5;}
+.btn-attach{width:40px;height:40px;border-radius:50%;background:#f1f5f9;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;transition:background .15s;}
+.btn-attach:active{background:#fee2e2;}
+.btn-send{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#991b1b,#7f1d1d);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform .15s;}
+.btn-send:active{transform:scale(.9);}
+
+/* Media preview bar */
+.media-preview-bar{background:white;border-top:1px solid #f1f5f9;padding:8px 16px;display:flex;align-items:center;gap:8px;}
+.media-thumb{width:48px;height:48px;object-fit:cover;border-radius:8px;}
+.media-pdf-thumb{width:48px;height:48px;background:#fee2e2;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:22px;}
+
+/* Search */
+.search-input{width:100%;padding:10px 16px;border:1.5px solid #e2e8f0;border-radius:16px;font-size:13px;outline:none;background:#f8fafc;font-family:inherit;}
+
+/* Typing indicator */
+.typing-indicator{display:flex;gap:4px;padding:10px 14px;background:white;border-radius:20px;width:60px;}
+.typing-dot{width:8px;height:8px;background:#94a3b8;border-radius:50%;animation:typingBounce 1.2s infinite;}
+.typing-dot:nth-child(2){animation-delay:.2s;}
+.typing-dot:nth-child(3){animation-delay:.4s;}
+@keyframes typingBounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
+
+/* New conv modal */
+.new-conv-btn{display:flex;align-items:center;gap:12px;background:white;border:1.5px solid #f1f5f9;padding:12px 16px;border-radius:16px;cursor:pointer;transition:background .15s;width:100%;}
+.new-conv-btn:active{background:#fef2f2;}
+
+/* Swipe to delete message */
+.msg-long-press{position:relative;}
+
+/* FAB back */
+@keyframes slideInRight{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+.anim-slide{animation:slideInRight .3s cubic-bezier(.4,0,.2,1) both;}
+
+/* Image viewer */
+#img-viewer{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.95);display:flex;align-items:center;justify-content:center;}
+#img-viewer img{max-width:100%;max-height:100%;object-fit:contain;}
+</style>
+</head>
+<body>
+
+<!-- ══ SCREEN 1 : LISTE DES CONVERSATIONS ══ -->
+<div id="screen-list">
+  <!-- Header -->
+  <div class="chat-header flex items-center gap-3">
+    <button onclick="retourApp()" class="text-white/70 hover:text-white transition-colors p-1">
+      <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+    </button>
+    <div class="flex-1">
+      <h1 class="font-black text-[17px] tracking-tight">Messages</h1>
+      <p id="header-subtitle" class="text-white/50 text-[10px] font-bold uppercase tracking-widest"></p>
+    </div>
+    <button onclick="ouvrirNouvelleConv()" class="w-9 h-9 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors" title="Nouvelle conversation">
+      <svg width="18" height="18" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+    </button>
+  </div>
+
+  <!-- Search -->
+  <div class="px-4 py-3 bg-white border-b border-slate-100 flex-shrink-0" id="search-bar-container">
+    <input type="text" id="search-input" class="search-input" placeholder="Rechercher..." oninput="filterConversations(this.value)">
+  </div>
+
+  <!-- Liste conversations -->
+  <div id="conv-list" class="flex-1 overflow-y-auto">
+    <div class="text-center py-16">
+      <div class="w-8 h-8 border-2 border-slate-200 border-t-red-700 rounded-full animate-spin mx-auto mb-3"></div>
+      <p class="text-[11px] text-slate-400 font-bold uppercase">Chargement...</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SCREEN 2 : CONVERSATION ══ -->
+<div id="screen-chat">
+  <!-- Header conversation -->
+  <div id="chat-header" class="chat-header flex items-center gap-3">
+    <button onclick="retourListe()" class="text-white/70 hover:text-white transition-colors p-1">
+      <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+    </button>
+    <div id="chat-avatar" class="conv-avatar" style="width:38px;height:38px;font-size:14px;flex-shrink:0;"></div>
+    <div class="flex-1 min-w-0">
+      <p id="chat-name" class="font-black text-[15px] truncate"></p>
+      <p id="chat-role" class="text-white/50 text-[10px] font-bold uppercase tracking-widest"></p>
+    </div>
+  </div>
+
+  <!-- Messages -->
+  <div id="messages-list"></div>
+
+  <!-- Media preview bar (hidden by default) -->
+  <div id="media-preview-bar" class="media-preview-bar hidden">
+    <div id="media-thumb-container"></div>
+    <div class="flex-1 min-w-0">
+      <p id="media-name" class="text-[12px] font-bold text-slate-700 truncate"></p>
+      <p id="media-size" class="text-[10px] text-slate-400"></p>
+    </div>
+    <button onclick="annulerMedia()" class="text-slate-400 hover:text-red-500 text-xl transition-colors">✕</button>
+  </div>
+
+  <!-- Input bar -->
+  <div id="msg-input-bar">
+    <label class="btn-attach" title="Joindre image/PDF">
+      <span>📎</span>
+      <input type="file" class="hidden" id="file-input" accept="image/*,application/pdf" onchange="attacherFichier(this)">
+    </label>
+    <textarea id="msg-input" rows="1" placeholder="Message..." oninput="autoResize(this);envoyerTyping()" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();envoyerMessage();}"></textarea>
+    <button class="btn-send" onclick="envoyerMessage()">
+      <svg width="18" height="18" fill="white" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- MODAL NOUVELLE CONVERSATION -->
+<div id="new-conv-modal" class="hidden fixed inset-0 z-50 flex items-end justify-center p-4">
+  <div class="absolute inset-0 bg-slate-900/70 backdrop-blur-sm" onclick="fermerNouvelleConv()"></div>
+  <div class="relative bg-white rounded-[32px] w-full max-w-sm shadow-2xl p-6 pb-8">
+    <div class="h-1 w-10 bg-slate-200 rounded-full mx-auto mb-5"></div>
+    <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-4">Nouvelle conversation</p>
+    <input type="text" id="search-contacts" class="search-input mb-4" placeholder="Rechercher un contact..." oninput="filterContacts(this.value)">
+    <div id="contacts-list" class="space-y-2 max-h-64 overflow-y-auto"></div>
+  </div>
+</div>
+
+<!-- MODAL CONFIRM -->
+<div id="confirm-modal" class="hidden fixed inset-0 z-[200] flex items-end justify-center p-4">
+  <div class="absolute inset-0 bg-slate-900/70 backdrop-blur-sm" onclick="_confirmCancel()"></div>
+  <div id="confirm-box" class="relative bg-white rounded-[32px] w-full max-w-sm shadow-2xl p-6">
+    <p id="confirm-icon" class="text-center text-3xl mb-3"></p>
+    <p id="confirm-msg" class="text-[13px] font-bold text-center text-slate-800 mb-5"></p>
+    <div class="flex gap-3">
+      <button onclick="_confirmCancel()" class="flex-1 bg-slate-100 text-slate-500 font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest">Annuler</button>
+      <button id="confirm-ok" onclick="_confirmOk()" class="flex-1 bg-red-600 text-white font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest shadow-lg">Confirmer</button>
+    </div>
+  </div>
+</div>
+
+<!-- IMAGE VIEWER -->
+<div id="img-viewer" class="hidden" onclick="this.classList.add('hidden')">
+  <img id="img-viewer-src" src="">
+</div>
+
+<script>
+const sb = supabase.createClient(SMMD_CONFIG.url, SMMD_CONFIG.key);
+
+let userProfile = null;
+let allProfiles = [];
+let conversations = [];
+let filteredConvs = [];
+let currentConvId = null;
+let currentOtherId = null;
+let currentOtherProfile = null;
+let pendingMedia = null;
+let realtimeSub = null;
+let _confirmCallback = null;
+
+// ── INIT ──
+async function init() {
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) { window.location.href = 'index.html'; return; }
+
+    const { data: profile } = await sb.from('profiles')
+        .select('*').eq('id', user.id).maybeSingle();
+    userProfile = profile;
+    document.getElementById('header-subtitle').textContent =
+        `${profile.prenom} ${profile.nom} — ${profile.role}`;
+
+    // Charger tous les profils (pour nouvelle conv)
+    const { data: profiles } = await sb.from('profiles')
+        .select('id,prenom,nom,role,maison_id')
+        .neq('id', user.id)
+        .order('prenom');
+    allProfiles = profiles || [];
+
+    await chargerConversations();
+    souscriptionRealtime();
+}
+
+// ── CONVERSATIONS ──
+async function chargerConversations() {
+    const { data } = await sb.from('conversations')
+        .select(`
+            *,
+            user1:profiles!conversations_user1_id_fkey(id,prenom,nom,role),
+            user2:profiles!conversations_user2_id_fkey(id,prenom,nom,role)
+        `)
+        .or(`user1_id.eq.${userProfile.id},user2_id.eq.${userProfile.id}`)
+        .order('last_message_at', { ascending: false });
+
+    conversations = data || [];
+
+    // Charger dernier message + nb non lus pour chaque conv
+    for (const conv of conversations) {
+        const { data: msgs } = await sb.from('messages')
+            .select('contenu,type,created_at,lu,sender_id,deleted_at')
+            .eq('conversation_id', conv.id)
+            .order('created_at', { ascending: false })
+            .limit(1);
+        conv._lastMsg = msgs?.[0] || null;
+
+        const { count } = await sb.from('messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('conversation_id', conv.id)
+            .eq('lu', false)
+            .neq('sender_id', userProfile.id)
+            .is('deleted_at', null);
+        conv._unread = count || 0;
+    }
+
+    filteredConvs = [...conversations];
+    renderConversations();
+}
+
+function renderConversations() {
+    const el = document.getElementById('conv-list');
+    if (!filteredConvs.length) {
+        el.innerHTML = `<div class="text-center py-16">
+            <div class="text-5xl mb-3">💬</div>
+            <p class="text-[13px] font-black text-slate-400 uppercase tracking-widest">Aucune conversation</p>
+            <p class="text-[11px] text-slate-300 mt-1">Appuyez sur + pour démarrer</p>
+        </div>`;
+        return;
+    }
+    el.innerHTML = filteredConvs.map(conv => {
+        const other = conv.user1_id === userProfile.id ? conv.user2 : conv.user1;
+        const initials = `${other.prenom[0]}${(other.nom||'')[0]||''}`.toUpperCase();
+        const lastMsg = conv._lastMsg;
+        let lastText = 'Commencer la conversation';
+        if (lastMsg) {
+            if (lastMsg.deleted_at) lastText = '🚫 Message supprimé';
+            else if (lastMsg.type === 'image') lastText = '📷 Image';
+            else if (lastMsg.type === 'pdf') lastText = '📄 PDF';
+            else lastText = lastMsg.contenu || '';
+            if (lastText.length > 40) lastText = lastText.slice(0, 40) + '...';
+        }
+        const time = lastMsg ? formatTime(lastMsg.created_at) : '';
+        const unread = conv._unread > 0;
+
+        return `<div class="conv-item" onclick="ouvrirConversation('${conv.id}','${other.id}')">
+            <div class="conv-avatar">${initials}</div>
+            <div class="flex-1 min-w-0">
+                <div class="flex justify-between items-center">
+                    <span class="conv-name ${unread ? 'font-black' : ''}">${escapeHtml(other.prenom)} ${escapeHtml(other.nom||'')}</span>
+                    <span class="conv-time ml-2">${time}</span>
+                </div>
+                <div class="flex justify-between items-center mt-0.5">
+                    <span class="conv-last ${unread ? 'font-bold text-slate-700' : ''}">${escapeHtml(lastText)}</span>
+                    ${unread ? `<span class="conv-badge ml-2">${conv._unread}</span>` : ''}
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function filterConversations(q) {
+    if (!q.trim()) { filteredConvs = [...conversations]; }
+    else {
+        const sq = q.toLowerCase();
+        filteredConvs = conversations.filter(conv => {
+            const other = conv.user1_id === userProfile.id ? conv.user2 : conv.user1;
+            return `${other.prenom} ${other.nom}`.toLowerCase().includes(sq);
+        });
+    }
+    renderConversations();
+}
+
+// ── NOUVELLE CONVERSATION ──
+function ouvrirNouvelleConv() {
+    document.getElementById('new-conv-modal').classList.remove('hidden');
+    document.getElementById('search-contacts').value = '';
+    renderContacts(allProfiles);
+}
+function fermerNouvelleConv() {
+    document.getElementById('new-conv-modal').classList.add('hidden');
+}
+function filterContacts(q) {
+    const sq = q.toLowerCase();
+    renderContacts(allProfiles.filter(p =>
+        `${p.prenom} ${p.nom}`.toLowerCase().includes(sq)
+    ));
+}
+function renderContacts(profiles) {
+    const el = document.getElementById('contacts-list');
+    if (!profiles.length) {
+        el.innerHTML = '<p class="text-center text-slate-400 text-[12px] py-4">Aucun contact trouvé</p>';
+        return;
+    }
+    const ROLES = { chef: '👑 Chef', admin: '⚙️ Admin', user: '👤 Membre' };
+    el.innerHTML = profiles.map(p => {
+        const initials = `${p.prenom[0]}${(p.nom||'')[0]||''}`.toUpperCase();
+        return `<button class="new-conv-btn" onclick="demarrerConversation('${p.id}')">
+            <div class="conv-avatar" style="width:38px;height:38px;font-size:14px;flex-shrink:0">${initials}</div>
+            <div class="text-left">
+                <p class="font-black text-[13px] text-slate-800">${escapeHtml(p.prenom)} ${escapeHtml(p.nom||'')}</p>
+                <p class="text-[10px] text-slate-400 font-bold">${ROLES[p.role]||p.role}</p>
+            </div>
+        </button>`;
+    }).join('');
+}
+
+async function demarrerConversation(otherId) {
+    fermerNouvelleConv();
+    // Chercher conv existante
+    const existing = conversations.find(c =>
+        (c.user1_id === userProfile.id && c.user2_id === otherId) ||
+        (c.user2_id === userProfile.id && c.user1_id === otherId)
+    );
+    if (existing) {
+        ouvrirConversation(existing.id, otherId);
+        return;
+    }
+    // Créer nouvelle conv
+    const u1 = userProfile.id < otherId ? userProfile.id : otherId;
+    const u2 = userProfile.id < otherId ? otherId : userProfile.id;
+    const { data, error } = await sb.from('conversations')
+        .insert([{ user1_id: u1, user2_id: u2 }])
+        .select().single();
+    if (error) { showToast('Erreur création conversation', 'error'); return; }
+    await chargerConversations();
+    ouvrirConversation(data.id, otherId);
+}
+
+// ── OUVRIR CONVERSATION ──
+async function ouvrirConversation(convId, otherId) {
+    currentConvId = convId;
+    currentOtherId = otherId;
+    currentOtherProfile = allProfiles.find(p => p.id === otherId);
+
+    const ROLES = { chef: 'Chef de maison', admin: 'Administrateur', user: 'Membre' };
+    const initials = currentOtherProfile
+        ? `${currentOtherProfile.prenom[0]}${(currentOtherProfile.nom||'')[0]||''}`.toUpperCase()
+        : '?';
+
+    document.getElementById('chat-avatar').textContent = initials;
+    document.getElementById('chat-name').textContent =
+        currentOtherProfile ? `${currentOtherProfile.prenom} ${currentOtherProfile.nom||''}` : '';
+    document.getElementById('chat-role').textContent =
+        currentOtherProfile ? ROLES[currentOtherProfile.role]||'' : '';
+
+    document.getElementById('screen-chat').classList.add('active');
+    document.getElementById('msg-input').focus();
+
+    await chargerMessages();
+    marquerLu(convId);
+    souscriptionMessages(convId);
+}
+
+function retourListe() {
+    document.getElementById('screen-chat').classList.remove('active');
+    currentConvId = null;
+    if (realtimeSub?.channel) {
+        sb.removeChannel(realtimeSub.channel);
+        realtimeSub = null;
+    }
+    chargerConversations();
+}
+
+function retourApp() {
+    const from = localStorage.getItem('smmd_chat_from') || 'user.html';
+    window.location.href = from;
+}
+
+// ── MESSAGES ──
+async function chargerMessages() {
+    const list = document.getElementById('messages-list');
+    list.innerHTML = `<div class="text-center py-8">
+        <div class="w-6 h-6 border-2 border-slate-200 border-t-red-700 rounded-full animate-spin mx-auto"></div>
+    </div>`;
+
+    const { data } = await sb.from('messages')
+        .select('*')
+        .eq('conversation_id', currentConvId)
+        .order('created_at', { ascending: true });
+
+    renderMessages(data || []);
+    scrollBas();
+}
+
+function renderMessages(msgs) {
+    _mediaCache = {}; // Reset cache
+    const list = document.getElementById('messages-list');
+    if (!msgs.length) {
+        list.innerHTML = `<div class="text-center py-12">
+            <div class="text-4xl mb-3">👋</div>
+            <p class="text-[12px] text-slate-400 font-bold">Commencez la conversation !</p>
+        </div>`;
+        return;
+    }
+
+    let html = '';
+    let lastDate = '';
+
+    msgs.forEach((msg, i) => {
+        const isMine = msg.sender_id === userProfile.id;
+        const date = new Date(msg.created_at);
+        const dateStr = date.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' });
+
+        // Séparateur de date
+        if (dateStr !== lastDate) {
+            html += `<div class="date-sep"><span>${dateStr}</span></div>`;
+            lastDate = dateStr;
+        }
+
+        const time = date.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+        const isDeleted = !!msg.deleted_at;
+
+        // Stocker media dans cache pour onclick
+        if (msg.media_base64) _mediaCache[msg.id] = msg.media_base64;
+
+        // Contenu message
+        let content = '';
+        if (isDeleted) {
+            content = `<span class="msg-deleted">🚫 Message supprimé</span>`;
+        } else if (msg.type === 'image' && msg.media_base64) {
+            content = `<img src="${msg.media_base64}" class="msg-img" onclick="_viewMedia('${msg.id}','image')" loading="lazy">`;
+            if (msg.contenu) content += `<div style="margin-top:4px">${escapeHtml(msg.contenu)}</div>`;
+        } else if (msg.type === 'pdf' && msg.media_base64) {
+            content = `<div class="msg-pdf" onclick="_viewMedia('${msg.id}','pdf')">
+                <span class="msg-pdf-icon">📄</span>
+                <span class="msg-pdf-name">Document PDF — Appuyer pour télécharger</span>
+            </div>`;
+            if (msg.contenu) content += `<div style="margin-top:4px">${escapeHtml(msg.contenu)}</div>`;
+        } else {
+            content = escapeHtml(msg.contenu || '');
+        }
+
+        // Statut lecture
+        let checks = '';
+        if (isMine && !isDeleted) {
+            const read = msg.lu;
+            checks = `<span class="msg-check ${read ? 'read' : 'sent'}">✓✓</span>`;
+        }
+
+        // Long press pour supprimer (seulement ses propres messages)
+        const onLongPress = isMine && !isDeleted
+            ? `data-msg-id="${msg.id}" oncontextmenu="supprimerMsg(event,'${msg.id}')" ontouchstart="startLongPress('${msg.id}')" ontouchend="cancelLongPress()" ontouchmove="cancelLongPress()"`
+            : '';
+
+        html += `<div class="msg-row ${isMine ? 'mine' : 'other'} anim-slide" ${onLongPress}>
+            <div class="msg-bubble">${content}</div>
+            <div class="msg-meta">
+                <span class="${isMine ? 'msg-time' : 'msg-time-other'}">${time}</span>
+                ${checks}
+            </div>
+        </div>`;
+    });
+
+    list.innerHTML = html;
+}
+
+function scrollBas(smooth = false) {
+    const list = document.getElementById('messages-list');
+    list.scrollTo({ top: list.scrollHeight, behavior: smooth ? 'smooth' : 'instant' });
+}
+
+// ── ENVOYER MESSAGE ──
+async function envoyerMessage() {
+    const input = document.getElementById('msg-input');
+    const text = input.value.trim();
+    if (!text && !pendingMedia) return;
+
+    const msg = {
+        conversation_id: currentConvId,
+        sender_id: userProfile.id,
+        contenu: text || null,
+        type: pendingMedia ? pendingMedia.type : 'text',
+        media_base64: pendingMedia ? pendingMedia.base64 : null,
+        media_mime: pendingMedia ? pendingMedia.mime : null,
+    };
+
+    input.value = '';
+    input.style.height = 'auto';
+    annulerMedia();
+
+    const { error } = await sb.from('messages').insert([msg]);
+    if (error) { showToast('Erreur envoi : ' + error.message, 'error'); return; }
+
+    // Màj last_message_at
+    await sb.from('conversations')
+        .update({ last_message_at: new Date().toISOString() })
+        .eq('id', currentConvId);
+}
+
+// ── PIÈCE JOINTE ──
+async function attacherFichier(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const MAX = 2 * 1024 * 1024; // 2MB max
+    if (file.size > MAX) {
+        showToast('Fichier trop lourd (max 2MB)', 'error');
+        input.value = '';
+        return;
+    }
+
+    const isPdf = file.type === 'application/pdf';
+    const isImg = file.type.startsWith('image/');
+
+    if (!isPdf && !isImg) {
+        showToast('Format non supporté (image ou PDF uniquement)', 'error');
+        input.value = '';
+        return;
+    }
+
+    // Lire en base64
+    const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+
+    pendingMedia = { type: isPdf ? 'pdf' : 'image', base64, mime: file.type, name: file.name };
+
+    // Afficher preview
+    const bar = document.getElementById('media-preview-bar');
+    const thumb = document.getElementById('media-thumb-container');
+    document.getElementById('media-name').textContent = file.name;
+    document.getElementById('media-size').textContent = `${(file.size/1024).toFixed(0)} KB`;
+
+    if (isImg) {
+        thumb.innerHTML = `<img src="${base64}" class="media-thumb">`;
+    } else {
+        thumb.innerHTML = `<div class="media-pdf-thumb">📄</div>`;
+    }
+    bar.classList.remove('hidden');
+    input.value = '';
+}
+
+function annulerMedia() {
+    pendingMedia = null;
+    document.getElementById('media-preview-bar').classList.add('hidden');
+    document.getElementById('media-thumb-container').innerHTML = '';
+}
+
+// ── SUPPRIMER MESSAGE ──
+let _mediaCache = {};
+
+function _viewMedia(msgId, type) {
+    const base64 = _mediaCache[msgId];
+    if (!base64) { showToast('Media non disponible', 'error'); return; }
+    if (type === 'image') voirImage(base64);
+    else telechargerPDF(base64, 'document.pdf');
+}
+
+let _longPressTimer = null;
+function startLongPress(msgId) {
+    _longPressTimer = setTimeout(() => {
+        if (navigator.vibrate) navigator.vibrate(10);
+        supprimerMsgConfirm(msgId);
+    }, 600);
+}
+function cancelLongPress() { clearTimeout(_longPressTimer); }
+function supprimerMsg(e, msgId) {
+    e.preventDefault();
+    supprimerMsgConfirm(msgId);
+}
+function supprimerMsgConfirm(msgId) {
+    showConfirm('Supprimer ce message ?', async () => {
+        await sb.from('messages')
+            .update({ deleted_at: new Date().toISOString(), contenu: null, media_base64: null })
+            .eq('id', msgId)
+            .eq('sender_id', userProfile.id);
+    }, 'Supprimer', true);
+}
+
+// ── MARQUER LU ──
+async function marquerLu(convId) {
+    await sb.from('messages')
+        .update({ lu: true })
+        .eq('conversation_id', convId)
+        .neq('sender_id', userProfile.id)
+        .eq('lu', false);
+}
+
+// ── REALTIME ──
+function souscriptionRealtime() {
+    // Écouter tous les messages sur les conversations de l'utilisateur
+    sb.channel('messages-global')
+        .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages'
+        }, payload => {
+            const msg = payload.new;
+            // Si c'est dans la conv courante → afficher
+            if (msg.conversation_id === currentConvId) {
+                chargerMessages();
+                marquerLu(currentConvId);
+            } else {
+                // Notif badge
+                chargerConversations();
+                if (msg.sender_id !== userProfile.id) {
+                    showToast('Nouveau message', 'info');
+                }
+            }
+        })
+        .on('postgres_changes', {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'messages'
+        }, () => {
+            if (currentConvId) chargerMessages();
+        })
+        .subscribe();
+}
+
+function souscriptionMessages(convId) {
+    // Déjà géré par souscriptionRealtime
+}
+
+// ── TYPING INDICATOR ──
+let _typingTimeout = null;
+function envoyerTyping() {
+    // Simple — pas de canal typing pour garder simple
+}
+
+// ── VIEWERS ──
+function voirImage(base64) {
+    document.getElementById('img-viewer-src').src = base64;
+    document.getElementById('img-viewer').classList.remove('hidden');
+}
+
+function telechargerPDF(base64, name) {
+    const b64 = base64.includes(',') ? base64.split(',')[1] : base64;
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i=0; i<binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], {type:'application/pdf'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name || 'document.pdf';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+// ── AUTO RESIZE TEXTAREA ──
+function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+// ── FORMAT DATE ──
+function formatTime(iso) {
+    const d = new Date(iso);
+    const now = new Date();
+    const diff = now - d;
+    if (diff < 86400000) return d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    if (diff < 604800000) return d.toLocaleDateString('fr-FR',{weekday:'short'});
+    return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'});
+}
+
+// ── CONFIRM MODAL ──
+function showConfirm(msg, onConfirm, label='Confirmer', danger=false) {
+    _confirmCallback = onConfirm;
+    document.getElementById('confirm-msg').textContent = msg;
+    document.getElementById('confirm-icon').textContent = danger ? '⚠️' : '❓';
+    const ok = document.getElementById('confirm-ok');
+    ok.textContent = label;
+    ok.className = `flex-1 ${danger?'bg-red-600':'bg-red-800'} text-white font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest shadow-lg`;
+    document.getElementById('confirm-modal').classList.remove('hidden');
+}
+function _confirmOk() {
+    document.getElementById('confirm-modal').classList.add('hidden');
+    if (_confirmCallback) { _confirmCallback(); _confirmCallback = null; }
+}
+function _confirmCancel() {
+    document.getElementById('confirm-modal').classList.add('hidden');
+    _confirmCallback = null;
+}
+
+// ── ESCAPE ──
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escapeAttr(str) {
+    if (!str) return '';
+    // Pour les attributs onclick — tronquer si trop grand (images)
+    if (str.length > 100) return str.substring(0, 50) + '...';
+    return str.replace(/'/g, "\\'");
+}
+
+init();
+</script>
+</body>
+</html>
