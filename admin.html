@@ -624,6 +624,35 @@
         }
 
         function logout(){sb.auth.signOut().then(()=>location.href='index.html');}
+
+        function ouvrirMessagerie() {
+            localStorage.setItem('smmd_chat_from', 'admin.html');
+            window.location.href = 'chat.html';
+        }
+
+        async function checkUnreadMessages() {
+            try {
+                const { data: { user } } = await sb.auth.getUser();
+                if (!user) return;
+                const { data: convs } = await sb.from('conversations')
+                    .select('id')
+                    .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
+                if (!convs?.length) return;
+                const { count } = await sb.from('messages')
+                    .select('*', { count: 'exact', head: true })
+                    .in('conversation_id', convs.map(c => c.id))
+                    .eq('lu', false)
+                    .neq('sender_id', user.id)
+                    .is('deleted_at', null);
+                const badge = document.getElementById('msg-badge');
+                if (badge && count > 0) {
+                    badge.textContent = count > 9 ? '9+' : count;
+                    badge.style.display = 'flex';
+                }
+            } catch(e) {}
+        }
+        setTimeout(checkUnreadMessages, 1500);
+
         init();
     </script>
 </body>
