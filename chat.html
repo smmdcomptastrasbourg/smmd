@@ -314,6 +314,38 @@ body{font-family:'Inter',sans-serif;background:#f1f5f9;overscroll-behavior:none;
   </div>
 </div>
 
+<!-- MENU ACTION MESSAGE -->
+<div id="msg-action-menu" style="display:none;position:fixed;inset:0;z-index:400">
+    <div onclick="fermerActionMenu()" style="position:absolute;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(4px)"></div>
+    <div id="msg-action-box" style="position:absolute;bottom:0;left:0;right:0;background:white;border-radius:32px 32px 0 0;padding:20px 16px 32px">
+        <div style="width:36px;height:4px;background:#e2e8f0;border-radius:99px;margin:0 auto 20px"></div>
+        <div id="msg-action-preview" style="background:#f8fafc;border-radius:16px;padding:12px 16px;font-size:13px;color:#475569;margin-bottom:16px;max-height:80px;overflow:hidden;text-overflow:ellipsis"></div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+            <button id="btn-edit-msg" onclick="ouvrirEditionMsg()" style="display:flex;align-items:center;gap:12px;background:#f1f5f9;border:none;padding:16px;border-radius:16px;cursor:pointer;font-weight:700;font-size:14px;color:#1e293b;width:100%;text-align:left">
+                <span style="font-size:20px">✏️</span> Modifier le message
+            </button>
+            <button onclick="confirmerSuppressionMsg()" style="display:flex;align-items:center;gap:12px;background:#fef2f2;border:none;padding:16px;border-radius:16px;cursor:pointer;font-weight:700;font-size:14px;color:#dc2626;width:100%;text-align:left">
+                <span style="font-size:20px">🗑️</span> Supprimer le message
+            </button>
+            <button onclick="fermerActionMenu()" style="background:none;border:none;padding:12px;color:#94a3b8;font-size:13px;font-weight:700;cursor:pointer;text-align:center;width:100%">Annuler</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL ÉDITION MESSAGE -->
+<div id="msg-edit-modal" style="display:none;position:fixed;inset:0;z-index:450;display:none">
+    <div onclick="fermerEditionMsg()" style="position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px)"></div>
+    <div style="position:absolute;bottom:0;left:0;right:0;background:white;border-radius:32px 32px 0 0;padding:20px 16px 32px">
+        <div style="width:36px;height:4px;background:#e2e8f0;border-radius:99px;margin:0 auto 16px"></div>
+        <p style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:12px">Modifier le message</p>
+        <textarea id="edit-msg-input" style="width:100%;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:16px;padding:12px 16px;font-size:14px;outline:none;resize:none;font-family:inherit;box-sizing:border-box;min-height:80px;max-height:160px" placeholder="Modifier votre message..."></textarea>
+        <div style="display:flex;gap:8px;margin-top:12px">
+            <button onclick="fermerEditionMsg()" style="flex:1;background:#f1f5f9;color:#64748b;font-weight:900;padding:14px;border-radius:14px;border:none;cursor:pointer;font-size:11px;text-transform:uppercase;letter-spacing:.1em">Annuler</button>
+            <button onclick="sauvegarderEditionMsg()" style="flex:1;background:linear-gradient(135deg,#991b1b,#7f1d1d);color:white;font-weight:900;padding:14px;border-radius:14px;border:none;cursor:pointer;font-size:11px;text-transform:uppercase;letter-spacing:.1em;box-shadow:0 4px 12px rgba(153,27,27,.3)">Sauvegarder</button>
+        </div>
+    </div>
+</div>
+
 <!-- MODAL CONFIRM -->
 <div id="confirm-modal" class="hidden fixed inset-0 z-[200] flex items-end justify-center p-4">
   <div class="absolute inset-0 bg-slate-900/70 backdrop-blur-sm" onclick="_confirmCancel()"></div>
@@ -624,8 +656,9 @@ function renderMessages(msgs) {
         }
 
         // Long press pour supprimer (seulement ses propres messages)
+        const msgText = msg.type === 'text' ? (msg.contenu || '') : '';
         const onLongPress = isMine && !isDeleted
-            ? `data-msg-id="${msg.id}" oncontextmenu="supprimerMsg(event,'${msg.id}')" ontouchstart="startLongPress('${msg.id}')" ontouchend="cancelLongPress()" ontouchmove="cancelLongPress()"`
+            ? `oncontextmenu="ouvrirActionMenu('${msg.id}','${msgText.replace(/'/g,"\\'").replace(/\n/g,' ')}')" ontouchstart="startLongPress('${msg.id}','${msgText.replace(/'/g,"\\'").replace(/\n/g,' ')}')" ontouchend="cancelLongPress()" ontouchmove="cancelLongPress()"`
             : '';
 
         html += `<div class="msg-row ${isMine ? 'mine' : 'other'} anim-slide" ${onLongPress}>
@@ -735,66 +768,8 @@ function _viewMedia(msgId, type) {
 }
 
 let _longPressTimer = null;
-function startLongPress(msgId) {
-    _longPressTimer = setTimeout(() => {
-        if (navigator.vibrate) navigator.vibrate(10);
-        supprimerMsgConfirm(msgId);
-    }, 600);
-}
-function cancelLongPress() { clearTimeout(_longPressTimer); }
-function supprimerMsg(e, msgId) {
-    e.preventDefault();
-    supprimerMsgConfirm(msgId);
-}
-function supprimerMsgConfirm(msgId) {
-    showConfirm('Supprimer ce message ?', async () => {
-        await sb.from('messages')
-            .update({ deleted_at: new Date().toISOString(), contenu: null, media_base64: null })
-            .eq('id', msgId)
-            .eq('sender_id', userProfile.id);
-    }, 'Supprimer', true);
-}
+        function cancelLongPress() { clearTimeout(_longPressTimer); }
 
-// ── MARQUER LU ──
-async function marquerLu(convId) {
-    await sb.from('messages')
-        .update({ lu: true })
-        .eq('conversation_id', convId)
-        .neq('sender_id', userProfile.id)
-        .eq('lu', false);
-}
-
-// ── REALTIME ──
-function souscriptionRealtime() {
-    // Écouter tous les messages sur les conversations de l'utilisateur
-    sb.channel('messages-global')
-        .on('postgres_changes', {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'messages'
-        }, payload => {
-            const msg = payload.new;
-            // Si c'est dans la conv courante → afficher
-            if (msg.conversation_id === currentConvId) {
-                chargerMessages();
-                marquerLu(currentConvId);
-            } else {
-                // Notif badge
-                chargerConversations();
-                if (msg.sender_id !== userProfile.id) {
-                    showToast('Nouveau message', 'info');
-                }
-            }
-        })
-        .on('postgres_changes', {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'messages'
-        }, () => {
-            if (currentConvId) chargerMessages();
-        })
-        .subscribe();
-}
 
 function souscriptionMessages(convId) {
     // Déjà géré par souscriptionRealtime
