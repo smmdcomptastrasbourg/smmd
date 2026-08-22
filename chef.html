@@ -2753,6 +2753,41 @@
             if (e.key === 'ArrowRight') viewerNav(1);
         });
 
+
+        // ── MESSAGERIE ──
+        function ouvrirMessagerie() {
+            _closeNav();
+            localStorage.setItem('smmd_chat_from', window.location.pathname.split('/').pop());
+            window.location.href = 'chat.html';
+        }
+
+        async function checkUnreadMessages() {
+            try {
+                // Compter messages non lus
+                const { data: convs } = await sb.from('conversations')
+                    .select('id')
+                    .or(`user1_id.eq.${userProfile.id},user2_id.eq.${userProfile.id}`);
+                if (!convs?.length) return;
+                const convIds = convs.map(c => c.id);
+                const { count } = await sb.from('messages')
+                    .select('*', { count: 'exact', head: true })
+                    .in('conversation_id', convIds)
+                    .eq('lu', false)
+                    .neq('sender_id', userProfile.id)
+                    .is('deleted_at', null);
+                const badge = document.getElementById('msg-badge');
+                if (badge) {
+                    if (count > 0) {
+                        badge.textContent = count > 9 ? '9+' : count;
+                        badge.classList.remove('hidden');
+                        badge.style.display = 'flex';
+                    } else {
+                        badge.classList.add('hidden');
+                    }
+                }
+            } catch(e) {}
+        }
+
         function logout(){sb.auth.signOut().then(()=>location.href='index.html');}
 
         // ── SPLASH SCREEN ──
