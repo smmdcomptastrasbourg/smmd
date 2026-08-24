@@ -1,4 +1,4 @@
-const CACHE = 'smmd-v5';
+const CACHE = 'smmd-v6';
 const ASSETS = [
     './',
     './index.html',
@@ -55,4 +55,8 @@ self.addEventListener('fetch', e => {
             })
             .catch(() => caches.match(e.request))
     );
+});
+
+self.addEventListener('message', e => {
+    if (e.data?.type === 'SKIP_WAITING') self.skipWaiting();
 });
