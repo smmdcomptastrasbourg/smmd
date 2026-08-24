@@ -2788,6 +2788,90 @@
             } catch(e) {}
         }
 
+
+        // ── MISE À JOUR APPLICATION ──
+        const APP_VERSION = '1.2.0';
+        let _swUpdateAvailable = false;
+        let _swWaiting = null;
+
+        function initAppUpdate() {
+            if (!('serviceWorker' in navigator)) return;
+
+            navigator.serviceWorker.ready.then(reg => {
+                // Vérifier si une mise à jour est en attente
+                if (reg.waiting) {
+                    _swWaiting = reg.waiting;
+                    _swUpdateAvailable = true;
+                    showUpdateBadge();
+                }
+
+                reg.addEventListener('updatefound', () => {
+                    const newWorker = reg.installing;
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            _swWaiting = newWorker;
+                            _swUpdateAvailable = true;
+                            showUpdateBadge();
+                            showPushNotif('Mise à jour disponible', 'Appuyez sur Mettre à jour dans Profil', '🔄', 8000);
+                        }
+                    });
+                });
+            });
+
+            // Recharger quand le nouveau SW prend le contrôle
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                window.location.reload();
+            });
+
+            // Vérifier la mise à jour toutes les 60 secondes
+            setInterval(() => {
+                navigator.serviceWorker.ready.then(reg => reg.update());
+            }, 60000);
+        }
+
+        function showUpdateBadge() {
+            const badge = document.getElementById('update-badge');
+            if (badge) badge.classList.remove('hidden');
+            const dot = document.getElementById('update-dot');
+            if (dot) dot.classList.remove('hidden');
+        }
+
+        async function mettreAJourApp() {
+            const btn = document.getElementById('btn-update');
+            if (btn) {
+                btn.innerHTML = '<span style="display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px"></span>Vérification...';
+                btn.disabled = true;
+            }
+
+            try {
+                const reg = await navigator.serviceWorker.ready;
+
+                if (_swWaiting) {
+                    // Mise à jour disponible — appliquer
+                    _swWaiting.postMessage({ type: 'SKIP_WAITING' });
+                    // controllerchange va déclencher le reload
+                } else {
+                    // Vérifier s'il y a une mise à jour
+                    await reg.update();
+                    await new Promise(r => setTimeout(r, 2000));
+
+                    if (_swWaiting) {
+                        _swWaiting.postMessage({ type: 'SKIP_WAITING' });
+                    } else {
+                        // Pas de mise à jour — vider le cache et recharger
+                        const keys = await caches.keys();
+                        await Promise.all(keys.map(k => caches.delete(k)));
+                        showToast('App à jour ! Rechargement...', 'success');
+                        setTimeout(() => window.location.reload(true), 1000);
+                    }
+                }
+            } catch(e) {
+                // Fallback simple
+                showToast('Rechargement...', 'info');
+                setTimeout(() => window.location.reload(true), 500);
+            }
+        }
+
         function logout(){sb.auth.signOut().then(()=>location.href='index.html');}
 
         // ── SPLASH SCREEN ──
