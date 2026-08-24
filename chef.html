@@ -994,6 +994,24 @@
                 <button onclick="updatePassword()" class="w-full bg-slate-900 text-white text-[10px] font-black py-3.5 rounded-xl uppercase tracking-widest shadow-lg active:scale-95">Changer</button>
             </div>
 
+
+            <!-- Mise à jour app -->
+            <div class="bg-white rounded-[24px] border border-slate-100 shadow-premium p-5">
+                <div class="flex items-center justify-between mb-3">
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Application</p>
+                        <p class="font-black text-slate-800 mt-0.5">Version 1.2.0</p>
+                    </div>
+                    <span id="update-badge" class="hidden badge-premium bg-amber-100 text-amber-700 border border-amber-200">🔄 Mise à jour dispo</span>
+                </div>
+                <button id="btn-update" onclick="mettreAJourApp()"
+                    class="w-full py-4 rounded-[18px] font-black text-[11px] uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-2"
+                    style="background:linear-gradient(135deg,#1a0505,#7f1d1d);color:white;box-shadow:0 4px 16px rgba(127,29,29,.3)">
+                    <span id="update-dot" class="hidden w-2 h-2 bg-amber-400 rounded-full animate-pulse"></span>
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    Vérifier les mises à jour
+                </button>
+            </div>
             <button onclick="logout()" class="w-full bg-red-50 border border-red-100 text-red-500 font-black py-4 rounded-[22px] uppercase text-[11px] tracking-widest active:scale-95 transition-all anim-slide" style="animation-delay:.15s">
                 Se déconnecter
             </button>
