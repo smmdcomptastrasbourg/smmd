@@ -60,6 +60,11 @@
                     <p class="text-[10px] uppercase tracking-[.3em] opacity-50 font-bold italic mt-1">Console Admin</p>
                 </div>
                 <div style="display:flex;gap:8px;align-items:center">
+                <button onclick="mettreAJourApp()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:white;padding:10px 14px;border-radius:16px;font-weight:900;font-size:10px;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;display:flex;align-items:center;gap:6px;position:relative" title="Mettre à jour l'app">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    MàJ
+                    <span id="update-badge-admin" style="display:none;position:absolute;top:-4px;right:-4px;background:#f59e0b;color:white;font-size:9px;font-weight:900;min-width:8px;height:8px;border-radius:99px"></span>
+                </button>
                 <button onclick="ouvrirMessagerie()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:white;padding:10px 14px;border-radius:16px;font-weight:900;font-size:10px;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;display:flex;align-items:center;gap:6px;position:relative">
                     <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
                     Messages
@@ -623,6 +628,53 @@
             });
         }
 
+
+        // ── MISE À JOUR APPLICATION ──
+        const APP_VERSION = '1.2.0';
+        let _swUpdateAvailable = false;
+        let _swWaiting = null;
+
+        function initAppUpdate() {
+            if (!('serviceWorker' in navigator)) return;
+            navigator.serviceWorker.ready.then(reg => {
+                if (reg.waiting) { _swWaiting = reg.waiting; _swUpdateAvailable = true; showUpdateBadge(); }
+                reg.addEventListener('updatefound', () => {
+                    const nw = reg.installing;
+                    nw.addEventListener('statechange', () => {
+                        if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+                            _swWaiting = nw; _swUpdateAvailable = true; showUpdateBadge();
+                        }
+                    });
+                });
+            });
+            navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload());
+            setInterval(() => navigator.serviceWorker.ready.then(r => r.update()), 60000);
+        }
+
+        function showUpdateBadge() {
+            const badge = document.getElementById('update-badge-admin');
+            if (badge) { badge.classList.remove('hidden'); badge.style.display = 'flex'; }
+        }
+
+        async function mettreAJourApp() {
+            try {
+                const reg = await navigator.serviceWorker.ready;
+                if (_swWaiting) {
+                    _swWaiting.postMessage({ type: 'SKIP_WAITING' });
+                } else {
+                    await reg.update();
+                    await new Promise(r => setTimeout(r, 2000));
+                    if (_swWaiting) { _swWaiting.postMessage({ type: 'SKIP_WAITING' }); }
+                    else {
+                        const keys = await caches.keys();
+                        await Promise.all(keys.map(k => caches.delete(k)));
+                        showToast('App à jour ! Rechargement...', 'success');
+                        setTimeout(() => window.location.reload(true), 1000);
+                    }
+                }
+            } catch(e) { window.location.reload(true); }
+        }
+
         function logout(){sb.auth.signOut().then(()=>location.href='index.html');}
 
         function ouvrirMessagerie() {
@@ -652,6 +704,7 @@
             } catch(e) {}
         }
         setTimeout(checkUnreadMessages, 1500);
+        initAppUpdate();
 
         init();
     </script>
