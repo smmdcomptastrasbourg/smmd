@@ -2651,7 +2651,8 @@
             }
 
             // Show correct viewer
-            const isPdf = img.mime_type?.includes('pdf');
+            const realMime = detectMimeType(img.base64, img.mime_type);
+            const isPdf = realMime.includes('pdf');
             document.getElementById('viewer-img-container').classList.toggle('hidden', isPdf);
             document.getElementById('viewer-pdf-container').classList.toggle('hidden', !isPdf);
 
@@ -2680,7 +2681,8 @@
         }
 
         function telechargerJustificatif(img) {
-            const ext = img.mime_type?.includes('pdf') ? 'pdf' : img.mime_type?.includes('png') ? 'png' : 'jpg';
+            const realMime = detectMimeType(img.base64, img.mime_type);
+                        const ext = getExtFromMime(realMime);
             const b64 = img.base64.includes(',') ? img.base64.split(',')[1] : img.base64;
             const mime = img.mime_type || 'image/jpeg';
 
@@ -3113,7 +3115,8 @@ Commentaire: ${tx.commentaire||''}`);
                         images.forEach((img, i) => {
                             const date = new Date(tx.created_at).toLocaleDateString('fr-FR').replace(/\//g,'-');
                             const motif = (tx.motif||'depense').replace(/[^a-zA-Z0-9]/g,'_');
-                            const ext = img.mime_type?.includes('pdf') ? 'pdf' : img.mime_type?.includes('png') ? 'png' : 'jpg';
+                            const realMime = detectMimeType(img.base64, img.mime_type);
+                        const ext = getExtFromMime(realMime);
                             const suffix = images.length > 1 ? `_${i+1}` : '';
                             const b64 = img.base64.includes(',') ? img.base64.split(',')[1] : img.base64;
                             folder.file(`${date}_${motif}_${tx.montant}€${suffix}.${ext}`, b64, { base64: true });
@@ -3141,6 +3144,24 @@ Commentaire: ${tx.commentaire||''}`);
         async function exportZipParMois(mois, annee, moisNom) {
             await exportJustificatifsMoisPDF(parseInt(mois), parseInt(annee));
             fermerExports();
+        }
+
+
+        // Détecte le vrai type depuis le header base64
+        function detectMimeType(base64, declaredMime) {
+            if (!base64) return declaredMime || 'image/jpeg';
+            const header = base64.substring(0, 30);
+            if (header.includes('data:application/pdf') || header.startsWith('JV')) return 'application/pdf';
+            if (header.includes('data:image/png') || header.includes('iVBOR')) return 'image/png';
+            if (header.includes('data:image/jpeg') || header.includes('/9j/')) return 'image/jpeg';
+            // Fallback sur le mime_type déclaré
+            return declaredMime || 'image/jpeg';
+        }
+
+        function getExtFromMime(mime) {
+            if (mime?.includes('pdf')) return 'pdf';
+            if (mime?.includes('png')) return 'png';
+            return 'jpg';
         }
 
         function logout(){sb.auth.signOut().then(()=>location.href='index.html');}
