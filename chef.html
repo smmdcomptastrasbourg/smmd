@@ -2988,23 +2988,32 @@
         async function exportExcelAnnuel(annee) {
             setExportProgress("Chargement de l\'année...", 10);
 
-            // Charger transactions + allocations en parallèle
-            const [txRes, allocRes] = await Promise.all([
+            // Charger transactions + allocations + profiles en parallèle
+            const [txRes, allocRes, profRes] = await Promise.all([
                 sb.from('transactions')
                     .select('*, profiles(prenom,nom)')
                     .eq('maison_id', userProfile.maison_id)
                     .order('created_at', { ascending: true }),
                 sb.from('allocations_versees')
-                    .select('*, profiles(prenom,nom)')
+                    .select('id,user_id,mois,annee,montant,created_at,valide_par')
                     .eq('maison_id', userProfile.maison_id)
-                    .eq('annee', parseInt(annee))
-                    .order('mois', { ascending: true })
+                    .eq('annee', parseInt(annee)),
+                sb.from('profiles')
+                    .select('id,prenom,nom')
+                    .eq('maison_id', userProfile.maison_id)
             ]);
 
             const allTx = (txRes.data||[]).filter(t =>
                 new Date(t.created_at).getFullYear() === parseInt(annee)
             );
             const allAlloc = allocRes.data || [];
+            const profilesMap = {};
+            (profRes.data||[]).forEach(p => { profilesMap[p.id] = p; });
+
+            // Enrichir les allocations avec le profil
+            allAlloc.forEach(a => {
+                a._profile = profilesMap[a.user_id] || null;
+            });
 
             if (!allTx.length && !allAlloc.length) {
                 showToast('Aucune donnée cette année', 'warning');
@@ -3018,21 +3027,22 @@
 
             // ── Onglet Récapitulatif ──
             const recap = {};
+
             allTx.forEach(t => {
                 const m = t.profiles
                     ? `${t.profiles.prenom} ${t.profiles.nom||''}`.trim()
                     : 'Membre supprimé';
                 if (!recap[m]) recap[m] = { depenses:0, recettes:0, allocations:0, nbTx:0, nbAlloc:0 };
-                if (t.type === 'recette') recap[m].recettes += parseFloat(t.montant);
-                else recap[m].depenses += parseFloat(t.montant);
+                if (t.type === 'recette') recap[m].recettes += parseFloat(t.montant||0);
+                else recap[m].depenses += parseFloat(t.montant||0);
                 recap[m].nbTx++;
             });
+
             allAlloc.forEach(a => {
-                const m = a.profiles
-                    ? `${a.profiles.prenom} ${a.profiles.nom||''}`.trim()
-                    : 'Membre supprimé';
+                const p = a._profile;
+                const m = p ? `${p.prenom} ${p.nom||''}`.trim() : 'Membre supprimé';
                 if (!recap[m]) recap[m] = { depenses:0, recettes:0, allocations:0, nbTx:0, nbAlloc:0 };
-                recap[m].allocations += parseFloat(a.montant || 0);
+                recap[m].allocations += parseFloat(a.montant||0);
                 recap[m].nbAlloc++;
             });
 
@@ -3051,13 +3061,18 @@
 
             // ── Onglet Allocations ──
             if (allAlloc.length) {
-                const allocRows = allAlloc.map(a => ({
-                    'Mois': moisNoms[(a.mois||1)-1],
-                    'Membre': a.profiles ? `${a.profiles.prenom} ${a.profiles.nom||''}`.trim() : 'Membre supprimé',
-                    'Montant (€)': parseFloat(a.montant||0).toFixed(2),
-                    'Validé par': a.valide_par ? 'Chef' : 'Auto',
-                    'Date': a.created_at ? new Date(a.created_at).toLocaleDateString('fr-FR') : ''
-                }));
+                const allocRows = allAlloc
+                    .sort((a,b) => a.mois - b.mois)
+                    .map(a => {
+                        const p = a._profile;
+                        return {
+                            'Mois': moisNoms[(a.mois||1)-1],
+                            'Membre': p ? `${p.prenom} ${p.nom||''}`.trim() : 'Membre supprimé',
+                            'Montant (€)': parseFloat(a.montant||0).toFixed(2),
+                            'Validé par': a.valide_par ? 'Chef' : 'Auto',
+                            'Date': a.created_at ? new Date(a.created_at).toLocaleDateString('fr-FR') : ''
+                        };
+                    });
                 const wsAlloc = XLSX.utils.json_to_sheet(allocRows);
                 wsAlloc['!cols'] = [{wch:14},{wch:22},{wch:14},{wch:14},{wch:14}];
                 XLSX.utils.book_append_sheet(wb, wsAlloc, 'Allocations');
@@ -3066,34 +3081,36 @@
             // ── Un onglet par mois ──
             for (let m = 1; m <= 12; m++) {
                 const txsMois = allTx.filter(t => new Date(t.created_at).getMonth()+1 === m);
-                const allocMois = allAlloc.filter(a => a.mois === m);
+                const allocMois = allAlloc.filter(a => parseInt(a.mois) === m);
                 if (!txsMois.length && !allocMois.length) continue;
 
                 setExportProgress(`Mois de ${moisNoms[m-1]}...`, 30 + m*4);
-
                 const rows = [];
-                // Transactions
+
                 txsMois.forEach(t => rows.push({
                     'Date': new Date(t.created_at).toLocaleDateString('fr-FR'),
                     'Membre': t.profiles ? `${t.profiles.prenom} ${t.profiles.nom||''}`.trim() : 'Membre supprimé',
                     'Nature': t.type === 'recette' ? 'Recette' : 'Dépense',
                     'Motif': t.motif || '',
                     'Commentaire': t.commentaire || '',
-                    'Montant (€)': parseFloat(t.montant).toFixed(2),
+                    'Montant (€)': parseFloat(t.montant||0).toFixed(2),
                     'Paiement': t.methode_paiement || '',
                     'Statut': t.statut === 'attente' ? 'En attente' : 'Validé'
                 }));
-                // Allocations du mois
-                allocMois.forEach(a => rows.push({
-                    'Date': a.created_at ? new Date(a.created_at).toLocaleDateString('fr-FR') : `${moisNoms[m-1]} ${annee}`,
-                    'Membre': a.profiles ? `${a.profiles.prenom} ${a.profiles.nom||''}`.trim() : 'Membre supprimé',
-                    'Nature': 'Allocation versée',
-                    'Motif': 'Allocation mensuelle',
-                    'Commentaire': '',
-                    'Montant (€)': parseFloat(a.montant||0).toFixed(2),
-                    'Paiement': 'Virement',
-                    'Statut': 'Validé'
-                }));
+
+                allocMois.forEach(a => {
+                    const p = a._profile;
+                    rows.push({
+                        'Date': a.created_at ? new Date(a.created_at).toLocaleDateString('fr-FR') : `${moisNoms[m-1]} ${annee}`,
+                        'Membre': p ? `${p.prenom} ${p.nom||''}`.trim() : 'Membre supprimé',
+                        'Nature': 'Allocation versée',
+                        'Motif': 'Allocation mensuelle',
+                        'Commentaire': '',
+                        'Montant (€)': parseFloat(a.montant||0).toFixed(2),
+                        'Paiement': 'Virement',
+                        'Statut': 'Validé'
+                    });
+                });
 
                 const ws = XLSX.utils.json_to_sheet(rows);
                 ws['!cols'] = [{wch:12},{wch:22},{wch:16},{wch:20},{wch:25},{wch:12},{wch:14},{wch:12}];
