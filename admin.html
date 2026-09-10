@@ -373,9 +373,27 @@
             if(error) showToast(error.message,"error"); else showToast("Email de récupération envoyé !","success");
         }
         function deleteUser(id) {
-            showConfirm('Supprimer définitivement ce profil ?',async()=>{
-                const{error}=await sb.from('profiles').delete().eq('id',id);
-                if(error) showToast("Erreur","error"); else{showToast("Profil supprimé","info");loadUsers();}
+            showConfirm('Supprimer définitivement ce membre ? Ses opérations seront conservées.',async()=>{
+                try {
+                    // 1. Supprimer images justificatifs des transactions du membre
+                    const { data: txs } = await sb.from('transactions').select('id').eq('user_id', id);
+                    if (txs?.length) {
+                        await sb.from('justificatifs_images').delete().in('transaction_id', txs.map(t=>t.id));
+                    }
+                    // 2. Anonymiser les transactions (user_id → null, conservées)
+                    await sb.from('transactions').update({ user_id: null }).eq('user_id', id);
+                    // 3. Supprimer allocations versées
+                    await sb.from('allocations_versees').delete().eq('user_id', id);
+                    // 4. Supprimer notifications
+                    await sb.from('notifications').delete().eq('user_id', id);
+                    // 5. Supprimer le profil
+                    const { error } = await sb.from('profiles').delete().eq('id', id);
+                    if (error) throw new Error(error.message);
+                    showToast('Membre supprimé — opérations conservées', 'info');
+                    loadUsers();
+                } catch(e) {
+                    showToast('Erreur : ' + e.message, 'error');
+                }
             },'Supprimer',true);
         }
         async function registerUser() {
