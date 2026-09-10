@@ -907,6 +907,15 @@
             </div>
         </div>
 
+        <!-- Historique rapide dashboard -->
+        <div class="px-4 pb-4">
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 px-1">Dernières opérations</p>
+            <div id="tx-history" class="space-y-2">
+                <div class="skeleton-dark h-14 rounded-2xl"></div>
+                <div class="skeleton-dark h-14 rounded-2xl"></div>
+                <div class="skeleton-dark h-14 rounded-2xl"></div>
+            </div>
+        </div>
         <!-- SECTION JOURNAL -->
         <div id="section-journal" class="section-panel space-y-4">
             <div class="flex items-center justify-between px-1 pt-1">
@@ -1534,7 +1543,7 @@
             `;
         }
 
-        let extraPhotos = [];
+        // let extraPhotos = []; // dédupliqué
 
         function ajouterPhotosExtra(input) {
             const files = Array.from(input.files);
@@ -1597,7 +1606,7 @@
         }
 
         // Photos en attente pour le justificatif
-        let justifPhotos = [];
+        // let justifPhotos = []; // dédupliqué
 
         function ajouterPhotosJustif(input) {
             const files = Array.from(input.files);
@@ -2517,6 +2526,10 @@
         // ── FAB NAVIGATION ──
         let _navOpen = false;
         let _activeTab = 'saisie';
+        let scannedFile = null;
+        let _lastBase64 = null;
+        // let extraPhotos = []; // dédupliqué
+        // let justifPhotos = []; // dédupliqué
 
         function switchTab(name) { _goTab(name); }
         function menuGo(name, cb) { _goTab(name, cb); }
