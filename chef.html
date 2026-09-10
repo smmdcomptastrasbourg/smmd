@@ -2986,65 +2986,126 @@
 
         // ── EXPORT 2 : Excel Annuel complet ──
         async function exportExcelAnnuel(annee) {
-            setExportProgress('Chargement de l\'année...', 15);
-            const { data } = await sb.from('transactions')
-                .select('*, profiles(prenom,nom)')
-                .eq('maison_id', userProfile.maison_id)
-                .order('created_at', { ascending: true });
+            setExportProgress("Chargement de l\'année...", 10);
 
-            const filtered = (data||[]).filter(t => new Date(t.created_at).getFullYear() === parseInt(annee));
-            if (!filtered.length) { showToast('Aucune transaction cette année', 'warning'); return; }
+            // Charger transactions + allocations en parallèle
+            const [txRes, allocRes] = await Promise.all([
+                sb.from('transactions')
+                    .select('*, profiles(prenom,nom)')
+                    .eq('maison_id', userProfile.maison_id)
+                    .order('created_at', { ascending: true }),
+                sb.from('allocations_versees')
+                    .select('*, profiles(prenom,nom)')
+                    .eq('maison_id', userProfile.maison_id)
+                    .eq('annee', parseInt(annee))
+                    .order('mois', { ascending: true })
+            ]);
 
-            setExportProgress('Génération rapport annuel...', 40);
+            const allTx = (txRes.data||[]).filter(t =>
+                new Date(t.created_at).getFullYear() === parseInt(annee)
+            );
+            const allAlloc = allocRes.data || [];
+
+            if (!allTx.length && !allAlloc.length) {
+                showToast('Aucune donnée cette année', 'warning');
+                return;
+            }
+
+            setExportProgress('Construction du rapport...', 30);
             const wb = XLSX.utils.book_new();
-            const moisNoms = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+            const moisNoms = ['Janvier','Février','Mars','Avril','Mai','Juin',
+                              'Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 
-            // Onglet récapitulatif
+            // ── Onglet Récapitulatif ──
             const recap = {};
-            filtered.forEach(t => {
-                const membre = t.profiles ? `${t.profiles.prenom} ${t.profiles.nom||''}`.trim() : 'Membre supprimé';
-                if (!recap[membre]) recap[membre] = { depenses: 0, recettes: 0, nb: 0 };
-                if (t.type === 'recette') recap[membre].recettes += parseFloat(t.montant);
-                else recap[membre].depenses += parseFloat(t.montant);
-                recap[membre].nb++;
+            allTx.forEach(t => {
+                const m = t.profiles
+                    ? `${t.profiles.prenom} ${t.profiles.nom||''}`.trim()
+                    : 'Membre supprimé';
+                if (!recap[m]) recap[m] = { depenses:0, recettes:0, allocations:0, nbTx:0, nbAlloc:0 };
+                if (t.type === 'recette') recap[m].recettes += parseFloat(t.montant);
+                else recap[m].depenses += parseFloat(t.montant);
+                recap[m].nbTx++;
+            });
+            allAlloc.forEach(a => {
+                const m = a.profiles
+                    ? `${a.profiles.prenom} ${a.profiles.nom||''}`.trim()
+                    : 'Membre supprimé';
+                if (!recap[m]) recap[m] = { depenses:0, recettes:0, allocations:0, nbTx:0, nbAlloc:0 };
+                recap[m].allocations += parseFloat(a.montant || 0);
+                recap[m].nbAlloc++;
             });
 
             const recapRows = Object.entries(recap).map(([membre, d]) => ({
                 'Membre': membre,
                 'Dépenses (€)': d.depenses.toFixed(2),
                 'Recettes (€)': d.recettes.toFixed(2),
-                'Solde (€)': (d.recettes - d.depenses).toFixed(2),
-                'Nb opérations': d.nb
+                'Allocations versées (€)': d.allocations.toFixed(2),
+                'À rembourser (€)': Math.max(0, d.depenses - d.recettes - d.allocations).toFixed(2),
+                'Nb transactions': d.nbTx,
+                'Nb versements': d.nbAlloc
             }));
             const wsRecap = XLSX.utils.json_to_sheet(recapRows);
-            wsRecap['!cols'] = [{wch:22},{wch:14},{wch:14},{wch:14},{wch:15}];
+            wsRecap['!cols'] = [{wch:22},{wch:14},{wch:14},{wch:22},{wch:18},{wch:16},{wch:16}];
             XLSX.utils.book_append_sheet(wb, wsRecap, 'Récapitulatif');
 
-            // Un onglet par mois
+            // ── Onglet Allocations ──
+            if (allAlloc.length) {
+                const allocRows = allAlloc.map(a => ({
+                    'Mois': moisNoms[(a.mois||1)-1],
+                    'Membre': a.profiles ? `${a.profiles.prenom} ${a.profiles.nom||''}`.trim() : 'Membre supprimé',
+                    'Montant (€)': parseFloat(a.montant||0).toFixed(2),
+                    'Validé par': a.valide_par ? 'Chef' : 'Auto',
+                    'Date': a.created_at ? new Date(a.created_at).toLocaleDateString('fr-FR') : ''
+                }));
+                const wsAlloc = XLSX.utils.json_to_sheet(allocRows);
+                wsAlloc['!cols'] = [{wch:14},{wch:22},{wch:14},{wch:14},{wch:14}];
+                XLSX.utils.book_append_sheet(wb, wsAlloc, 'Allocations');
+            }
+
+            // ── Un onglet par mois ──
             for (let m = 1; m <= 12; m++) {
-                const moisStr = String(m).padStart(2,'0');
-                const txsMois = filtered.filter(t => new Date(t.created_at).getMonth()+1 === m);
-                if (!txsMois.length) continue;
-                setExportProgress(`Mois ${moisNoms[m-1]}...`, 40 + m*4);
-                const rows = txsMois.map(t => ({
+                const txsMois = allTx.filter(t => new Date(t.created_at).getMonth()+1 === m);
+                const allocMois = allAlloc.filter(a => a.mois === m);
+                if (!txsMois.length && !allocMois.length) continue;
+
+                setExportProgress(`Mois de ${moisNoms[m-1]}...`, 30 + m*4);
+
+                const rows = [];
+                // Transactions
+                txsMois.forEach(t => rows.push({
                     'Date': new Date(t.created_at).toLocaleDateString('fr-FR'),
                     'Membre': t.profiles ? `${t.profiles.prenom} ${t.profiles.nom||''}`.trim() : 'Membre supprimé',
-                    'Type': t.type === 'recette' ? 'Recette' : 'Dépense',
+                    'Nature': t.type === 'recette' ? 'Recette' : 'Dépense',
                     'Motif': t.motif || '',
                     'Commentaire': t.commentaire || '',
                     'Montant (€)': parseFloat(t.montant).toFixed(2),
+                    'Paiement': t.methode_paiement || '',
                     'Statut': t.statut === 'attente' ? 'En attente' : 'Validé'
                 }));
+                // Allocations du mois
+                allocMois.forEach(a => rows.push({
+                    'Date': a.created_at ? new Date(a.created_at).toLocaleDateString('fr-FR') : `${moisNoms[m-1]} ${annee}`,
+                    'Membre': a.profiles ? `${a.profiles.prenom} ${a.profiles.nom||''}`.trim() : 'Membre supprimé',
+                    'Nature': 'Allocation versée',
+                    'Motif': 'Allocation mensuelle',
+                    'Commentaire': '',
+                    'Montant (€)': parseFloat(a.montant||0).toFixed(2),
+                    'Paiement': 'Virement',
+                    'Statut': 'Validé'
+                }));
+
                 const ws = XLSX.utils.json_to_sheet(rows);
-                ws['!cols'] = [{wch:12},{wch:22},{wch:10},{wch:20},{wch:25},{wch:12},{wch:12}];
+                ws['!cols'] = [{wch:12},{wch:22},{wch:16},{wch:20},{wch:25},{wch:12},{wch:14},{wch:12}];
                 XLSX.utils.book_append_sheet(wb, ws, moisNoms[m-1]);
             }
 
-            setExportProgress('Téléchargement...', 95);
+            setExportProgress('Téléchargement...', 97);
             XLSX.writeFile(wb, `Rapport_Annuel_${annee}.xlsx`);
             showToast(`Rapport ${annee} téléchargé ✓`, 'success');
             fermerExports();
         }
+
 
         // ── EXPORT 3 : ZIP justificatifs classés par membre ──
         async function exportZipParMembre(mois, annee, moisNom) {
