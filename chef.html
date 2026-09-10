@@ -1279,7 +1279,8 @@
                 .select('*, profiles(prenom,nom)')
                 .eq('maison_id', userProfile.maison_id)
                 .order('created_at', { ascending: false });
-            if (membre !== 'all') query = query.eq('user_id', membre);
+            if (membre === 'deleted') query = query.is('user_id', null);
+            else if (membre !== 'all') query = query.eq('user_id', membre);
 
             const { data, error } = await query;
             if (error) { list.innerHTML=`<p class="text-center text-red-400 text-[11px] font-bold py-8">Erreur</p>`; return; }
@@ -1331,7 +1332,7 @@
                         <div class="flex items-start gap-3 flex-1 min-w-0">
                             ${motifIconHTML(t.motif, t.type)}
                             <div class="min-w-0 flex-1">
-                                <p class="text-[10px] font-black text-slate-400 uppercase">${escapeHtml(t.profiles?.prenom||'')} ${escapeHtml(t.profiles?.nom||'')}</p>
+                                <p class="text-[10px] font-black text-slate-400 uppercase">${t.profiles ? escapeHtml(t.profiles.prenom+' '+(t.profiles.nom||'')) : '<span style="color:#94a3b8;font-style:italic">Membre supprimé</span>'}</p>
                                 <p class="text-[11px] font-black uppercase text-slate-800">${escapeHtml(t.motif||'RECETTE')}</p>
                                 <p class="text-[9px] text-slate-400 font-bold">${new Date(t.created_at).toLocaleDateString('fr-FR')}${t.commentaire?' · '+escapeHtml(t.commentaire):''}</p>
                                 <span class="text-[8px] uppercase font-black px-2 py-0.5 rounded-full ${t.statut==='attente'?'bg-amber-50 text-amber-500':'bg-emerald-50 text-emerald-600'}">${t.statut==='attente'?'En attente':'Validé'}</span>
@@ -1669,7 +1670,7 @@
             const byMember = {};
             data.forEach(t => {
                 if (!byMember[t.user_id]) byMember[t.user_id] = {
-                    name: `${escapeHtml(t.profiles?.prenom||'')} ${escapeHtml(t.profiles?.nom||'')}`.trim(),
+                    name: `${t.profiles ? escapeHtml(t.profiles.prenom+' '+(t.profiles.nom||'')) : '<span style="color:#94a3b8;font-style:italic">Membre supprimé</span>'}`.trim(),
                     iban: t.profiles?.iban||null, months: {}
                 };
                 const d = new Date(t.created_at);
@@ -1970,7 +1971,7 @@
             });
             filteredTx.forEach(t=>{
                 const mt=parseFloat(t.montant);
-                rows.push({"Date":new Date(t.created_at).toLocaleDateString('fr-FR'),"Membre":`${t.profiles?.prenom||''} ${t.profiles?.nom||''}`.trim(),"Type":t.type.toUpperCase(),"Motif":t.motif||'RECETTE',"Montant (€)":mt,"Méthode":t.methode_paiement||'N/A',"Statut":t.statut==='attente'?'En attente':'Validé',"Note":t.commentaire||''});
+                rows.push({"Date":new Date(t.created_at).toLocaleDateString('fr-FR'),"Membre":`${t.profiles ? t.profiles.prenom+' '+(t.profiles.nom||'') : 'Membre supprimé'}`.trim(),"Type":t.type.toUpperCase(),"Motif":t.motif||'RECETTE',"Montant (€)":mt,"Méthode":t.methode_paiement||'N/A',"Statut":t.statut==='attente'?'En attente':'Validé',"Note":t.commentaire||''});
                 if(t.type==='recette') totalR+=mt; else { totalD+=mt; motifMap[t.motif]=(motifMap[t.motif]||0)+mt; }
             });
             const ws=XLSX.utils.json_to_sheet(rows);
@@ -2322,7 +2323,7 @@
                 const header = ['Date','Membre','Type','Motif','Montant (€)','Moyen paiement','Statut','Commentaire'];
                 const rows = filtered.map(t => [
                     new Date(t.created_at).toLocaleDateString('fr-FR'),
-                    `${t.profiles?.prenom||''} ${t.profiles?.nom||''}`.trim(),
+                    `${t.profiles ? t.profiles.prenom+' '+(t.profiles.nom||'') : 'Membre supprimé'}`.trim(),
                     t.type === 'depense' ? 'Dépense' : 'Recette',
                     t.motif||'',
                     parseFloat(t.montant).toFixed(2).replace('.',','),
@@ -2366,7 +2367,8 @@
                 .select('*, profiles(prenom,nom)')
                 .eq('maison_id', userProfile.maison_id)
                 .order('created_at', { ascending: true });
-            if (membre !== 'all') query = query.eq('user_id', membre);
+            if (membre === 'deleted') query = query.is('user_id', null);
+            else if (membre !== 'all') query = query.eq('user_id', membre);
             const { data } = await query;
             const filtered = (data||[]).filter(t => {
                 const d = new Date(t.created_at);
@@ -2375,7 +2377,7 @@
             if (!filtered.length) { showToast('Aucune opération ce mois', 'warning'); return; }
             const rows = filtered.map(t => ({
                 'Date': new Date(t.created_at).toLocaleDateString('fr-FR'),
-                'Membre': `${t.profiles?.prenom||''} ${t.profiles?.nom||''}`.trim(),
+                'Membre': `${t.profiles ? t.profiles.prenom+' '+(t.profiles.nom||'') : 'Membre supprimé'}`.trim(),
                 'Type': t.type === 'recette' ? 'Recette' : 'Dépense',
                 'Motif': t.motif || '',
                 'Commentaire': t.commentaire || '',
