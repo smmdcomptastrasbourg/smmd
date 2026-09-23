@@ -3164,6 +3164,23 @@ Commentaire: ${tx.commentaire||''}`);
             return 'jpg';
         }
 
+
+        function ouvrirAjoutJustificatif(txId) {
+            justifPhotos = [];
+            document.getElementById('justif-tx-id').value = txId;
+            document.getElementById('justif-upload-progress').classList.add('hidden');
+            document.getElementById('justif-preview-grid').innerHTML = '';
+            document.getElementById('justif-previews').classList.add('hidden');
+            document.getElementById('justif-valider-btn').classList.add('hidden');
+            document.getElementById('justif-upload-modal').classList.remove('hidden');
+        }
+        function fermerJustifModal() {
+            document.getElementById('justif-upload-modal').classList.add('hidden');
+        }
+
+        // Photos en attente pour le justificatif
+        // let justifPhotos = []; // dédupliqué
+
         function logout(){sb.auth.signOut().then(()=>location.href='index.html');}
 
         // ── SPLASH SCREEN ──
