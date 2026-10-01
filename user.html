@@ -1815,20 +1815,46 @@
             document.getElementById('alloc-badge').textContent = myAlloc>0 ? `${myAlloc.toFixed(2)}€/mois` : 'Allocation non définie';
 
             const hist = [...myTx].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,8);
+            // Vérifier si des justificatifs existent pour ces transactions
+            if (hist.length > 0) {
+                const txIds = hist.map(t => t.id);
+                const { data: justifs } = await sb.from('justificatifs_images')
+                    .select('transaction_id').in('transaction_id', txIds);
+                const justifSet = new Set((justifs||[]).map(j => j.transaction_id));
+                hist.forEach(t => { t._hasJustif = justifSet.has(t.id); });
+            }
             document.getElementById('tx-history').innerHTML = hist.length===0
                 ? `<div class="text-center py-10"><svg class="w-10 h-10 mx-auto mb-2 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg><p class="text-slate-300 text-[11px] font-black uppercase tracking-widest">Aucune opération</p></div>`
                 : hist.map((t,i)=>`
-                <div class="flex justify-between items-center p-4 bg-white rounded-[20px] border border-slate-100 anim-slide" style="animation-delay:${i*.04}s">
-                    <div class="flex items-center gap-3">
-                        <div class="w-2.5 h-2.5 rounded-full flex-shrink-0 ${t.type==='recette'?'bg-emerald-400':t.statut==='attente'?'bg-amber-400':'bg-red-900'}"></div>
-                        <div>
-                            <p class="text-[11px] font-black uppercase tracking-wide text-slate-800">${escapeHtml(t.motif||'RECETTE')}</p>
-                            <p class="text-[9px] text-slate-400 font-bold">${new Date(t.created_at).toLocaleDateString('fr-FR')}${t.commentaire?' · '+escapeHtml(t.commentaire):''}</p>
+                <div class="bg-white rounded-[20px] border border-slate-100 anim-slide shadow-premium" style="animation-delay:${i*.04}s">
+                    <div class="flex justify-between items-center p-4">
+                        <div class="flex items-center gap-3 flex-1 min-w-0">
+                            ${motifIconHTML(t.motif, t.type)}
+                            <div class="min-w-0">
+                                <p class="text-[11px] font-black uppercase tracking-wide text-slate-800 truncate">${escapeHtml(t.motif||'RECETTE')}</p>
+                                <p class="text-[9px] text-slate-400 font-bold">${new Date(t.created_at).toLocaleDateString('fr-FR')}${t.commentaire?' · '+escapeHtml(t.commentaire):''}</p>
+                            </div>
+                        </div>
+                        <div class="text-right flex-shrink-0 ml-2">
+                            <p class="font-black text-sm ${t.type==='recette'?'text-emerald-500':'text-slate-900'}">${t.type==='recette'?'+':'-'}${parseFloat(t.montant).toFixed(2)}€</p>
+                            <span class="text-[8px] uppercase font-black px-2 py-0.5 rounded-full ${t.statut==='attente'?'bg-amber-50 text-amber-500':'bg-emerald-50 text-emerald-600'}">${t.statut==='attente'?'En attente':'Validé'}</span>
                         </div>
                     </div>
-                    <div class="text-right">
-                        <p class="font-black text-sm ${t.type==='recette'?'text-emerald-500':'text-slate-900'}">${t.type==='recette'?'+':'-'}${parseFloat(t.montant).toFixed(2)}€</p>
-                        <span class="text-[8px] uppercase font-black px-2 py-0.5 rounded-full ${t.statut==='attente'?'bg-amber-50 text-amber-500':'bg-emerald-50 text-emerald-600'}">${t.statut==='attente'?'En attente':'Validé'}</span>
+                    <div class="flex gap-2 px-4 pb-3 border-t border-slate-50 pt-2">
+                        <button onclick="ouvrirEditById('${escapeHtml(t.id)}')"
+                            style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:8px;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#475569;cursor:pointer">
+                            ✏️ Modifier
+                        </button>
+                        ${t.justificatif_url || t._hasJustif
+                            ? `<button onclick="previewJustificatif('${escapeHtml(t.id)}','${escapeHtml(t.justificatif_url||'')}')"
+                                style="flex:1;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:8px;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#16a34a;cursor:pointer">
+                                📎 Voir justif
+                               </button>`
+                            : `<button onclick="ouvrirAjoutJustificatif('${escapeHtml(t.id)}')"
+                                style="flex:1;background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:8px;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#d97706;cursor:pointer">
+                                📎 Ajouter justif
+                               </button>`
+                        }
                     </div>
                 </div>`).join('');
         }
