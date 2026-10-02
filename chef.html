@@ -1335,7 +1335,7 @@
                                 <p class="text-[11px] font-black uppercase text-slate-800">${escapeHtml(t.motif||'RECETTE')}</p>
                                 <p class="text-[9px] text-slate-400 font-bold">${new Date(t.created_at).toLocaleDateString('fr-FR')}${t.commentaire?' · '+escapeHtml(t.commentaire):''}</p>
                                 <span class="text-[8px] uppercase font-black px-2 py-0.5 rounded-full ${t.statut==='attente'?'bg-amber-50 text-amber-500':'bg-emerald-50 text-emerald-600'}">${t.statut==='attente'?'En attente':'Validé'}</span>
-                                ${t.type==='depense' ? (t.justificatif_url
+                                ${t.type==='depense' ? (t.justificatif_url || t._hasJustif
                                     ? `<span class="inline-flex items-center gap-1 mt-0.5">
                                         <button onclick="previewJustificatif('${escapeHtml(t.id)}','${escapeHtml(t.justificatif_url||'')}')" class="text-[8px] font-black text-emerald-500 uppercase bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 hover:bg-emerald-100">${t.justificatif_url?.includes('.pdf') ? '📄 PDF' : '📎 Voir'}</button>
                                         <button onclick="ouvrirAjoutJustificatif('${escapeHtml(t.id)}')" class="text-[8px] font-black text-red-600 uppercase bg-red-50 px-2 py-0.5 rounded-full border border-red-100 hover:bg-red-100 transition-colors">🔄 Remplacer</button>
@@ -1693,7 +1693,7 @@
                                 <div class="flex-1 min-w-0">
                                     <p class="text-[10px] font-bold text-slate-700">${escapeHtml(t.motif||'-')}</p>
                                     <p class="text-[8px] text-slate-400">${new Date(t.created_at).toLocaleDateString('fr-FR')}${t.commentaire?' · '+escapeHtml(t.commentaire):''}</p>
-                                    ${t.justificatif_url
+                                    ${t.justificatif_url || t._hasJustif
                                         ? `<span class="text-[8px] font-black text-emerald-500 uppercase">✓ Justificatif joint</span>`
                                         : `<span class="sans-justif sans-justif-${t.user_id} text-[8px] font-black text-red-400 uppercase">⚠️ Sans justificatif</span>`}
                                 </div>
