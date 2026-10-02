@@ -1349,7 +1349,9 @@
                             <div class="flex gap-1 justify-end">
                                 <button onclick="ouvrirEditById('${escapeHtml(t.id)}')"
                                     class="bg-red-50 text-red-700 px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase hover:bg-red-100 transition-all active:scale-95">✏️</button>
-                                <button onclick="supprimerOperation('${escapeHtml(t.id)}')"
+                                <button onclick="ouvrirEditById('${escapeHtml(t.id)}')"
+                                    class="bg-slate-50 text-slate-500 px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase hover:bg-slate-100 transition-all active:scale-95">✏️</button>
+                                    <button onclick="supprimerOperation('${escapeHtml(t.id)}')"
                                     class="bg-red-50 text-red-400 px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase hover:bg-red-100 transition-all active:scale-95">✕</button>
                             </div>
                         </div>
@@ -1377,9 +1379,16 @@
             }, 'Supprimer', true);
         }
 
-        function ouvrirEditById(id) {
-            const tx = _txCache[id];
-            if (!tx) { showToast('Opération introuvable', 'error'); return; }
+        async function ouvrirEditById(id) {
+            let tx = _txCache[id];
+            if (!tx) {
+                // Pas dans le cache — charger depuis Supabase
+                const { data } = await sb.from('transactions')
+                    .select('*').eq('id', id).maybeSingle();
+                if (!data) { showToast('Opération introuvable', 'error'); return; }
+                tx = data;
+                _txCache[id] = tx;
+            }
             ouvrirEditModal(tx);
         }
 
