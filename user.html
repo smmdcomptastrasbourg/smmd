@@ -2357,6 +2357,22 @@
             ouvrirViewer(0);
         }
 
+
+        // Détecte le vrai type depuis le header base64
+        function detectMimeType(base64, declaredMime) {
+            if (!base64) return declaredMime || 'image/jpeg';
+            const header = base64.substring(0, 30);
+            if (header.includes('data:application/pdf') || header.includes('JVBERi')) return 'application/pdf';
+            if (header.includes('data:image/png') || header.includes('iVBOR')) return 'image/png';
+            if (header.includes('data:image/jpeg') || header.includes('/9j/')) return 'image/jpeg';
+            return declaredMime || 'image/jpeg';
+        }
+        function getExtFromMime(mime) {
+            if (mime?.includes('pdf')) return 'pdf';
+            if (mime?.includes('png')) return 'png';
+            return 'jpg';
+        }
+
         function ouvrirViewer(idx) {
             _viewerIdx = idx;
             const img = _viewerImages[idx];
@@ -2380,7 +2396,8 @@
             }
 
             // Show correct viewer
-            const isPdf = img.mime_type?.includes('pdf');
+            const realMime = detectMimeType(img.base64, img.mime_type);
+            const isPdf = realMime.includes('pdf');
             document.getElementById('viewer-img-container').classList.toggle('hidden', isPdf);
             document.getElementById('viewer-pdf-container').classList.toggle('hidden', !isPdf);
 
