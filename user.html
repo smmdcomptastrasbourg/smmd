@@ -1284,6 +1284,15 @@
             });
             filtered.forEach(t => { _txCache[t.id] = t; });
 
+            // Vérifier quelles transactions ont des justificatifs en base
+            if (filtered.length > 0) {
+                const txIds = filtered.map(t => t.id);
+                const { data: justifs } = await sb.from('justificatifs_images')
+                    .select('transaction_id').in('transaction_id', txIds);
+                const justifSet = new Set((justifs||[]).map(j => j.transaction_id));
+                filtered.forEach(t => { t._hasJustif = justifSet.has(t.id); });
+            }
+
             // Populate motif filter
             const mfSel = document.getElementById('journal-motif-filter');
             if (mfSel && mfSel.options.length <= 1) {
