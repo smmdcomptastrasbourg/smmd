@@ -1376,9 +1376,16 @@
             }, 'Supprimer', true);
         }
 
-        function ouvrirEditById(id) {
-            const tx = _txCache[id];
-            if (!tx) { showToast('Opération introuvable', 'error'); return; }
+        async function ouvrirEditById(id) {
+            let tx = _txCache[id];
+            if (!tx) {
+                // Pas dans le cache — charger depuis Supabase
+                const { data } = await sb.from('transactions')
+                    .select('*').eq('id', id).maybeSingle();
+                if (!data) { showToast('Opération introuvable', 'error'); return; }
+                tx = data;
+                _txCache[id] = tx;
+            }
             ouvrirEditModal(tx);
         }
 
