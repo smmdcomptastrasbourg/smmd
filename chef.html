@@ -1296,6 +1296,15 @@
             // Stocker dans le cache pour accès par ID
             filtered.forEach(t => { _txCache[t.id] = t; });
 
+            // Vérifier quelles transactions ont des justificatifs en base
+            if (filtered.length > 0) {
+                const txIds = filtered.map(t => t.id);
+                const { data: justifs } = await sb.from('justificatifs_images')
+                    .select('transaction_id').in('transaction_id', txIds);
+                const justifSet = new Set((justifs||[]).map(j => j.transaction_id));
+                filtered.forEach(t => { t._hasJustif = justifSet.has(t.id); });
+            }
+
             if (!filtered.length) {
                 list.innerHTML = `<div class="bg-white rounded-[28px] border border-slate-100 shadow-premium p-8 text-center">
                     <p class="text-slate-300 text-[11px] font-black uppercase tracking-widest">Aucune opération ce mois</p>
