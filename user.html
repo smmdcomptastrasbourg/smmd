@@ -1194,38 +1194,38 @@
         }
 
         async function validerDepenseScan() {
-            const amount = parseFloat(document.getElementById('scan-montant').value);
-            const date   = document.getElementById('scan-date').value;
-            const comment= document.getElementById('scan-commentaire').value.trim();
-            const motif  = document.getElementById('scan-motif').value;
-            const method = document.getElementById('scan-method').value;
+            const amount  = parseFloat(document.getElementById('scan-montant').value);
+            const date    = document.getElementById('scan-date').value;
+            const comment = document.getElementById('scan-commentaire').value.trim();
+            const motif   = document.getElementById('scan-motif').value;
+            const method  = document.getElementById('scan-method').value;
             if (!amount||amount<=0) return showToast('Saisissez un montant valide','error');
             if (!date) return showToast('Saisissez une date','error');
 
-            // Bouton dans le modal scan
             const btn = document.querySelector('#scan-step-result .btn-enregistrer');
             const setBtn = (html, disabled) => { if(btn){btn.innerHTML=html;btn.disabled=disabled;} };
 
-            setBtn('<span class="btn-spinner"></span>Upload justificatif...', true);
-
-            // Upload justificatif
-            let justificatif_url = null;
-            if (scannedFile) {
-                const ext = scannedFile.type.includes('pdf') ? 'pdf' : 'jpg';
-                const path = `${userProfile.maison_id}/${userProfile.id}/${Date.now()}.${ext}`;
-                const { error: upErr } = await sb.storage
-                    .from('justificatifs')
-                    .upload(path, scannedFile, { contentType: scannedFile.type, upsert: false });
-                if (!upErr) {
-                    const { data: urlData } = sb.storage.from('justificatifs').getPublicUrl(path);
-                    justificatif_url = urlData?.publicUrl || null;
-                } else {
-                    showToast('Erreur upload justificatif', 'error');
-                }
-            }
-
             setBtn('<span class="btn-spinner"></span>Enregistrement...', true);
 
+            // Upload Storage optionnel (ne bloque pas si le bucket n'existe pas)
+            let justificatif_url = null;
+            if (scannedFile) {
+                try {
+                    const ext = scannedFile.type?.includes('pdf') ? 'pdf' : 'jpg';
+                    const path = `${userProfile.maison_id}/${userProfile.id}/${Date.now()}.${ext}`;
+                    const { error: upErr } = await sb.storage
+                        .from('justificatifs')
+                        .upload(path, scannedFile, { contentType: scannedFile.type, upsert: false });
+                    if (!upErr) {
+                        const { data: urlData } = sb.storage.from('justificatifs').getPublicUrl(path);
+                        justificatif_url = urlData?.publicUrl || null;
+                    }
+                } catch(e) { /* Storage optionnel */ }
+            }
+
+            setBtn('<span class="btn-spinner"></span>Sauvegarde...', true);
+
+            // Insérer la transaction
             const { data: insertData, error } = await sb.from('transactions').insert([{
                 user_id: userProfile.id, maison_id: userProfile.maison_id,
                 montant: amount, motif, commentaire: comment||null,
@@ -1237,15 +1237,24 @@
 
             setBtn('Enregistrer', false);
             if (error) { showToast('Erreur : '+error.message,'error'); return; }
-            // Sauvegarder les images en base64 dans la table dédiée
-            if (insertData?.[0]?.id) {
+
+            // Sauvegarder TOUJOURS dans justificatifs_images (base64)
+            if (insertData?.[0]?.id && scannedFile) {
                 const allPhotos = [scannedFile, ...extraPhotos].filter(Boolean);
-                await sauvegarderImagesJustificatif(insertData[0].id, allPhotos);
+                try {
+                    await sauvegarderImagesJustificatif(insertData[0].id, allPhotos);
+                } catch(e) {
+                    showToast('Justificatif non sauvegardé : ' + e.message, 'error');
+                }
             }
+
             scannedFile = null;
+            extraPhotos = [];
             closeScanModal();
             showToast('Dépense enregistrée avec justificatif !','success');
-            await refreshDashboard(); await loadRefundHistory();
+            await loadJournal();
+            await refreshDashboard();
+            await loadRefundHistory();
         }
 
 
