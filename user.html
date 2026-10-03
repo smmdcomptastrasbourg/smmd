@@ -1694,7 +1694,7 @@
                         const { data: urlData } = sb.storage.from('justificatifs').getPublicUrl(path);
                         justificatif_url = urlData?.publicUrl || null;
                     }
-                } catch(e) { /* continuer sans URL */ }
+                } catch(e) { console.log('Storage upload ignoré:', e.message); }
 
                 // Étape 3 — Enregistrement
                 progTxt.textContent = 'Enregistrement...';
@@ -1708,10 +1708,10 @@
                 justifPhotos = [];
                 prog.classList.add('hidden');
                 fermerJustifModal();
-                showToast('Justificatif ajouté ! Le chef peut maintenant vous rembourser.', 'success');
-                await loadRefundHistory();
-                await refreshDashboard();
+                showToast('Justificatif enregistré ✓', 'success');
                 await loadJournal();
+                await refreshDashboard();
+                await loadRefundHistory();
 
             } catch(e) {
                 prog.classList.add('hidden');
@@ -2656,7 +2656,7 @@
             }
             if (inserts.length) {
                 const { error } = await sb.from('justificatifs_images').insert(inserts);
-                if (error) console.error('Erreur sauvegarde images:', error.message);
+                if (error) throw new Error('Erreur sauvegarde images: ' + error.message);
             }
         }
 
