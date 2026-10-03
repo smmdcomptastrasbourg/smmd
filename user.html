@@ -1621,7 +1621,7 @@
         }
 
         // Photos en attente pour le justificatif
-        // let justifPhotos = []; // dédupliqué
+
 
         function ajouterPhotosJustif(input) {
             const files = Array.from(input.files);
@@ -2590,8 +2590,8 @@
         let _activeTab = 'saisie';
         let scannedFile = null;
         let _lastBase64 = null;
-        // let extraPhotos = []; // dédupliqué
-        // let justifPhotos = []; // dédupliqué
+        let extraPhotos = [];
+        let justifPhotos = [];
 
         function switchTab(name) { _goTab(name); }
         function menuGo(name, cb) { _goTab(name, cb); }
