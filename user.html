@@ -1824,7 +1824,7 @@
                     document.getElementById('pending-refund').textContent = '--€';
                     showToast("Impossible de charger les données — vérifiez votre connexion", "error");
                 }
-            }}, 15000);
+            }, 15000);
             const { data: txs, error: txErr } = await sb.from('transactions').select('*').eq('maison_id',userProfile.maison_id);
             const { data: avs, error: avsErr } = await sb.from('allocations_versees').select('*').eq('maison_id',userProfile.maison_id);
             clearTimeout(timeout);
