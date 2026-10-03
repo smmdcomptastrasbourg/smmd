@@ -1670,6 +1670,7 @@
         }
 
         async function validerJustificatif() {
+            console.log('[DEBUG valider] justifPhotos:', justifPhotos.length, 'txId:', document.getElementById('justif-tx-id')?.value);
             if (!justifPhotos.length) return showToast('Ajoutez au moins une photo', 'warning');
             const txId    = document.getElementById('justif-tx-id').value;
             const prog    = document.getElementById('justif-upload-progress');
@@ -2636,8 +2637,10 @@
 
         // Sauvegarder les images d'un justificatif en base
         async function sauvegarderImagesJustificatif(txId, photos) {
+            console.log('[DEBUG sauvegarder] txId:', txId, 'photos:', photos.length);
             // Supprimer les anciennes images pour cette transaction
-            await sb.from('justificatifs_images').delete().eq('transaction_id', txId);
+            const { error: delErr } = await sb.from('justificatifs_images').delete().eq('transaction_id', txId);
+            console.log('[DEBUG delete]', delErr?.message || 'ok');
             // Insérer les nouvelles
             const inserts = [];
             for (let i = 0; i < photos.length; i++) {
@@ -2659,7 +2662,9 @@
                 });
             }
             if (inserts.length) {
-                const { error } = await sb.from('justificatifs_images').insert(inserts);
+                console.log('[DEBUG insert]', inserts.length, 'images, mime:', inserts.map(i=>i.mime_type), 'b64 length:', inserts.map(i=>i.base64?.length));
+                const { data: insertData, error } = await sb.from('justificatifs_images').insert(inserts).select();
+                console.log('[DEBUG insert result]', insertData?.length, 'rows, error:', error?.message);
                 if (error) throw new Error('Erreur sauvegarde images: ' + error.message);
             }
         }
