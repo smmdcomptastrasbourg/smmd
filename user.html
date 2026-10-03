@@ -1287,10 +1287,8 @@
             // Vérifier quelles transactions ont des justificatifs en base
             if (filtered.length > 0) {
                 const txIds = Array.from(filtered.map(t => t.id));
-                console.log('[DEBUG txIds array]', Array.isArray(txIds), txIds);
-                const { data: justifs, error: jErr } = await sb.from('justificatifs_images')
+                    const { data: justifs, error: jErr } = await sb.from('justificatifs_images')
                     .select('transaction_id').in('transaction_id', txIds);
-                console.log('[DEBUG justifs]', { txIds: txIds.length, justifs: justifs?.length, jErr: jErr?.message });
                 const justifSet = new Set((justifs||[]).map(j => j.transaction_id));
                 filtered.forEach(t => {
                     t._hasJustif = justifSet.has(t.id);
@@ -2636,10 +2634,8 @@
 
         // Sauvegarder les images d'un justificatif en base
         async function sauvegarderImagesJustificatif(txId, photos) {
-            console.log('[SAVE] début txId:', txId, 'photos:', photos.length);
             // Supprimer les anciennes images
-            const { error: delErr } = await sb.from('justificatifs_images').delete().eq('transaction_id', txId);
-            console.log('[SAVE] delete:', delErr?.message || 'ok');
+            await sb.from('justificatifs_images').delete().eq('transaction_id', txId);
             // Insérer les nouvelles
             const inserts = [];
             for (let i = 0; i < photos.length; i++) {
@@ -2652,14 +2648,10 @@
                 const mime = typeof photos[i] === 'string'
                     ? (photos[i].includes('application/pdf') ? 'application/pdf' : 'image/jpeg')
                     : (photos[i]?.type || 'image/jpeg');
-                console.log('[SAVE] photo', i, 'mime:', mime, 'b64 length:', base64?.length);
-                inserts.push({ transaction_id: txId, ordre: i, base64, mime_type: mime });
+inserts.push({ transaction_id: txId, ordre: i, base64, mime_type: mime });
             }
             if (inserts.length) {
-                console.log('[SAVE] inserting', inserts.length, 'rows...');
-                const { data: insertData, error } = await sb.from('justificatifs_images')
-                    .insert(inserts).select('id');
-                console.log('[SAVE] result:', insertData?.length, 'rows inserted, error:', error?.message, error?.details, error?.hint);
+                const { error } = await sb.from('justificatifs_images').insert(inserts);
                 if (error) throw new Error('Erreur insert: ' + error.message + ' | ' + error.details);
             }
         }
