@@ -1287,10 +1287,14 @@
             // Vérifier quelles transactions ont des justificatifs en base
             if (filtered.length > 0) {
                 const txIds = filtered.map(t => t.id);
-                const { data: justifs } = await sb.from('justificatifs_images')
+                const { data: justifs, error: jErr } = await sb.from('justificatifs_images')
                     .select('transaction_id').in('transaction_id', txIds);
+                console.log('[DEBUG justifs]', { txIds: txIds.length, justifs: justifs?.length, jErr: jErr?.message });
                 const justifSet = new Set((justifs||[]).map(j => j.transaction_id));
-                filtered.forEach(t => { t._hasJustif = justifSet.has(t.id); });
+                filtered.forEach(t => { 
+                    t._hasJustif = justifSet.has(t.id);
+                    if (t._hasJustif) console.log('[DEBUG] tx avec justif:', t.id, t.motif);
+                });
             }
 
             // Populate motif filter
