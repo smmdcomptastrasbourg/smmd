@@ -1627,8 +1627,28 @@
             const files = Array.from(input.files);
             if (!files.length) return;
             justifPhotos = [...justifPhotos, ...files];
-            afficherPreviewsJustif();
+            const grid = document.getElementById('justif-preview-grid');
+            const section = document.getElementById('justif-previews');
+            const count = document.getElementById('justif-preview-count');
+            const valBtn = document.getElementById('justif-valider-btn');
+            if (!justifPhotos.length) {
+                section.classList.add('hidden'); valBtn.classList.add('hidden'); return;
+            }
+            section.classList.remove('hidden');
+            valBtn.classList.remove('hidden');
+            count.textContent = `${justifPhotos.length} photo${justifPhotos.length>1?'s':''}`;
+            grid.innerHTML = justifPhotos.map((f, i) => {
+                const isPdf = f.type?.includes('pdf');
+                const url = isPdf ? '' : URL.createObjectURL(f);
+                return `<div class="relative">
+                    ${isPdf
+                        ? `<div class="w-full h-20 rounded-xl border border-slate-100 bg-red-50 flex items-center justify-center text-2xl">📄</div>`
+                        : `<img src="${url}" class="w-full h-20 object-cover rounded-xl border border-slate-100">`}
+                    <button onclick="supprimerPhotoJustif(${i})" class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full text-[10px] font-black flex items-center justify-center shadow-md">✕</button>
+                </div>`;
+            }).join('');
         }
+
 
         function afficherPreviewsJustif() {
             const grid    = document.getElementById('justif-preview-grid');
@@ -1669,42 +1689,35 @@
 
         async function validerJustificatif() {
             if (!justifPhotos.length) return showToast('Ajoutez au moins une photo', 'warning');
-            const txId    = document.getElementById('justif-tx-id').value;
-            const prog    = document.getElementById('justif-upload-progress');
+            const txId = document.getElementById('justif-tx-id').value;
+            const prog = document.getElementById('justif-upload-progress');
             const progTxt = document.getElementById('justif-upload-text');
-            const valBtn  = document.getElementById('justif-valider-btn');
-
+            const valBtn = document.getElementById('justif-valider-btn');
             valBtn.classList.add('hidden');
             prog.classList.remove('hidden');
-
             try {
-                // Étape 1 — Sauvegarder les images en base64 dans la table
                 progTxt.textContent = `Sauvegarde ${justifPhotos.length} photo${justifPhotos.length>1?'s':''}...`;
                 await sauvegarderImagesJustificatif(txId, justifPhotos);
 
-                // Étape 2 — Upload première image comme référence URL
                 progTxt.textContent = 'Upload...';
                 let justificatif_url = null;
                 try {
                     const firstPhoto = justifPhotos[0];
-                    const ext = firstPhoto.type?.includes('png') ? 'png' : 'jpg';
+                    const ext = firstPhoto.type?.includes('png') ? 'png' : firstPhoto.type?.includes('pdf') ? 'pdf' : 'jpg';
                     const path = `${userProfile.maison_id}/${userProfile.id}/${Date.now()}.${ext}`;
-                    const { error: upErr } = await sb.storage
-                        .from('justificatifs')
+                    const { error: upErr } = await sb.storage.from('justificatifs')
                         .upload(path, firstPhoto, { contentType: firstPhoto.type || 'image/jpeg', upsert: false });
                     if (!upErr) {
                         const { data: urlData } = sb.storage.from('justificatifs').getPublicUrl(path);
                         justificatif_url = urlData?.publicUrl || null;
                     }
-                } catch(e) { console.log('Storage upload ignoré:', e.message); }
+                } catch(e) { /* continuer sans URL */ }
 
-                // Étape 3 — Enregistrement
                 progTxt.textContent = 'Enregistrement...';
                 const { error } = await sb.from('transactions')
                     .update({ justificatif_url })
                     .eq('id', txId)
                     .eq('user_id', userProfile.id);
-
                 if (error) throw new Error(error.message);
 
                 justifPhotos = [];
@@ -1713,8 +1726,6 @@
                 showToast('Justificatif enregistré ✓', 'success');
                 await loadJournal();
                 await refreshDashboard();
-                await loadRefundHistory();
-
             } catch(e) {
                 prog.classList.add('hidden');
                 valBtn.classList.remove('hidden');
@@ -1722,7 +1733,7 @@
             }
         }
 
-        // ── INIT ──
+
         async function init() {
             const { data: { user } } = await sb.auth.getUser();
             if (!user) { window.location.href="index.html"; return; }
@@ -2634,29 +2645,33 @@
 
         // Sauvegarder les images d'un justificatif en base
         async function sauvegarderImagesJustificatif(txId, photos) {
-            // Supprimer les anciennes images
+            // Supprimer les anciennes images pour cette transaction
             await sb.from('justificatifs_images').delete().eq('transaction_id', txId);
             // Insérer les nouvelles
             const inserts = [];
             for (let i = 0; i < photos.length; i++) {
-                let base64;
+                let b64;
                 if (typeof photos[i] === 'string') {
-                    base64 = photos[i];
+                    b64 = photos[i];
                 } else {
-                    base64 = await resizeImageToBase64(photos[i]);
+                    b64 = await resizeImageToBase64(photos[i]);
                 }
-                const mime = typeof photos[i] === 'string'
-                    ? (photos[i].includes('application/pdf') ? 'application/pdf' : 'image/jpeg')
-                    : (photos[i]?.type || 'image/jpeg');
-inserts.push({ transaction_id: txId, ordre: i, base64, mime_type: mime });
+                inserts.push({
+                    transaction_id: txId,
+                    ordre: i,
+                    base64: b64,
+                    mime_type: (typeof photos[i] === 'string'
+                        ? (photos[i].includes('application/pdf') ? 'application/pdf' : 'image/jpeg')
+                        : (photos[i]?.type || 'image/jpeg'))
+                });
             }
             if (inserts.length) {
                 const { error } = await sb.from('justificatifs_images').insert(inserts);
-                if (error) throw new Error('Erreur insert: ' + error.message + ' | ' + error.details);
+                if (error) throw new Error('Erreur insert justificatif: ' + error.message);
             }
         }
 
-        // Récupérer les images d'un justificatif
+
         async function chargerImagesJustificatif(txId) {
             const { data } = await sb.from('justificatifs_images')
                 .select('base64, mime_type, ordre')
