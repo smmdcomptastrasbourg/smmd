@@ -2636,31 +2636,31 @@
 
         // Sauvegarder les images d'un justificatif en base
         async function sauvegarderImagesJustificatif(txId, photos) {
-            // Supprimer les anciennes images pour cette transaction
-            await sb.from('justificatifs_images').delete().eq('transaction_id', txId);
+            console.log('[SAVE] début txId:', txId, 'photos:', photos.length);
+            // Supprimer les anciennes images
+            const { error: delErr } = await sb.from('justificatifs_images').delete().eq('transaction_id', txId);
+            console.log('[SAVE] delete:', delErr?.message || 'ok');
             // Insérer les nouvelles
             const inserts = [];
             for (let i = 0; i < photos.length; i++) {
                 let base64;
                 if (typeof photos[i] === 'string') {
-                    // Déjà en base64 (datauristring)
                     base64 = photos[i];
                 } else {
-                    // File object — redimensionner
                     base64 = await resizeImageToBase64(photos[i]);
                 }
-                inserts.push({
-                    transaction_id: txId,
-                    ordre: i,
-                    base64,
-                    mime_type: (typeof photos[i] === 'string'
-                        ? (photos[i].includes('application/pdf') ? 'application/pdf' : 'image/jpeg')
-                        : (photos[i]?.type || 'image/jpeg'))
-                });
+                const mime = typeof photos[i] === 'string'
+                    ? (photos[i].includes('application/pdf') ? 'application/pdf' : 'image/jpeg')
+                    : (photos[i]?.type || 'image/jpeg');
+                console.log('[SAVE] photo', i, 'mime:', mime, 'b64 length:', base64?.length);
+                inserts.push({ transaction_id: txId, ordre: i, base64, mime_type: mime });
             }
             if (inserts.length) {
-                const { error } = await sb.from('justificatifs_images').insert(inserts);
-                if (error) throw new Error('Erreur sauvegarde images: ' + error.message);
+                console.log('[SAVE] inserting', inserts.length, 'rows...');
+                const { data: insertData, error } = await sb.from('justificatifs_images')
+                    .insert(inserts).select('id');
+                console.log('[SAVE] result:', insertData?.length, 'rows inserted, error:', error?.message, error?.details, error?.hint);
+                if (error) throw new Error('Erreur insert: ' + error.message + ' | ' + error.details);
             }
         }
 
