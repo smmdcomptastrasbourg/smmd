@@ -1333,25 +1333,22 @@
                                 <p class="text-[11px] font-black uppercase text-slate-800">${escapeHtml(t.motif||'RECETTE')}</p>
                                 <p class="text-[9px] text-slate-400 font-bold">${new Date(t.created_at).toLocaleDateString('fr-FR')}${t.commentaire?' · '+escapeHtml(t.commentaire):''}</p>
                                 <span class="text-[8px] uppercase font-black px-2 py-0.5 rounded-full ${t.statut==='attente'?'bg-amber-50 text-amber-500':'bg-emerald-50 text-emerald-600'}">${t.statut==='attente'?'En attente':'Validé'}</span>
-                                ${t.type==='depense' ? (t.justificatif_url || t._hasJustif
-                                    ? `<span class="inline-flex items-center gap-1 mt-0.5 flex-wrap">
-                                        <button onclick="previewJustificatif('${escapeHtml(t.id)}','${escapeHtml(t.justificatif_url||'')}')" class="text-[8px] font-black text-emerald-500 uppercase bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 hover:bg-emerald-100">${t.justificatif_url?.includes('.pdf') ? '📄 PDF' : '📎 Voir'}</button>
-                                        <button onclick="previewJustificatif('${escapeHtml(t.id)}','${new Date(t.created_at).toLocaleDateString('fr-FR').replace(/\//g,'-')}_${escapeHtml(t.motif||'depense')}')" class="text-[8px] font-black text-red-600 uppercase bg-red-50 px-2 py-0.5 rounded-full border border-red-100 hover:bg-red-100 transition-colors">⬇ Télécharger</button>
-                                        <button onclick="ouvrirAjoutJustificatif('${escapeHtml(t.id)}')" class="text-[8px] font-black text-red-600 uppercase bg-red-50 px-2 py-0.5 rounded-full border border-red-100 hover:bg-red-100 transition-colors">🔄 Remplacer</button>
-                                       </span>`
-                                    : `<button onclick="ouvrirAjoutJustificatif('${escapeHtml(t.id)}')" class="mt-0.5 text-[8px] font-black text-amber-500 uppercase bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100 hover:bg-amber-100 transition-colors">📎 Ajouter justificatif</button>`)
-                                : ''}
+                                
                             </div>
                         </div>
                         <div class="text-right flex-shrink-0 ml-2">
                             <p class="font-black text-sm ${t.type==='recette'?'text-emerald-500':'text-slate-900'} mb-2">${t.type==='recette'?'+':'-'}${parseFloat(t.montant).toFixed(2)}€</p>
-                            <div class="flex gap-1 justify-end">
-                                <button onclick="ouvrirEditById('${escapeHtml(t.id)}')"
-                                    class="bg-red-50 text-red-700 px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase hover:bg-red-100 transition-all active:scale-95">✏️</button>
-                                <button onclick="supprimerOperation('${escapeHtml(t.id)}')"
-                                    class="bg-red-50 text-red-400 px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase hover:bg-red-100 transition-all active:scale-95">✕</button>
+                            
+                            <div class="flex flex-wrap gap-1 mt-1.5">
+                                ${t.type==='depense' ? (t.justificatif_url || t._hasJustif
+                                    ? `<button onclick="previewJustificatif('${escapeHtml(t.id)}','${escapeHtml(t.justificatif_url||'')}')" class="text-[8px] font-black text-emerald-600 uppercase bg-emerald-50 px-2 py-1 rounded-full border border-emerald-200 hover:bg-emerald-100 transition-colors">${t.justificatif_url?.includes('.pdf') ? '📄 Voir PDF' : '📎 Voir'}</button>
+                                       <button onclick="ouvrirAjoutJustificatif('${escapeHtml(t.id)}')" class="text-[8px] font-black text-slate-500 uppercase bg-slate-50 px-2 py-1 rounded-full border border-slate-200 hover:bg-slate-100 transition-colors">🔄 Remplacer</button>`
+                                    : `<button onclick="ouvrirAjoutJustificatif('${escapeHtml(t.id)}')" class="text-[8px] font-black text-amber-600 uppercase bg-amber-50 px-2 py-1 rounded-full border border-amber-200 hover:bg-amber-100 transition-colors">📎 Ajouter justif</button>`)
+                                : ''}
+                                <button onclick="ouvrirEditById('${escapeHtml(t.id)}')" class="text-[8px] font-black text-slate-600 uppercase bg-slate-50 px-2 py-1 rounded-full border border-slate-200 hover:bg-slate-100 transition-colors">✏️ Modifier</button>
+                                <button onclick="supprimerOperation('${escapeHtml(t.id)}')" class="text-[8px] font-black text-red-500 uppercase bg-red-50 px-2 py-1 rounded-full border border-red-100 hover:bg-red-100 transition-colors">🗑️ Supprimer</button>
                             </div>
-                        </div>
+                    </div>
                     </div>
                     </div>
                 </div>`).join('')}`;
