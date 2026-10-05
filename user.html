@@ -1278,7 +1278,7 @@
             renderJournalSkeleton(list);
 
             const { data, error } = await sb.from('transactions')
-                .select('*')
+                .select('id,user_id,maison_id,type,montant,statut,motif,commentaire,created_at,methode_paiement,justificatif_url')
                 .eq('user_id', userProfile.id)
                 .order('created_at', { ascending: false });
 
@@ -1293,16 +1293,13 @@
             });
             filtered.forEach(t => { _txCache[t.id] = t; });
 
-            // Vérifier quelles transactions ont des justificatifs en base
-            if (filtered.length > 0) {
-                const txIds = Array.from(filtered.map(t => t.id));
-                    const { data: justifs, error: jErr } = await sb.from('justificatifs_images')
-                    .select('transaction_id').in('transaction_id', txIds);
-                const justifSet = new Set((justifs||[]).map(j => j.transaction_id));
-                filtered.forEach(t => {
-                    t._hasJustif = justifSet.has(t.id);
-                });
-            }
+            // justificatifs en parallèle de l'affichage du filtre motif
+            const txIds = Array.from(filtered.map(t => t.id));
+            const justi­fRes = txIds.length > 0
+                ? await sb.from('justificatifs_images').select('transaction_id').in('transaction_id', txIds)
+                : { data: [] };
+            const justifSet = new Set((justifRes.data||[]).map(j => j.transaction_id));
+            filtered.forEach(t => { t._hasJustif = justifSet.has(t.id); });
 
             // Populate motif filter
             const mfSel = document.getElementById('journal-motif-filter');
@@ -1825,9 +1822,13 @@
                     showToast("Impossible de charger les données — vérifiez votre connexion", "error");
                 }
             }, 15000);
-            const { data: txs, error: txErr } = await sb.from('transactions').select('*').eq('maison_id',userProfile.maison_id);
-            const { data: avs, error: avsErr } = await sb.from('allocations_versees').select('*').eq('maison_id',userProfile.maison_id);
+            const [txRes, avsRes] = await Promise.all([
+                sb.from('transactions').select('id,user_id,maison_id,type,montant,statut,motif,commentaire,created_at,methode_paiement,justificatif_url').eq('maison_id',userProfile.maison_id),
+                sb.from('allocations_versees').select('user_id,montant').eq('maison_id',userProfile.maison_id)
+            ]);
             clearTimeout(timeout);
+            const txs = txRes.data; const txErr = txRes.error;
+            const avs = avsRes.data; const avsErr = avsRes.error;
             if (txErr || avsErr) { showToast("Erreur de chargement des données","error"); return; }
 
             const houseAlloc = (avs||[]).reduce((s,a)=>s+parseFloat(a.montant),0);
@@ -1850,7 +1851,6 @@
             document.getElementById('alloc-badge').textContent = myAlloc>0 ? `${myAlloc.toFixed(2)}€/mois` : 'Allocation non définie';
 
             const hist = [...myTx].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,8);
-            // Vérifier si des justificatifs existent pour ces transactions
             if (hist.length > 0) {
                 const txIds = hist.map(t => t.id);
                 const { data: justifs } = await sb.from('justificatifs_images')
