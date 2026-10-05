@@ -1295,7 +1295,7 @@
 
             // justificatifs en parallèle de l'affichage du filtre motif
             const txIds = Array.from(filtered.map(t => t.id));
-            const justi­fRes = txIds.length > 0
+            const justifRes = txIds.length > 0
                 ? await sb.from('justificatifs_images').select('transaction_id').in('transaction_id', txIds)
                 : { data: [] };
             const justifSet = new Set((justifRes.data||[]).map(j => j.transaction_id));
