@@ -411,7 +411,9 @@
             const role=document.getElementById('user-role').value;
             if(!email||!pass||!prenom||!nom) return showToast("Tous les champs requis","error");
             if(pass.length<6) return showToast("Mot de passe : 6 car. minimum","error");
-            const{data,error}=await sb.auth.signUp({email,password:pass});
+            // Client temporaire sans session : la création du compte ne remplace jamais la session de l'admin
+            const sbTmp=supabase.createClient(SMMD_CONFIG.url,SMMD_CONFIG.key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
+            const{data,error}=await sbTmp.auth.signUp({email,password:pass});
             if(error) return showToast(error.message,"error");
             const{error:pErr}=await sb.from('profiles').insert([{id:data.user.id,prenom,nom,nom_complet:`${prenom} ${nom}`,maison_id:maison,role,allocation_mensuelle:0}]);
             if(pErr) showToast("Compte créé mais erreur profil : "+pErr.message,"warning");
