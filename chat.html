@@ -491,11 +491,16 @@ async function init() {
         `${profile.prenom} ${profile.nom} — ${profile.role}`;
 
     // Charger tous les profils (pour nouvelle conv)
-    const { data: profiles } = await sb.from('profiles')
-        .select('id,prenom,nom,role,maison_id')
-        .neq('id', user.id)
-        .order('prenom');
-    allProfiles = profiles || [];
+    // Annuaire minimal (id, prénom, nom, rôle, maison) — sans données sensibles
+    let { data: profiles, error: annErr } = await sb.rpc('annuaire');
+    if (annErr || !profiles) {
+        // repli si la fonction n'existe pas encore
+        const r = await sb.from('profiles').select('id,prenom,nom,role,maison_id');
+        profiles = r.data || [];
+    }
+    allProfiles = profiles
+        .filter(p => p.id !== user.id)
+        .sort((a, b) => (a.prenom || '').localeCompare(b.prenom || '', 'fr'));
 
     await chargerConversations();
     souscriptionRealtime();
