@@ -218,3 +218,223 @@ function fileToBase64(file) {
     }
   });
 }
+
+
+// ════════════════════════════════════════════════════════════
+// EXPORT DES JUSTIFICATIFS (partagé chef + admin)
+// ════════════════════════════════════════════════════════════
+window.SMMD_EXPORT = (function () {
+  const MOIS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+
+  function slug(s, fallback) {
+    const r = String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40);
+    return r || fallback || 'x';
+  }
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function dateISO(t) {
+    const d = new Date(t.created_at);
+    return isNaN(d) ? '0000-00-00' : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
+  // Vrai type d'après le contenu (magic bytes en base64), sinon type déclaré
+  function detect(b64, declared) {
+    const h = (b64 || '').slice(0, 16);
+    if (h.startsWith('JVBER')) return { ext: 'pdf', mime: 'application/pdf' };
+    if (h.startsWith('iVBOR')) return { ext: 'png', mime: 'image/png' };
+    if (h.startsWith('/9j/'))  return { ext: 'jpg', mime: 'image/jpeg' };
+    if (h.startsWith('R0lGOD')) return { ext: 'gif', mime: 'image/gif' };
+    if (h.startsWith('UklGR')) return { ext: 'webp', mime: 'image/webp' };
+    const d = (declared || '').toLowerCase();
+    if (d.includes('pdf'))  return { ext: 'pdf', mime: 'application/pdf' };
+    if (d.includes('png'))  return { ext: 'png', mime: 'image/png' };
+    if (d.includes('webp')) return { ext: 'webp', mime: 'image/webp' };
+    if (d.includes('heic')) return { ext: 'heic', mime: 'image/heic' };
+    return { ext: 'jpg', mime: 'image/jpeg' };
+  }
+
+  function cleanB64(raw) {
+    if (!raw) return '';
+    let s = String(raw);
+    const i = s.indexOf('base64,');
+    if (i !== -1) s = s.slice(i + 7);
+    return s.replace(/\s+/g, '');
+  }
+
+  // Décodage strict : lève une erreur si le base64 est invalide (évite de casser tout le ZIP)
+  function b64ToBytes(b64) {
+    let s = b64.replace(/-/g, '+').replace(/_/g, '/');
+    while (s.length % 4) s += '=';
+    const bin = atob(s);
+    const u = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    if (!u.length) throw new Error('fichier vide');
+    return u;
+  }
+
+  // Lecture complète d'une requête (contourne la limite de 1000 lignes)
+  async function fetchAll(buildQuery) {
+    const out = [], size = 1000;
+    for (let from = 0; ; from += size) {
+      const { data, error } = await buildQuery().range(from, from + size - 1);
+      if (error) throw new Error(error.message);
+      out.push(...(data || []));
+      if (!data || data.length < size) break;
+    }
+    return out;
+  }
+
+  async function withRetry(fn, tries) {
+    let last;
+    for (let i = 0; i < (tries || 3); i++) {
+      try { return await fn(); } catch (e) { last = e; await new Promise(r => setTimeout(r, 400 * (i + 1))); }
+    }
+    throw last;
+  }
+
+  // Images d'un lot de transactions : { txId: [rows] }
+  async function chargerImages(sb, ids, onProgress) {
+    const map = {}, errors = [];
+    const CH = 8;
+    for (let i = 0; i < ids.length; i += CH) {
+      const lot = ids.slice(i, i + CH);
+      try {
+        const rows = await withRetry(async () => {
+          const { data, error } = await sb.from('justificatifs_images')
+            .select('transaction_id, ordre, base64, mime_type')
+            .in('transaction_id', lot).order('ordre', { ascending: true });
+          if (error) throw new Error(error.message);
+          return data || [];
+        });
+        rows.forEach(r => (map[r.transaction_id] = map[r.transaction_id] || []).push(r));
+      } catch (e) {
+        // repli : une requête par transaction
+        for (const id of lot) {
+          try {
+            const rows = await withRetry(async () => {
+              const { data, error } = await sb.from('justificatifs_images')
+                .select('transaction_id, ordre, base64, mime_type')
+                .eq('transaction_id', id).order('ordre', { ascending: true });
+              if (error) throw new Error(error.message);
+              return data || [];
+            });
+            map[id] = rows;
+          } catch (e2) { errors.push(`Lecture impossible (${id.slice(0, 8)}) : ${e2.message}`); }
+        }
+      }
+      if (onProgress) onProgress(Math.min(i + CH, ids.length), ids.length);
+    }
+    return { map, errors };
+  }
+
+  // Ancien stockage : fichier public du bucket via justificatif_url
+  async function telechargerUrl(url) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const blob = await res.blob();
+    const m = (url.split('?')[0].match(/\.([a-zA-Z0-9]{2,4})$/) || [])[1];
+    let ext = m ? m.toLowerCase().replace('jpeg', 'jpg') : null;
+    if (!ext) ext = blob.type.includes('pdf') ? 'pdf' : blob.type.includes('png') ? 'png' : 'jpg';
+    return { blob, ext };
+  }
+
+  /**
+   * opts: {
+   *   sb, txs, JSZip,
+   *   dossier: tx => 'Chemin/du/dossier' ('' = racine),
+   *   nomZip: 'xxx.zip',
+   *   onProgress: (texte, pct) => {}
+   * }
+   * Ne s'arrête jamais sur une erreur isolée ; produit LISEZMOI.txt + index.csv
+   */
+  async function exporterJustificatifs(opts) {
+    const { sb, txs, dossier, nomZip, onProgress } = opts;
+    const Z = opts.JSZip || window.JSZip;
+    if (!Z) throw new Error('JSZip non chargé');
+    const prog = (t, p) => { if (onProgress) onProgress(t, p); };
+
+    const zip = new Z();
+    const used = new Set();
+    const index = [['Date', 'Dossier', 'Motif', 'Montant', 'Commentaire', 'Fichier', 'Statut']];
+    const problemes = [];
+    let nbFichiers = 0, nbSans = 0;
+
+    prog('Lecture des justificatifs...', 10);
+    const ids = txs.map(t => t.id);
+    const { map, errors } = await chargerImages(sb, ids, (n, tot) => prog(`Lecture ${n} / ${tot}...`, 10 + (n / Math.max(tot, 1)) * 40));
+    problemes.push(...errors);
+
+    let done = 0;
+    for (const t of txs) {
+      const dir = (dossier ? dossier(t) : '') || '';
+      const base = `${dateISO(t)}_${slug(t.motif, 'depense')}_${parseFloat(t.montant || 0).toFixed(2).replace('.', '-')}EUR_${String(t.id).slice(0, 8)}`;
+      const rows = map[t.id] || [];
+      let nbTx = 0;
+
+      for (let i = 0; i < rows.length; i++) {
+        try {
+          const b64 = cleanB64(rows[i].base64);
+          if (!b64) throw new Error('contenu vide');
+          const bytes = b64ToBytes(b64);
+          const { ext } = detect(b64, rows[i].mime_type);
+          const suffix = rows.length > 1 ? `_${i + 1}` : '';
+          let nom = `${base}${suffix}.${ext}`, k = 2;
+          while (used.has(dir + '/' + nom)) nom = `${base}${suffix}_${k++}.${ext}`;
+          used.add(dir + '/' + nom);
+          zip.file((dir ? dir + '/' : '') + nom, bytes);
+          index.push([dateISO(t), dir, t.motif || '', t.montant, t.commentaire || '', (dir ? dir + '/' : '') + nom, 'OK']);
+          nbFichiers++; nbTx++;
+        } catch (e) {
+          problemes.push(`Image ${i + 1} de la dépense ${base} illisible : ${e.message}`);
+        }
+      }
+
+      // Repli sur l'ancien stockage
+      if (nbTx === 0 && t.justificatif_url) {
+        try {
+          const { blob, ext } = await withRetry(() => telechargerUrl(t.justificatif_url), 2);
+          let nom = `${base}.${ext}`, k = 2;
+          while (used.has(dir + '/' + nom)) nom = `${base}_${k++}.${ext}`;
+          used.add(dir + '/' + nom);
+          zip.file((dir ? dir + '/' : '') + nom, blob);
+          index.push([dateISO(t), dir, t.motif || '', t.montant, t.commentaire || '', (dir ? dir + '/' : '') + nom, 'OK (ancien stockage)']);
+          nbFichiers++; nbTx++;
+        } catch (e) {
+          problemes.push(`Ancien justificatif introuvable pour ${base} : ${e.message}`);
+        }
+      }
+
+      if (nbTx === 0) {
+        nbSans++;
+        index.push([dateISO(t), dir, t.motif || '', t.montant, t.commentaire || '', '', 'SANS JUSTIFICATIF']);
+      }
+      done++;
+      prog(`Préparation ${done} / ${txs.length}...`, 50 + (done / Math.max(txs.length, 1)) * 35);
+    }
+
+    const csv = '﻿' + index.map(r => r.map(c => '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+    zip.file('index.csv', csv);
+    zip.file('LISEZMOI.txt',
+      `Export des justificatifs SMMD\r\n` +
+      `Généré le ${new Date().toLocaleString('fr-FR')}\r\n\r\n` +
+      `Dépenses : ${txs.length}\r\n` +
+      `Fichiers exportés : ${nbFichiers}\r\n` +
+      `Dépenses sans justificatif : ${nbSans}\r\n` +
+      `Problèmes : ${problemes.length}\r\n` +
+      (problemes.length ? '\r\n' + problemes.map(p => '- ' + p).join('\r\n') + '\r\n' : '') +
+      `\r\nLe fichier index.csv liste chaque dépense avec son fichier.\r\n`);
+
+    prog('Compression...', 90);
+    const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 1 }, streamFiles: true });
+    prog('Téléchargement...', 98);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = nomZip;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    return { nbFichiers, nbSans, problemes: problemes.length, total: txs.length };
+  }
+
+  return { MOIS_FR, slug, dateISO, detect, cleanB64, fetchAll, exporterJustificatifs };
+})();

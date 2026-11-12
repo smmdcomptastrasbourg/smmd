@@ -2167,62 +2167,6 @@
             }
         }
 
-        async function exportJustificatifsMoisPDF(mois, annee) {
-            const { data: txs } = await sb.from('transactions')
-                .select('*, profiles(prenom,nom)')
-                .eq('maison_id', userProfile.maison_id)
-                .eq('type', 'depense')
-                .not('justificatif_url', 'is', null)
-                .order('created_at', { ascending: true });
-
-            const filtered = (txs||[]).filter(t => {
-                const d = new Date(t.created_at);
-                return d.getMonth()+1 === mois && d.getFullYear() === annee;
-            });
-
-            if (!filtered.length) {
-                showToast(`Aucun justificatif pour ${MOIS_FR[mois-1]} ${annee}`, "warning");
-                return;
-            }
-
-            showToast(`Chargement des images...`, "info");
-            try {
-                const zip = new JSZip();
-                let totalImages = 0;
-
-                for (const t of filtered) {
-                    const images = await chargerImagesJustificatif(t.id);
-                    if (!images.length) continue;
-                    const nom = `${t.profiles?.prenom||''}_${t.profiles?.nom||''}`.trim();
-                    const date = new Date(t.created_at).toLocaleDateString('fr-FR').replace(/\//g,'-');
-                    const motif = (t.motif||'depense').replace(/[^a-zA-Z0-9]/g,'_');
-                    const montant = parseFloat(t.montant).toFixed(2).replace('.','_');
-                    images.forEach((img, i) => {
-                        const ext = img.mime_type?.includes('png') ? 'png' : 'jpg';
-                        const b64 = img.base64.split(',')[1];
-                        const suffix = images.length > 1 ? `_${i+1}` : '';
-                        zip.file(`${date}_${nom}_${motif}_${montant}€${suffix}.${ext}`, b64, { base64: true });
-                        totalImages++;
-                    });
-                }
-
-                if (totalImages === 0) {
-                    showToast("Aucune image disponible ce mois", "warning");
-                    return;
-                }
-
-                showToast(`Création du ZIP (${totalImages} image${totalImages>1?'s':''})...`, "info");
-                const blob = await zip.generateAsync({ type: 'blob' });
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = `Justificatifs_${MOIS_FR[mois-1]}_${annee}.zip`;
-                a.click();
-                showToast(`${totalImages} image${totalImages>1?'s':''} téléchargée${totalImages>1?'s':''} !`, "success");
-            } catch(e) {
-                showToast("Erreur : " + e.message, "error");
-            }
-        }
-
         function blobToBase64(blob) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -3081,84 +3025,33 @@
 
 
         // ── EXPORT 3 : ZIP justificatifs classés par membre ──
-        async function exportZipParMembre(mois, annee, moisNom) {
-            setExportProgress('Chargement des transactions...', 10);
-            const { data: txs } = await sb.from('transactions')
-                .select('*, profiles(prenom,nom)')
+        // ── Exports ZIP des justificatifs (logique partagée dans config.js) ──
+        async function _zipJustifsChef(mois, annee, moisNom, parMembre) {
+            setExportProgress('Chargement des dépenses...', 5);
+            const all = await SMMD_EXPORT.fetchAll(() => sb.from('transactions')
+                .select('id, user_id, created_at, motif, montant, commentaire, justificatif_url, profiles(prenom,nom)')
                 .eq('maison_id', userProfile.maison_id)
                 .eq('type', 'depense')
-                .order('created_at', { ascending: true });
-
-            const filtered = (txs||[]).filter(t => {
+                .order('created_at', { ascending: true }));
+            const txs = all.filter(t => {
                 const d = new Date(t.created_at);
-                return String(d.getMonth()+1).padStart(2,'0') === mois && String(d.getFullYear()) === annee;
+                return d.getMonth() + 1 === parseInt(mois) && d.getFullYear() === parseInt(annee);
             });
-
-            if (!filtered.length) { showToast('Aucune dépense ce mois', 'warning'); return; }
-
-            const zip = new JSZip();
-            let total = 0, done = 0;
-
-            // Grouper par membre
-            const byMembre = {};
-            filtered.forEach(t => {
-                const key = t.profiles
-                    ? `${t.profiles.prenom}_${(t.profiles.nom||'').toUpperCase()}`
-                    : 'Membre_supprime';
-                if (!byMembre[key]) byMembre[key] = [];
-                byMembre[key].push(t);
-                total++;
+            if (!txs.length) { showToast('Aucune dépense ce mois', 'warning'); return; }
+            const r = await SMMD_EXPORT.exporterJustificatifs({
+                sb, txs, JSZip,
+                dossier: parMembre
+                    ? t => t.profiles ? SMMD_EXPORT.slug(t.profiles.prenom, 'Membre') + '_' + SMMD_EXPORT.slug((t.profiles.nom || '').toUpperCase(), '') : 'Membres_supprimes'
+                    : () => '',
+                nomZip: `Justificatifs_${moisNom}_${annee}${parMembre ? '_par_membre' : ''}.zip`,
+                onProgress: setExportProgress
             });
-
-            setExportProgress(`0 / ${total} justificatifs...`, 15);
-
-            for (const [membre, txsMembre] of Object.entries(byMembre)) {
-                const folder = zip.folder(membre);
-                for (const tx of txsMembre) {
-                    const images = await chargerImagesJustificatif(tx.id);
-                    if (!images.length) {
-                        // Pas de justificatif — créer un fichier texte indicatif
-                        const date = new Date(tx.created_at).toLocaleDateString('fr-FR').replace(/\//g,'-');
-                        folder.file(`${date}_${(tx.motif||'depense').replace(/[^a-zA-Z0-9]/g,'_')}_SANS_JUSTIFICATIF.txt`,
-                            `Dépense sans justificatif
-Date: ${date}
-Motif: ${tx.motif||''}
-Montant: ${tx.montant}€
-Commentaire: ${tx.commentaire||''}`);
-                    } else {
-                        images.forEach((img, i) => {
-                            const date = new Date(tx.created_at).toLocaleDateString('fr-FR').replace(/\//g,'-');
-                            const motif = (tx.motif||'depense').replace(/[^a-zA-Z0-9]/g,'_');
-                            const realMime = detectMimeType(img.base64, img.mime_type);
-                        const ext = getExtFromMime(realMime);
-                            const suffix = images.length > 1 ? `_${i+1}` : '';
-                            const b64 = img.base64.includes(',') ? img.base64.split(',')[1] : img.base64;
-                            folder.file(`${date}_${motif}_${tx.montant}€${suffix}.${ext}`, b64, { base64: true });
-                        });
-                    }
-                    done++;
-                    setExportProgress(`${done} / ${total} justificatifs...`, 15 + (done/total)*75);
-                }
-            }
-
-            setExportProgress('Compression ZIP...', 92);
-            const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
-            setExportProgress('Téléchargement...', 98);
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `Justificatifs_${moisNom}_${annee}_par_membre.zip`;
-            document.body.appendChild(a); a.click(); document.body.removeChild(a);
-            setTimeout(() => URL.revokeObjectURL(url), 5000);
-            showToast(`ZIP ${moisNom} ${annee} téléchargé ✓`, 'success');
+            const msg = `${r.nbFichiers} fichier(s) exporté(s)` + (r.nbSans ? ` · ${r.nbSans} dépense(s) sans justificatif` : '') + (r.problemes ? ` · ${r.problemes} problème(s) (voir LISEZMOI.txt)` : '');
+            showToast(msg, r.problemes ? 'warning' : 'success');
             fermerExports();
         }
-
-        // ── EXPORT 4 : ZIP justificatifs par date (existant amélioré) ──
-        async function exportZipParMois(mois, annee, moisNom) {
-            await exportJustificatifsMoisPDF(parseInt(mois), parseInt(annee));
-            fermerExports();
-        }
+        async function exportZipParMembre(mois, annee, moisNom) { return _zipJustifsChef(mois, annee, moisNom, true); }
+        async function exportZipParMois(mois, annee, moisNom)   { return _zipJustifsChef(mois, annee, moisNom, false); }
 
 
         // Détecte le vrai type depuis le header base64

@@ -726,6 +726,28 @@
             document.getElementById('admin-export-bar').style.width = pct + '%';
         }
 
+        async function adminZipJustifs(mois, annee, moisNom) {
+            setAdminProgress('Chargement des dépenses...', 5);
+            const all = await SMMD_EXPORT.fetchAll(() => sb.from('transactions')
+                .select('id, user_id, created_at, motif, montant, commentaire, justificatif_url, profiles(prenom,nom), maisons(nom)')
+                .eq('type', 'depense')
+                .order('created_at', { ascending: true }));
+            const txs = all.filter(t => {
+                const d = new Date(t.created_at);
+                return d.getFullYear() === parseInt(annee) && (mois === null || d.getMonth() + 1 === parseInt(mois));
+            });
+            if (!txs.length) { showToast('Aucune dépense sur cette période', 'warning'); document.getElementById('admin-export-progress').style.display = 'none'; return; }
+            const S = SMMD_EXPORT.slug;
+            const r = await SMMD_EXPORT.exporterJustificatifs({
+                sb, txs, JSZip,
+                dossier: t => S(t.maisons?.nom, 'Sans_maison') + '/' + (t.profiles ? S(t.profiles.prenom, 'Membre') + '_' + S((t.profiles.nom || '').toUpperCase(), '') : 'Membres_supprimes') + (mois === null ? '/' + String(new Date(t.created_at).getMonth() + 1).padStart(2, '0') : ''),
+                nomZip: `Justificatifs_toutes_maisons_${moisNom}_${annee}.zip`,
+                onProgress: setAdminProgress
+            });
+            document.getElementById('admin-export-progress').style.display = 'none';
+            showToast(`${r.nbFichiers} fichier(s)` + (r.nbSans ? ` · ${r.nbSans} sans justificatif` : '') + (r.problemes ? ` · ${r.problemes} problème(s) (voir LISEZMOI.txt)` : ''), r.problemes ? 'warning' : 'success');
+        }
+
         async function adminLancerExport(type) {
             const mois  = document.getElementById('admin-export-mois').value;
             const annee = document.getElementById('admin-export-annee').value;
@@ -736,6 +758,8 @@
             try {
                 if (type === 'excel-mensuel') await adminExportMensuel(mois, annee, moisNom);
                 else if (type === 'excel-annuel') await adminExportAnnuel(annee);
+                else if (type === 'zip-mensuel') await adminZipJustifs(mois, annee, moisNom);
+                else if (type === 'zip-annuel') await adminZipJustifs(null, annee, 'Annee');
             } catch(e) {
                 showToast('Erreur : ' + e.message, 'error');
                 document.getElementById('admin-export-progress').style.display = 'none';
@@ -1014,6 +1038,22 @@
                     <div>
                         <p style="font-weight:900;font-size:13px;color:#1e3a8a">Rapport annuel — Toutes maisons</p>
                         <p style="font-size:10px;color:#60a5fa;font-weight:700;margin-top:1px">Récap global + par maison + allocations · .xlsx</p>
+                    </div>
+                </button>
+
+                <!-- ZIP justificatifs -->
+                <button onclick="adminLancerExport('zip-mensuel')" style="background:#fdf4ff;border:1.5px solid #e9d5ff;border-radius:18px;padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;width:100%;text-align:left">
+                    <div style="width:40px;height:40px;background:#9333ea;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🗂️</div>
+                    <div>
+                        <p style="font-weight:900;font-size:13px;color:#581c87">Justificatifs du mois — Toutes maisons</p>
+                        <p style="font-size:10px;color:#a855f7;font-weight:700;margin-top:1px">Dossier par maison puis par membre · .zip</p>
+                    </div>
+                </button>
+                <button onclick="adminLancerExport('zip-annuel')" style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:18px;padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;width:100%;text-align:left">
+                    <div style="width:40px;height:40px;background:#ea580c;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">📦</div>
+                    <div>
+                        <p style="font-weight:900;font-size:13px;color:#7c2d12">Justificatifs de l'année — Toutes maisons</p>
+                        <p style="font-size:10px;color:#fb923c;font-weight:700;margin-top:1px">Maison / membre / mois · .zip (peut être long)</p>
                     </div>
                 </button>
 
