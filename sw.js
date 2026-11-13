@@ -1,4 +1,4 @@
-const CACHE = 'smmd-v7';
+const CACHE = 'smmd-v8';
 const ASSETS = [
     './',
     './index.html',
@@ -6,6 +6,7 @@ const ASSETS = [
     './chef.html',
     './admin.html',
     './config.js',
+    './tailwind.css',
     './manifest.json',
     './icon-192.png',
     './icon-192-maskable.png',
