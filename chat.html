@@ -509,15 +509,15 @@ async function init() {
 // ── CONVERSATIONS ──
 async function chargerConversations() {
     const { data } = await sb.from('conversations')
-        .select(`
-            *,
-            user1:profiles!conversations_user1_id_fkey(id,prenom,nom,role),
-            user2:profiles!conversations_user2_id_fkey(id,prenom,nom,role)
-        `)
+        .select('*')
         .or(`user1_id.eq.${userProfile.id},user2_id.eq.${userProfile.id}`)
         .order('last_message_at', { ascending: false });
 
     conversations = data || [];
+    // Les noms viennent de l'annuaire (les profils d'autres maisons ne sont plus lisibles directement)
+    const _inconnu = id => ({ id, prenom: 'Utilisateur', nom: '', role: '' });
+    const _byId = id => id === userProfile.id ? userProfile : (allProfiles.find(p => p.id === id) || _inconnu(id));
+    conversations.forEach(c => { c.user1 = _byId(c.user1_id); c.user2 = _byId(c.user2_id); });
 
     // Charger dernier message + nb non lus pour chaque conv
     for (const conv of conversations) {
