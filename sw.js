@@ -1,4 +1,4 @@
-const CACHE = 'smmd-v8';
+const CACHE = 'smmd-v9';
 const ASSETS = [
     './',
     './index.html',
@@ -7,6 +7,11 @@ const ASSETS = [
     './admin.html',
     './config.js',
     './tailwind.css',
+    './user.js',
+    './chef.js',
+    './admin.js',
+    './chat.js',
+    './chat.html',
     './manifest.json',
     './icon-192.png',
     './icon-192-maskable.png',
@@ -46,7 +51,7 @@ self.addEventListener('fetch', e => {
 
     // Assets locaux → network-first avec fallback cache
     e.respondWith(
-        fetch(e.request)
+        fetch(e.request, { cache: 'no-cache' })
             .then(res => {
                 if (res && res.status === 200 && res.type !== 'opaque') {
                     const clone = res.clone();
