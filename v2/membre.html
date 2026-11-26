@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>SMMD — Mon espace</title>
+<link rel="icon" type="image/png" href="../icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<link rel="apple-touch-icon" href="../icon-192.png">
+<meta name="theme-color" content="#8B1E2D">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://xccnnckuphxloxfrqtkf.supabase.co" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="style.css?v=1">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<script src="../config.js?v=20261126c"></script>
+</head>
+<body>
+
+<div id="offline" class="hidden" role="status" style="position:sticky;top:0;z-index:60;background:#A14A0B;color:#fff;text-align:center;font-weight:600;font-size:14px;padding:8px 12px">
+  Hors connexion : vos saisies sont gardées sur le téléphone et envoyées au retour du réseau
+</div>
+
+<main class="app" id="app">
+  <!-- ACCUEIL -->
+  <section id="v-accueil" class="stack" aria-labelledby="t-accueil">
+    <div class="topbar">
+      <div class="who">
+        <p class="small muted" id="maison-nom">Maison</p>
+        <h1 id="t-accueil">Bonjour</h1>
+      </div>
+      <div class="row" style="gap:4px">
+        <button class="iconbtn" onclick="ouvrirMessagerie()" aria-label="Messagerie">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>
+          <span id="msg-badge" class="badge hidden"></span>
+        </button>
+      </div>
+    </div>
+    <div id="sync-banner" class="hidden"></div>
+    <div class="hero">
+      <p class="label">Mon solde</p>
+      <p class="big num" id="h-solde">—</p>
+      <div class="grid2">
+        <div><span style="opacity:.92">À me rembourser</span><br><strong class="num" id="h-attente">—</strong></div>
+        <div><span style="opacity:.92">Solde de la maison</span><br><strong class="num" id="h-maison">—</strong></div>
+      </div>
+    </div>
+    <div class="card" id="todo-card">
+      <div class="card-head"><h2>À faire</h2><span class="pill warn hidden" id="todo-count"></span></div>
+      <div id="todo-list"><div class="skel" style="height:56px"></div></div>
+    </div>
+    <div class="grid2">
+      <button class="btn big" onclick="ouvrirScan()"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h4l2-3h6l2 3h4v12H3z"/><circle cx="12" cy="13" r="4"/></svg>Scanner un ticket</button>
+      <button class="btn big ghost" onclick="ouvrirSaisie()"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Saisir à la main</button>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Mes dépenses du mois</h2><button class="link" onclick="go('releve')">Relevé</button></div>
+      <p class="muted small" style="margin:0" id="parts-total"></p>
+      <div id="parts"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Dernières opérations</h2><button class="link" onclick="go('releve')">Tout voir</button></div>
+      <div id="dernieres"></div>
+    </div>
+  </section>
+
+  <!-- RELEVÉ -->
+  <section id="v-releve" class="stack hidden" aria-labelledby="t-releve">
+    <div class="between">
+      <h1 id="t-releve">Mon relevé</h1>
+      <div class="row" style="gap:6px">
+        <label class="sr-only" for="r-mois">Mois</label>
+        <select id="r-mois" class="input" style="min-height:44px;width:auto" onchange="chargerReleve()"></select>
+      </div>
+    </div>
+    <label class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#57534E" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span class="sr-only">Rechercher</span><input id="r-q" type="search" placeholder="Rechercher un motif, un commentaire, un montant" oninput="afficherReleve()"></label>
+    <div class="chips" role="group" aria-label="Filtres" id="r-filtres"></div>
+    <div class="grid2">
+      <div class="card kpi"><p class="small muted">Entrées</p><p class="v num ok" id="r-in">—</p></div>
+      <div class="card kpi"><p class="small muted">Sorties</p><p class="v num" id="r-out">—</p></div>
+    </div>
+    <div id="r-liste" class="stack"></div>
+    <button class="btn quiet block" onclick="exporterExcel()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg>Exporter le mois en Excel</button>
+  </section>
+
+  <!-- REMBOURSEMENTS -->
+  <section id="v-remb" class="stack hidden" aria-labelledby="t-remb">
+    <h1 id="t-remb">Mes remboursements</h1>
+    <p class="muted small" style="margin:-6px 0 0">Les dépenses payées avec votre carte ou en espèces pour la maison, et leur remboursement.</p>
+    <div class="grid2">
+      <div class="card kpi"><p class="small muted">En attente</p><p class="v num warn" id="rb-att">—</p></div>
+      <div class="card kpi"><p class="small muted">Remboursé cette année</p><p class="v num ok" id="rb-ok">—</p></div>
+    </div>
+    <div id="rb-liste" class="stack"></div>
+  </section>
+
+  <!-- PROFIL -->
+  <section id="v-profil" class="stack hidden" aria-labelledby="t-profil">
+    <h1 id="t-profil">Profil</h1>
+    <div class="card">
+      <div class="card-head"><h2>Mes allocations</h2><span class="muted small" id="al-mensuelle"></span></div>
+      <p class="muted small" style="margin:0 0 4px">Touchez un mois pour déclarer votre versement. Le chef de maison le confirme.</p>
+      <div id="al-liste"></div>
+    </div>
+    <div class="card">
+      <div class="setting">
+        <label class="field"><span>Mon IBAN (pour être remboursé)</span>
+          <input id="p-iban" class="input" autocomplete="off" spellcheck="false" placeholder="FR76 …"></label>
+        <p id="p-iban-err" class="red small hidden" style="margin:0">IBAN invalide — vérifiez la saisie.</p>
+        <button class="btn ghost" onclick="majIban()">Enregistrer l'IBAN</button>
+      </div>
+      <div class="setting">
+        <label class="field"><span>Mon allocation mensuelle (€)</span>
+          <input id="p-alloc" class="input num" type="number" inputmode="decimal" min="0" step="0.01"></label>
+        <button class="btn ghost" onclick="majAllocation()">Enregistrer l'allocation</button>
+      </div>
+      <div class="setting">
+        <label class="field"><span>Nouveau mot de passe</span>
+          <input id="p-pass" class="input" type="password" autocomplete="new-password" minlength="6"></label>
+        <button class="btn ghost" onclick="majMotDePasse()">Changer le mot de passe</button>
+      </div>
+    </div>
+    <div class="card stack" style="gap:10px">
+      <a id="p-espace" class="btn block hidden" href="#"></a>
+      <button class="btn quiet block" onclick="ouvrirMessagerie()">Messagerie</button>
+      <button class="btn quiet block" onclick="mettreAJour()">Rechercher une mise à jour</button>
+      <a class="btn quiet block" href="../user.html">Revenir à l'ancienne version</a>
+      <button class="btn danger block" onclick="deconnexion()">Se déconnecter</button>
+      <p class="xs muted" style="margin:0;text-align:center" id="p-version"></p>
+    </div>
+  </section>
+</main>
+
+<nav class="tabbar" aria-label="Navigation principale">
+  <div class="in">
+    <button class="tab" data-v="accueil" onclick="go('accueil')" aria-current="page">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21H3z"/><path d="M9 21v-6h6v6"/></svg>Accueil</button>
+    <button class="tab" data-v="releve" onclick="go('releve')">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>Relevé</button>
+    <button class="tab-add" onclick="ouvrirChoixSaisie()" aria-label="Nouvelle opération">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button class="tab" data-v="remb" onclick="go('remb')">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h14l-3-3M21 17H7l3 3"/></svg>Rembours.</button>
+    <button class="tab" data-v="profil" onclick="go('profil')">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>Profil</button>
+  </div>
+</nav>
+
+<div id="sheet-root"></div>
+<input type="file" id="scan-input" accept="image/*" capture="environment" class="hidden" onchange="scanFichier(this)">
+<input type="file" id="photo-input" accept="image/*,application/pdf" multiple class="hidden" onchange="ajouterPhotos(this)">
+
+<script src="membre.js?v=1"></script>
+</body>
+</html>

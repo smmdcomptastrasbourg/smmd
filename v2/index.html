@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SMMD — nouvelle interface</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../config.js?v=20261126c"></script>
+<style>body{margin:0;font-family:system-ui,sans-serif;background:#F6F5F4;color:#1C1917;display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:24px}</style>
+</head>
+<body>
+<p id="msg">Ouverture de la nouvelle interface…</p>
+<script>
+const sb = supabase.createClient(SMMD_CONFIG.url, SMMD_CONFIG.key);
+(async () => {
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) {
+    document.getElementById('msg').innerHTML = 'Connectez-vous d\'abord sur <a href="../index.html">la page de connexion</a>, puis revenez à cette adresse.';
+    return;
+  }
+  // Pour l'instant seule l'app membre existe en v2 (chef et admin y trouvent un lien vers leur espace)
+  location.replace('membre.html');
+})();
+</script>
+</body>
+</html>
