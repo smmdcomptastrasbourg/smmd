@@ -80,11 +80,11 @@ async function telechargerSauvegarde() {
 
 // Retour de Google après connexion
 (function retourDrive() {
-  const r = new URLSearchParams(location.search).get('drive');
+  const q = new URLSearchParams(location.search), r = q.get('drive'), raison = q.get('raison');
   if (!r) return;
   history.replaceState(null, '', location.pathname);
   const msg = { ok: ['Google Drive connecté : première sauvegarde cette nuit (ou « Sauvegarder maintenant »)', 'success'], annule: ['Connexion à Google annulée', 'warning'],
-    refuse: ['Connexion refusée (lien expiré) : recommencez', 'error'], erreur: ['Google n\'a pas donné d\'accès durable : recommencez la connexion', 'error'] }[r];
+    refuse: ['Connexion refusée (lien expiré) : recommencez', 'error'], erreur: ['Connexion Google refusée' + (raison ? ' (' + raison + ')' : '') + ' : vérifiez GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET et l\'URI de redirection', 'error'] }[r];
   const t = setInterval(() => { if (typeof userProfile !== 'undefined' && userProfile?.id && typeof go === 'function') { clearInterval(t); go('outils'); if (msg) showToast(...msg); } }, 300);
   setTimeout(() => clearInterval(t), 20000);
 })();

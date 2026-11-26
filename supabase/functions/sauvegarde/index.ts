@@ -182,14 +182,15 @@ Deno.serve(async (req) => {
   // Retour de Google après autorisation
   if (req.method === "GET") {
     const code = url.searchParams.get("code"), state = url.searchParams.get("state");
-    const retour = (r: string) => Response.redirect(`${APP_URL}v2/admin.html?drive=${r}`, 302);
+    const retour = (r: string, raison = "") => Response.redirect(`${APP_URL}v2/admin.html?drive=${r}${raison ? "&raison=" + encodeURIComponent(raison.slice(0, 120)) : ""}`, 302);
     if (!code || !state) return retour("annule");
     const cfg = await config();
     if (!cfg?.etat_oauth || cfg.etat_oauth !== state) return retour("refuse");
     const r = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ code, client_id: CLIENT_ID, client_secret: CLIENT_SECRET, redirect_uri: REDIRECT, grant_type: "authorization_code" }) });
     const j = await r.json();
-    if (!j.refresh_token) { await journal("connexion", false, "Google n'a pas fourni d'accès durable : " + (j.error_description || j.error || "")); return retour("erreur"); }
+    if (!j.refresh_token) { const raison = [j.error, j.error_description].filter(Boolean).join(" — ") || "réponse inattendue";
+      await journal("connexion", false, "Google n'a pas fourni d'accès durable : " + raison); return retour("erreur", raison); }
     let compte = "";
     try { compte = (await (await fetch("https://www.googleapis.com/oauth2/v2/userinfo", { headers: { Authorization: `Bearer ${j.access_token}` } })).json()).email || ""; } catch (_) { /* facultatif */ }
     await db.from("sauvegarde_config").update({ refresh_token: j.refresh_token, compte, etat_oauth: null, dossier_id: null, updated_at: new Date().toISOString() }).eq("id", 1);
