@@ -206,8 +206,8 @@
 
             <!-- Migration base64 justificatifs -->
             <div class="bg-white rounded-[28px] border border-amber-100 shadow-sm p-6 anim-slide mb-4">
-                <p class="text-[9px] font-black uppercase text-amber-700 tracking-widest mb-2">Migration justificatifs</p>
-                <p class="text-[10px] text-slate-500 font-bold mb-4 leading-relaxed">Charge tous les justificatifs existants depuis Supabase Storage et sauvegarde leur base64 en base de données (pour l'export PDF).</p>
+                <p class="text-[9px] font-black uppercase text-amber-700 tracking-widest mb-2">Rapatrier les anciens justificatifs</p>
+                <p class="text-[10px] text-slate-500 font-bold mb-4 leading-relaxed">Copie dans la base tous les justificatifs encore stockés à l'ancienne (fichier du bucket ou ancienne colonne), pour qu'ils apparaissent partout et dans les exports. Les originaux ne sont pas supprimés. À relancer sans risque.</p>
                 <div id="migration-progress" class="hidden bg-red-50 border border-red-100 rounded-2xl p-4 mb-3">
                     <div class="flex items-center gap-3 mb-2">
                         <div class="w-5 h-5 rounded-full border-2 border-blue-200 border-t-red-700 animate-spin flex-shrink-0"></div>
@@ -223,7 +223,7 @@
                 </div>
                 <button onclick="migrateJustificatifs()" id="btn-migrate"
                     class="w-full bg-amber-500 text-white font-black py-4 rounded-2xl uppercase text-[11px] tracking-widest active:scale-95 shadow-md">
-                    🔄 Migrer tous les justificatifs
+                    🔄 Rapatrier tous les justificatifs
                 </button>
             </div>
 
@@ -306,7 +306,7 @@
                     <div style="width:40px;height:40px;background:#9333ea;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🗂️</div>
                     <div>
                         <p style="font-weight:900;font-size:13px;color:#581c87">Justificatifs du mois — Toutes maisons</p>
-                        <p style="font-size:10px;color:#a855f7;font-weight:700;margin-top:1px">Dossier par maison puis par membre · .zip</p>
+                        <p style="font-size:10px;color:#a855f7;font-weight:700;margin-top:1px">Maison / membre / mois · .zip</p>
                     </div>
                 </button>
                 <button onclick="adminLancerExport('zip-annuel')" style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:18px;padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;width:100%;text-align:left">
@@ -314,6 +314,13 @@
                     <div>
                         <p style="font-weight:900;font-size:13px;color:#7c2d12">Justificatifs de l'année — Toutes maisons</p>
                         <p style="font-size:10px;color:#fb923c;font-weight:700;margin-top:1px">Maison / membre / mois · .zip (peut être long)</p>
+                    </div>
+                </button>
+                <button onclick="adminLancerExport('zip-tout')" style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:18px;padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;width:100%;text-align:left">
+                    <div style="width:40px;height:40px;background:#991b1b;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🗄️</div>
+                    <div>
+                        <p style="font-weight:900;font-size:13px;color:#7f1d1d">TOUS les justificatifs — Toutes maisons, depuis le début</p>
+                        <p style="font-size:10px;color:#dc2626;font-weight:700;margin-top:1px">Maison / membre / mois · .zip + index.csv (sur ordinateur, peut prendre plusieurs minutes)</p>
                     </div>
                 </button>
 

@@ -455,9 +455,18 @@ window.SMMD_EXPORT = (function () {
 
   // Ancien stockage : fichier public du bucket via justificatif_url
   async function telechargerUrl(url) {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const blob = await res.blob();
+    let blob = null;
+    try {
+      const res = await fetch(url);
+      if (res.ok) blob = await res.blob();
+    } catch (e) {}
+    if (!blob) {
+      const m = String(url).match(/\/object\/(?:public|sign|authenticated)\/justificatifs\/([^?]+)/);
+      if (!m || typeof sb === 'undefined') throw new Error('fichier inaccessible');
+      const { data, error } = await sb.storage.from('justificatifs').download(decodeURIComponent(m[1]));
+      if (error || !data) throw new Error(error?.message || 'fichier introuvable');
+      blob = data;
+    }
     const m = (url.split('?')[0].match(/\.([a-zA-Z0-9]{2,4})$/) || [])[1];
     let ext = m ? m.toLowerCase().replace('jpeg', 'jpg') : null;
     if (!ext) ext = blob.type.includes('pdf') ? 'pdf' : blob.type.includes('png') ? 'png' : 'jpg';
@@ -515,7 +524,27 @@ window.SMMD_EXPORT = (function () {
         }
       }
 
-      // Repli sur l'ancien stockage
+      // Repli 1 : ancienne colonne transactions.justificatif_base64
+      if (nbTx === 0) {
+        try {
+          const { data } = await sb.from('transactions').select('justificatif_base64').eq('id', t.id).maybeSingle();
+          const b64 = cleanB64(data?.justificatif_base64);
+          if (b64) {
+            const bytes = b64ToBytes(b64);
+            const { ext } = detect(b64, (String(data.justificatif_base64).match(/^data:([^;]+);/) || [])[1]);
+            let nom = `${base}.${ext}`, k = 2;
+            while (used.has(dir + '/' + nom)) nom = `${base}_${k++}.${ext}`;
+            used.add(dir + '/' + nom);
+            zip.file((dir ? dir + '/' : '') + nom, bytes);
+            index.push([dateISO(t), dir, t.motif || '', t.montant, t.commentaire || '', (dir ? dir + '/' : '') + nom, 'OK (ancienne colonne)']);
+            nbFichiers++; nbTx++;
+          }
+        } catch (e) {
+          problemes.push(`Ancien justificatif (colonne) illisible pour ${base} : ${e.message}`);
+        }
+      }
+
+      // Repli 2 : ancien fichier du bucket
       if (nbTx === 0 && t.justificatif_url) {
         try {
           const { blob, ext } = await withRetry(() => telechargerUrl(t.justificatif_url), 2);

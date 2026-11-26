@@ -240,22 +240,37 @@
             }, 'Supprimer', true);
         }
 
-        async function loadUrlAsBase64(url) {
-            // Lecture directe du fichier public du bucket (aucune Edge Function nécessaire)
+        // ── RAPATRIEMENT DES JUSTIFICATIFS ──
+        // Sources anciennes : fichier du bucket (justificatif_url) ou base64 dans la colonne
+        // transactions.justificatif_base64. Tout est copié dans justificatifs_images ;
+        // les originaux ne sont JAMAIS supprimés.
+        function blobVersDataUrl(blob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        }
+        async function lireFichierBucket(url) {
+            // 1) lien public ; 2) téléchargement authentifié (bucket privé)
             try {
-                const res = await fetch(url, { mode: 'cors', cache: 'no-cache' });
-                if (!res.ok) return null;
-                const blob = await res.blob();
-                return await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(blob);
-                });
-            } catch (e) {
-                console.warn('Lecture du justificatif impossible :', e.message);
-                return null;
-            }
+                const res = await fetch(url, { cache: 'no-cache' });
+                if (res.ok) return await blobVersDataUrl(await res.blob());
+            } catch (e) {}
+            const m = String(url).match(/\/object\/(?:public|sign|authenticated)\/justificatifs\/([^?]+)/);
+            if (!m) throw new Error('lien illisible');
+            const { data, error } = await sb.storage.from('justificatifs').download(decodeURIComponent(m[1]));
+            if (error || !data) throw new Error(error?.message || 'fichier introuvable dans le bucket');
+            return await blobVersDataUrl(data);
+        }
+        function normaliserBase64(b64, mimeDefaut) {
+            let s = String(b64 || '').trim();
+            if (!s) return null;
+            if (s.startsWith('data:')) return s;
+            s = s.replace(/\s+/g, '');
+            const mime = s.startsWith('JVBER') ? 'application/pdf' : s.startsWith('iVBOR') ? 'image/png' : (mimeDefaut || 'image/jpeg');
+            return `data:${mime};base64,${s}`;
         }
 
         async function migrateJustificatifs() {
@@ -266,80 +281,63 @@
             const detail = document.getElementById('migration-detail');
             const result = document.getElementById('migration-result');
             const resultText = document.getElementById('migration-result-text');
+            const fin = () => { btn.disabled = false; btn.textContent = '🔄 Rapatrier tous les justificatifs'; };
 
-            btn.disabled = true;
-            btn.textContent = '...';
-            prog.classList.remove('hidden');
-            result.classList.add('hidden');
+            btn.disabled = true; btn.textContent = '...';
+            prog.classList.remove('hidden'); result.classList.add('hidden');
+            status.textContent = 'Inventaire...';
 
-            // Charger toutes les transactions avec justificatif_url mais sans base64
-            status.textContent = 'Chargement des transactions...';
-            const { data: txs, error } = await sb.from('transactions')
-                .select('id, justificatif_url, justificatif_base64')
-                .not('justificatif_url', 'is', null);
-
-            if (error || !txs) {
-                status.textContent = 'Erreur de chargement';
-                btn.disabled = false;
-                btn.textContent = '🔄 Migrer tous les justificatifs';
-                return;
+            let avecUrl, avecB64, dejaIds;
+            try {
+                [avecUrl, avecB64, dejaIds] = await Promise.all([
+                    fetchAll(() => sb.from('transactions').select('id, created_at, motif, montant, justificatif_url').not('justificatif_url', 'is', null).order('id')),
+                    fetchAll(() => sb.from('transactions').select('id, created_at, motif, montant').not('justificatif_base64', 'is', null).order('id')),
+                    fetchAll(() => sb.from('justificatifs_images').select('id, transaction_id').order('id'))
+                ]);
+            } catch (e) {
+                status.textContent = 'Erreur : ' + e.message; fin(); return;
             }
+            const deja = new Set(dejaIds.map(r => r.transaction_id));
+            const parId = {};
+            avecB64.forEach(t => { if (!deja.has(t.id)) parId[t.id] = { ...t, b64: true }; });
+            avecUrl.forEach(t => { if (!deja.has(t.id)) parId[t.id] = { ...(parId[t.id] || t), ...t, url: t.justificatif_url }; });
+            const aTraiter = Object.values(parId);
+            const total = aTraiter.length;
 
-            // Vérifier quelles transactions n'ont pas encore d'images dans la table
-            const { data: alreadyMigrated } = await sb.from('justificatifs_images')
-                .select('transaction_id');
-            const migratedIds = new Set((alreadyMigrated||[]).map(r => r.transaction_id));
-            const toMigrate = (txs||[]).filter(t => t.justificatif_url && !migratedIds.has(t.id));
-            const total = toMigrate.length;
-
-            if (total === 0) {
-                prog.classList.add('hidden');
-                result.classList.remove('hidden');
-                resultText.textContent = '✓ Tous les justificatifs ont déjà leur base64 !';
-                btn.disabled = false;
-                btn.textContent = '🔄 Migrer tous les justificatifs';
-                return;
-            }
-
-            let done = 0, failed = 0;
-
-            for (const tx of toMigrate) {
-                status.textContent = `Migration ${done+1}/${total}...`;
-                bar.style.width = `${Math.round((done+failed)/total*100)}%`;
-                detail.textContent = tx.justificatif_url.split('/').pop();
-
+            let ok = 0; const echecs = [];
+            for (let i = 0; i < total; i++) {
+                const t = aTraiter[i];
+                status.textContent = `Rapatriement ${i + 1} / ${total}...`;
+                bar.style.width = `${Math.round(i / Math.max(total, 1) * 100)}%`;
+                detail.textContent = `${new Date(t.created_at).toLocaleDateString('fr-FR')} · ${t.motif || ''} · ${parseFloat(t.montant || 0).toFixed(2)}€`;
                 try {
-                    // Vérifier si déjà migré dans justificatifs_images
-                    const { data: existing } = await sb.from('justificatifs_images')
-                        .select('id').eq('transaction_id', tx.id).limit(1);
-                    if (existing && existing.length > 0) { done++; continue; }
-
-                    // Charger directement le fichier public du bucket
-                    const base64 = await loadUrlAsBase64(tx.justificatif_url);
-                    if (base64) {
-                        const { error: insErr } = await sb.from('justificatifs_images').insert([{
-                            transaction_id: tx.id,
-                            ordre: 0,
-                            base64,
-                            mime_type: (base64.match(/^data:([^;]+);/) || [])[1] || 'image/jpeg'
-                        }]);
-                        if (insErr) { failed++; console.warn(insErr.message); }
-                        else done++;
-                    } else {
-                        failed++;
+                    let dataUrl = null, erreurs = [];
+                    if (t.b64) {
+                        const { data, error } = await sb.from('transactions').select('justificatif_base64').eq('id', t.id).maybeSingle();
+                        if (error) erreurs.push(error.message);
+                        dataUrl = normaliserBase64(data?.justificatif_base64);
                     }
-                } catch(e) {
-                    failed++;
-                    console.warn('Migration failed for', tx.id, e.message);
+                    if (!dataUrl && t.url) {
+                        try { dataUrl = await lireFichierBucket(t.url); } catch (e) { erreurs.push(e.message); }
+                    }
+                    if (!dataUrl) throw new Error(erreurs.join(' / ') || 'aucune donnée');
+                    const mime = (dataUrl.match(/^data:([^;]+);/) || [])[1] || 'image/jpeg';
+                    const { error: insErr } = await sb.from('justificatifs_images').insert([{ transaction_id: t.id, ordre: 0, base64: dataUrl, mime_type: mime }]);
+                    if (insErr) throw new Error(insErr.message);
+                    ok++;
+                } catch (e) {
+                    echecs.push(`${new Date(t.created_at).toLocaleDateString('fr-FR')} · ${t.motif || '-'} · ${parseFloat(t.montant || 0).toFixed(2)}€ — ${e.message}`);
                 }
             }
 
             bar.style.width = '100%';
             prog.classList.add('hidden');
             result.classList.remove('hidden');
-            resultText.textContent = `✓ ${done} migré${done>1?'s':''} · ${failed} échec${failed>1?'s':''}`;
-            btn.disabled = false;
-            btn.textContent = '🔄 Migrer tous les justificatifs';
+            resultText.innerHTML = total === 0
+                ? '✓ Tous les justificatifs sont déjà dans la base.'
+                : `✓ ${ok} rapatrié${ok > 1 ? 's' : ''} · ${echecs.length} échec${echecs.length > 1 ? 's' : ''} · ${deja.size} déjà en base` +
+                  (echecs.length ? `<br><span class="text-red-600">Non récupérés :</span><br>${echecs.map(escapeHtml).join('<br>')}` : '');
+            fin();
         }
 
         // ── MISE À JOUR APPLICATION ──
@@ -415,22 +413,28 @@
             document.getElementById('admin-export-bar').style.width = pct + '%';
         }
 
+        // mois = null → année entière ; annee = null → tout depuis le début
         async function adminZipJustifs(mois, annee, moisNom) {
             setAdminProgress('Chargement des dépenses...', 5);
-            const all = await SMMD_EXPORT.fetchAll(() => sb.from('transactions')
-                .select('id, user_id, created_at, motif, montant, commentaire, justificatif_url, profiles(prenom,nom), maisons(nom)')
-                .eq('type', 'depense')
-                .order('created_at', { ascending: true }));
-            const txs = all.filter(t => {
-                const d = new Date(t.created_at);
-                return d.getFullYear() === parseInt(annee) && (mois === null || d.getMonth() + 1 === parseInt(mois));
+            const borne = annee === null ? null : (mois === null ? bornesAnnee(annee) : bornesMois(annee, mois));
+            const txs = await fetchAll(() => {
+                let q = sb.from('transactions')
+                    .select('id, user_id, created_at, motif, montant, commentaire, justificatif_url, profiles(prenom,nom), maisons(nom)')
+                    .eq('type', 'depense')
+                    .order('created_at', { ascending: true });
+                return borne ? q.gte('created_at', borne.debut).lt('created_at', borne.fin) : q;
             });
             if (!txs.length) { showToast('Aucune dépense sur cette période', 'warning'); document.getElementById('admin-export-progress').style.display = 'none'; return; }
             const S = SMMD_EXPORT.slug;
+            const nomZip = annee === null ? `Justificatifs_SMMD_tout_${new Date().toISOString().slice(0,10)}.zip`
+                         : `Justificatifs_toutes_maisons_${moisNom}_${annee}.zip`;
             const r = await SMMD_EXPORT.exporterJustificatifs({
                 sb, txs, JSZip,
-                dossier: t => S(t.maisons?.nom, 'Sans_maison') + '/' + (t.profiles ? S(t.profiles.prenom, 'Membre') + '_' + S((t.profiles.nom || '').toUpperCase(), '') : 'Membres_supprimes') + (mois === null ? '/' + String(new Date(t.created_at).getMonth() + 1).padStart(2, '0') : ''),
-                nomZip: `Justificatifs_toutes_maisons_${moisNom}_${annee}.zip`,
+                // Maison / Membre / AAAA-MM
+                dossier: t => S(t.maisons?.nom, 'Sans_maison') + '/'
+                    + (t.profiles ? S(t.profiles.prenom, 'Membre') + '_' + S((t.profiles.nom || '').toUpperCase(), '') : 'Membres_supprimes')
+                    + '/' + SMMD_EXPORT.dateISO(t).slice(0, 7),
+                nomZip,
                 onProgress: setAdminProgress
             });
             document.getElementById('admin-export-progress').style.display = 'none';
@@ -449,6 +453,7 @@
                 else if (type === 'excel-annuel') await adminExportAnnuel(annee);
                 else if (type === 'zip-mensuel') await adminZipJustifs(mois, annee, moisNom);
                 else if (type === 'zip-annuel') await adminZipJustifs(null, annee, 'Annee');
+                else if (type === 'zip-tout') await adminZipJustifs(null, null, 'Tout');
             } catch(e) {
                 showToast('Erreur : ' + e.message, 'error');
                 document.getElementById('admin-export-progress').style.display = 'none';
