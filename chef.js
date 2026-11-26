@@ -814,9 +814,11 @@
             btn.disabled = true;
             let error;
             if (etat === 'declare') {
-                ({ error } = await sb.from('allocations_versees')
+                let data;
+                ({ data, error } = await sb.from('allocations_versees')
                     .update({ statut:'confirme', valide_par:userProfile.id, date_confirmation:new Date().toISOString() })
-                    .eq('id', vid).eq('maison_id', userProfile.maison_id));
+                    .eq('id', vid).eq('maison_id', userProfile.maison_id).select('id'));
+                if (!error && !(data||[]).length) error = { message: "confirmation refusée par la base (droits)" };
             } else {
                 if (!(montant > 0)) { btn.disabled=false; return showToast("Allocation non définie pour ce membre","warning"); }
                 ({ error } = await sb.from('allocations_versees').insert([{
@@ -953,7 +955,8 @@
                 .eq('user_id',userProfile.id).eq('mois',mois).eq('annee',annee).maybeSingle();
 
             if(existing && !allocConfirmee(existing)){
-                const{error}=await sb.from('allocations_versees').update({statut:'confirme',valide_par:userProfile.id,date_confirmation:new Date().toISOString()}).eq('id',existing.id);
+                let{data:upd,error}=await sb.from('allocations_versees').update({statut:'confirme',valide_par:userProfile.id,date_confirmation:new Date().toISOString()}).eq('id',existing.id).select('id');
+                if(!error && !(upd||[]).length) error={message:"confirmation refusée par la base (droits)"};
                 if(error){showToast("Erreur : "+error.message,"error");}
                 else{showToast(`Allocation de ${MOIS_FR[mois-1]} ${annee} confirmée`,"success");setAllocBtnState(true,mois,annee,alloc);refreshSoldes();loadVersements();}
             } else if(existing){

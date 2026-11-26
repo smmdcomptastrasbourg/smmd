@@ -129,8 +129,9 @@
                 ? 'Réactiver ce compte ? Le membre pourra de nouveau se connecter.'
                 : "Désactiver ce compte ? Le membre ne pourra plus se connecter ; ses opérations, allocations et justificatifs sont conservés.";
             showConfirm(msg, async () => {
-                const { error } = await sb.from('profiles').update({ actif: !!reactiver }).eq('id', id);
+                const { data, error } = await sb.from('profiles').update({ actif: !!reactiver }).eq('id', id).select('id');
                 if (error) return showToast('Erreur : ' + error.message, 'error');
+                if (!(data||[]).length) return showToast('Refusé par la base (droits insuffisants)', 'error');
                 showToast(reactiver ? 'Compte réactivé' : 'Compte désactivé — historique conservé', 'info');
                 loadUsers();
             }, reactiver ? 'Réactiver' : 'Désactiver', !reactiver);
