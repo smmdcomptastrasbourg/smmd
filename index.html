@@ -16,7 +16,7 @@
     <link rel="preconnect" href="https://xccnnckuphxloxfrqtkf.supabase.co" crossorigin>
     <link rel="stylesheet" href="tailwind.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="config.js"></script>
+    <script src="config.js?v=20261126"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,700;0,900;1,900&display=swap');
         * { -webkit-tap-highlight-color: transparent; }
@@ -177,6 +177,7 @@
             btn.innerHTML = '<span style="display:inline-block;width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:8px"></span>Connexion...';
             btn.disabled = true;
             const { data, error } = await sb.auth.signInWithPassword({ email: id, password: pw });
+            // (message volontairement générique)
             if (error) {
                 showError("Identifiant ou mot de passe incorrect");
                 btn.textContent = 'Se connecter'; btn.disabled = false;
@@ -188,7 +189,14 @@
         }
 
         async function redirectUser(uid) {
-            const { data: profile, error } = await sb.from('profiles').select('role').eq('id', uid).maybeSingle();
+            const { data: profile, error } = await sb.from('profiles').select('role,actif').eq('id', uid).maybeSingle();
+            if (!error && profile && profile.actif === false) {
+                showError("Compte désactivé — contactez l'administrateur");
+                document.getElementById('loading-screen').classList.add('hidden');
+                document.getElementById('login-card').classList.remove('hidden');
+                await sb.auth.signOut();
+                return;
+            }
             if (error || !profile) {
                 showError("Profil introuvable — contactez l'administrateur");
                 document.getElementById('loading-screen').classList.add('hidden');
@@ -236,6 +244,7 @@
             document.getElementById('install-banner').classList.add('hidden');
         }
 
+        if (new URLSearchParams(location.search).get('desactive')) showError("Compte désactivé — contactez l'administrateur");
         checkSession();
     </script>
     <!-- BOUTON INSTALLER PWA -->

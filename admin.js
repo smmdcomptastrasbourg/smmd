@@ -30,10 +30,13 @@
         async function init() {
             const { data: { session } } = await sb.auth.getSession();
             if (!session) { window.location.href='index.html'; return; }
+            const { data: me } = await sb.from('profiles').select('role,actif').eq('id', session.user.id).maybeSingle();
+            if (!me || me.role !== 'admin') { window.location.href='index.html'; return; }
+            if (!(await verifierCompteActif(me))) return;
             const now = new Date();
             document.getElementById('export-month').value = String(now.getMonth()+1).padStart(2,'0');
             const ySel = document.getElementById('export-year');
-            for (let y=now.getFullYear(); y>=2025; y--) ySel.innerHTML+=`<option value="${y}">${y}</option>`;
+            for (let y=now.getFullYear(); y>=2026; y--) ySel.innerHTML+=`<option value="${y}">${y}</option>`;
             await loadMaisons();
             await loadUsers();
             await loadMotifs();
@@ -59,19 +62,20 @@
         async function loadUsers() {
             const {data:users,error}=await sb.from('profiles').select('*, maisons(id,nom)').order('prenom');
             if(error||!users){ showToast("Erreur chargement membres","error"); return; }
+            users.sort((a,b)=>(a.actif===false)-(b.actif===false));
             document.getElementById('users-list').innerHTML=users.map((u,i)=>`
-                <div class="bg-white p-5 rounded-[26px] border border-slate-100 shadow-sm anim-slide" style="animation-delay:${i*.03}s">
+                <div class="bg-white p-5 rounded-[26px] border border-slate-100 shadow-sm anim-slide ${u.actif===false?'opacity-50':''}" style="animation-delay:${i*.03}s">
                     <div class="flex items-center gap-3 mb-4">
                         <div class="w-9 h-9 rounded-full bg-red-900 text-white flex items-center justify-center font-black text-xs italic flex-shrink-0">
                             ${escapeHtml((u.prenom||'?')[0])}${escapeHtml((u.nom||'?')[0])}
                         </div>
                         <div class="min-w-0 flex-1">
-                            <p class="text-[12px] font-black uppercase text-slate-800 truncate">${escapeHtml(u.prenom||'')} ${escapeHtml(u.nom||'')}</p>
+                            <p class="text-[12px] font-black uppercase text-slate-800 truncate">${escapeHtml(u.prenom||'')} ${escapeHtml(u.nom||'')}${u.actif===false?' · <span class="text-red-500">désactivé</span>':''}</p>
                             <p class="text-[9px] text-slate-400 font-bold lowercase truncate">${escapeHtml(u.email||u.id)}</p>
                         </div>
                         <div class="flex gap-2">
                             <button onclick="resetPassword('${escapeHtml(u.email||'')}')" title="Reset mdp" class="bg-red-50 text-red-600 w-8 h-8 rounded-xl flex items-center justify-center text-sm hover:bg-blue-100 transition-all">🔑</button>
-                            <button onclick="deleteUser('${escapeHtml(u.id)}')" class="bg-red-50 text-red-400 w-8 h-8 rounded-xl flex items-center justify-center font-black hover:bg-red-100 transition-all" aria-label="Supprimer">✕</button>
+                            <button onclick="basculerActif('${escapeHtml(u.id)}', ${u.actif===false})" title="${u.actif===false?'Réactiver':'Désactiver'}" class="${u.actif===false?'bg-emerald-50 text-emerald-600 hover:bg-emerald-100':'bg-red-50 text-red-400 hover:bg-red-100'} w-8 h-8 rounded-xl flex items-center justify-center font-black transition-all" aria-label="${u.actif===false?'Réactiver le compte':'Désactiver le compte'}">${u.actif===false?'↺':'⏻'}</button>
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-2 mb-3">
@@ -119,29 +123,17 @@
             const{error}=await sb.auth.resetPasswordForEmail(email);
             if(error) showToast(error.message,"error"); else showToast("Email de récupération envoyé !","success");
         }
-        function deleteUser(id) {
-            showConfirm('Supprimer définitivement ce membre ? Ses opérations seront conservées.',async()=>{
-                try {
-                    // 1. Supprimer images justificatifs des transactions du membre
-                    const { data: txs } = await sb.from('transactions').select('id').eq('user_id', id);
-                    if (txs?.length) {
-                        await sb.from('justificatifs_images').delete().in('transaction_id', txs.map(t=>t.id));
-                    }
-                    // 2. Anonymiser les transactions (user_id → null, conservées)
-                    await sb.from('transactions').update({ user_id: null }).eq('user_id', id);
-                    // 3. Supprimer allocations versées
-                    await sb.from('allocations_versees').delete().eq('user_id', id);
-                    // 4. Supprimer notifications
-                    await sb.from('notifications').delete().eq('user_id', id);
-                    // 5. Supprimer le profil
-                    const { error } = await sb.from('profiles').delete().eq('id', id);
-                    if (error) throw new Error(error.message);
-                    showToast('Membre supprimé — opérations conservées', 'info');
-                    loadUsers();
-                } catch(e) {
-                    showToast('Erreur : ' + e.message, 'error');
-                }
-            },'Supprimer',true);
+        // Désactivation : le compte ne peut plus se connecter, tout l'historique est conservé.
+        function basculerActif(id, reactiver) {
+            const msg = reactiver
+                ? 'Réactiver ce compte ? Le membre pourra de nouveau se connecter.'
+                : "Désactiver ce compte ? Le membre ne pourra plus se connecter ; ses opérations, allocations et justificatifs sont conservés.";
+            showConfirm(msg, async () => {
+                const { error } = await sb.from('profiles').update({ actif: !!reactiver }).eq('id', id);
+                if (error) return showToast('Erreur : ' + error.message, 'error');
+                showToast(reactiver ? 'Compte réactivé' : 'Compte désactivé — historique conservé', 'info');
+                loadUsers();
+            }, reactiver ? 'Réactiver' : 'Désactiver', !reactiver);
         }
         async function registerUser() {
             const email=document.getElementById('user-email').value.trim();
@@ -156,7 +148,7 @@
             const sbTmp=supabase.createClient(SMMD_CONFIG.url,SMMD_CONFIG.key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
             const{data,error}=await sbTmp.auth.signUp({email,password:pass});
             if(error) return showToast(error.message,"error");
-            const{error:pErr}=await sb.from('profiles').insert([{id:data.user.id,prenom,nom,nom_complet:`${prenom} ${nom}`,maison_id:maison,role,allocation_mensuelle:0}]);
+            const{error:pErr}=await sb.from('profiles').insert([{id:data.user.id,prenom,nom,nom_complet:`${prenom} ${nom}`,email,maison_id:maison,role,allocation_mensuelle:0,actif:true}]);
             if(pErr) showToast("Compte créé mais erreur profil : "+pErr.message,"warning");
             else{
                 showToast("Compte créé !","success");
@@ -171,26 +163,30 @@
             const year=document.getElementById('export-year').value;
             const maisonId=document.getElementById('export-maison').value;
 
-            let txQ=sb.from('transactions')
-                .select('created_at,type,montant,motif,commentaire,methode_paiement,statut,maison_id,profiles(prenom,nom),maisons(nom)')
-                .order('created_at',{ascending:true});
-            if(maisonId!=='all') txQ=txQ.eq('maison_id',maisonId);
-            const{data:txs,error:txErr}=await txQ;
-            if(txErr) return showToast("Erreur export","error");
-
-            let avQ=sb.from('allocations_versees')
-                .select('montant,user_id,profiles(prenom,nom),maisons(nom)')
-                .eq('mois',parseInt(month)).eq('annee',parseInt(year));
-            if(maisonId!=='all') avQ=avQ.eq('maison_id',maisonId);
-            const{data:avs}=await avQ;
+            const { debut, fin } = bornesMois(year, month);
+            let txs, avsAll;
+            try {
+                [txs, avsAll] = await Promise.all([
+                    fetchAll(() => { let q=sb.from('transactions')
+                        .select('created_at,type,montant,motif,commentaire,methode_paiement,statut,maison_id,profiles(prenom,nom),maisons(nom)')
+                        .gte('created_at',debut).lt('created_at',fin)
+                        .order('created_at',{ascending:true});
+                        return maisonId!=='all' ? q.eq('maison_id',maisonId) : q; }),
+                    fetchAll(() => { let q=sb.from('allocations_versees')
+                        .select('montant,user_id,statut,profiles!allocations_versees_user_id_fkey(prenom,nom),maisons(nom)')
+                        .eq('mois',parseInt(month)).eq('annee',parseInt(year));
+                        return maisonId!=='all' ? q.eq('maison_id',maisonId) : q; })
+                ]);
+            } catch (e) { return showToast("Erreur export : "+e.message,"error"); }
+            const avs = avsAll.filter(allocConfirmee);
 
             let csv="\uFEFFDate;Maison;Membre;Type;Motif;Montant;Méthode;Statut;Commentaire\n";
 
             (avs||[]).forEach(a=>{
-                csv+=`01/${month}/${year};${a.maisons?.nom||'-'};${a.profiles?.prenom||''} ${a.profiles?.nom||''};RECETTE;ALLOCATION VERSÉE;${parseFloat(a.montant).toFixed(2).replace('.',',')};VIREMENT;Validé;Versement mensuel\n`;
+                csv+=`01/${month}/${year};${a.maisons?.nom||'-'};${a.profiles?.prenom||''} ${a.profiles?.nom||''};ALLOCATION;ALLOCATION VERSÉE;${parseFloat(a.montant).toFixed(2).replace('.',',')};VIREMENT;Validé;Versement mensuel\n`;
             });
 
-            (txs||[]).filter(t=>t.created_at.startsWith(`${year}-${month}-`)).forEach(t=>{
+            (txs||[]).forEach(t=>{
                 const d=new Date(t.created_at).toLocaleDateString('fr-FR');
                 const m=parseFloat(t.montant).toFixed(2).replace('.',',');
                 const note=(t.commentaire||'').replace(/;/g,',').replace(/\n/g,' ');
@@ -223,7 +219,7 @@
             else{document.getElementById('new-maison-name').value='';showToast("Maison ajoutée !","success");loadMaisons();}
         }
         async function deleteMaison(id) {
-            showConfirm('Supprimer cette maison ?',async()=>{
+            showConfirm('Supprimer cette maison ? (Impossible si des membres ou des opérations y sont rattachés.)',async()=>{
                 const{error}=await sb.from('maisons').delete().eq('id',id);
                 if(error) showToast("Erreur : "+error.message,"error");
                 else{showToast("Maison supprimée","info");loadMaisons();}
@@ -236,9 +232,11 @@
             if(error) showToast("Erreur","error");
             else{document.getElementById('new-motif').value='';showToast("Motif ajouté !","success");loadMotifs();}
         }
-        async function deleteMotif(id) {
-            const{error}=await sb.from('motifs').delete().eq('id',id);
-            if(error) showToast("Erreur","error"); else loadMotifs();
+        function deleteMotif(id) {
+            showConfirm('Supprimer ce motif ? Les opérations existantes gardent leur motif.', async () => {
+                const{error}=await sb.from('motifs').delete().eq('id',id);
+                if(error) showToast("Erreur : "+error.message,"error"); else loadMotifs();
+            }, 'Supprimer', true);
         }
 
         async function loadUrlAsBase64(url) {
@@ -456,50 +454,58 @@
             }
         }
 
+        // Nom d'onglet Excel valide (31 car., sans : \\ / ? * [ ]) et unique
+        function nomOnglet(wb, nom) {
+            const base = String(nom || 'Maison').replace(/[:\\\/?*\[\]]/g, ' ').slice(0, 28).trim() || 'Maison';
+            let n = base, k = 2;
+            while (wb.SheetNames.includes(n)) n = `${base.slice(0, 26)} ${k++}`;
+            return n;
+        }
+
         // ── Export mensuel toutes maisons ──
         async function adminExportMensuel(mois, annee, moisNom) {
             setAdminProgress('Chargement des maisons...', 10);
 
-            const [maiRes, txRes, profRes] = await Promise.all([
+            const { debut, fin } = bornesMois(annee, mois);
+            const [maiRes, allTx, allocAll] = await Promise.all([
                 sb.from('maisons').select('id,nom').order('nom'),
-                sb.from('transactions').select('*, profiles(prenom,nom)')
-                    .order('created_at', { ascending: true }),
-                sb.from('profiles').select('id,prenom,nom,maison_id,role')
+                fetchAll(() => sb.from('transactions').select('*, profiles(prenom,nom)')
+                    .gte('created_at', debut).lt('created_at', fin)
+                    .order('created_at', { ascending: true })),
+                fetchAll(() => sb.from('allocations_versees').select('maison_id,montant,statut')
+                    .eq('mois', parseInt(mois)).eq('annee', parseInt(annee)))
             ]);
-
             const maisons = maiRes.data || [];
-            const profilesMap = {};
-            (profRes.data||[]).forEach(p => { profilesMap[p.id] = p; });
+            const allocMois = allocAll.filter(allocConfirmee);
 
-            const allTx = (txRes.data||[]).filter(t => {
-                const d = new Date(t.created_at);
-                return String(d.getMonth()+1).padStart(2,'0') === mois
-                    && String(d.getFullYear()) === annee;
-            });
-
-            if (!allTx.length) { showToast('Aucune transaction ce mois', 'warning'); return; }
+            if (!allTx.length && !allocMois.length) { showToast('Aucune donnée ce mois', 'warning'); document.getElementById('admin-export-progress').style.display = 'none'; return; }
 
             const wb = XLSX.utils.book_new();
 
             // Onglet récapitulatif global
             const recapGlobal = {};
+            const R = nom => (recapGlobal[nom] = recapGlobal[nom] || { depenses:0, recettes:0, allocations:0, attente:0, nb:0 });
+            const nomMaison = id => maisons.find(m => m.id === id)?.nom || 'Inconnue';
             allTx.forEach(t => {
-                const maison = maisons.find(m => m.id === t.maison_id)?.nom || 'Inconnue';
-                if (!recapGlobal[maison]) recapGlobal[maison] = { depenses:0, recettes:0, nb:0 };
-                if (t.type === 'recette') recapGlobal[maison].recettes += parseFloat(t.montant||0);
-                else recapGlobal[maison].depenses += parseFloat(t.montant||0);
-                recapGlobal[maison].nb++;
+                const r = R(nomMaison(t.maison_id));
+                if (t.type === 'recette') r.recettes += parseFloat(t.montant||0);
+                else r.depenses += parseFloat(t.montant||0);
+                if (t.type === 'depense' && t.statut === 'attente') r.attente += parseFloat(t.montant||0);
+                r.nb++;
             });
+            allocMois.forEach(a => { R(nomMaison(a.maison_id)).allocations += parseFloat(a.montant||0); });
 
             const recapRows = Object.entries(recapGlobal).map(([maison, d]) => ({
                 'Maison': maison,
-                'Dépenses (€)': d.depenses.toFixed(2),
+                'Allocations (€)': d.allocations.toFixed(2),
                 'Recettes (€)': d.recettes.toFixed(2),
-                'Solde (€)': (d.recettes - d.depenses).toFixed(2),
+                'Dépenses (€)': d.depenses.toFixed(2),
+                'Solde du mois (€)': (d.allocations + d.recettes - d.depenses).toFixed(2),
+                'Avances à rembourser (€)': d.attente.toFixed(2),
                 'Nb opérations': d.nb
             }));
             const wsRecap = XLSX.utils.json_to_sheet(recapRows);
-            wsRecap['!cols'] = [{wch:20},{wch:14},{wch:14},{wch:14},{wch:15}];
+            wsRecap['!cols'] = [{wch:20},{wch:14},{wch:14},{wch:14},{wch:16},{wch:22},{wch:15}];
             XLSX.utils.book_append_sheet(wb, wsRecap, 'Récapitulatif');
 
             // Un onglet par maison
@@ -521,7 +527,7 @@
                 const ws = XLSX.utils.json_to_sheet(rows);
                 ws['!cols'] = [{wch:12},{wch:22},{wch:10},{wch:20},{wch:25},{wch:12},{wch:14},{wch:12}];
                 // Limiter le nom de l'onglet à 31 chars (limite Excel)
-                XLSX.utils.book_append_sheet(wb, ws, maison.nom.slice(0,28) + ` ${mois}`);
+                XLSX.utils.book_append_sheet(wb, ws, nomOnglet(wb, maison.nom));
             });
 
             setAdminProgress('Téléchargement...', 95);
@@ -534,21 +540,22 @@
         async function adminExportAnnuel(annee) {
             setAdminProgress('Chargement des données...', 8);
 
-            const [maiRes, txRes, allocRes, profRes] = await Promise.all([
+            const { debut, fin } = bornesAnnee(annee);
+            const [maiRes, allTx, allocAll, profs] = await Promise.all([
                 sb.from('maisons').select('id,nom').order('nom'),
-                sb.from('transactions').select('*, profiles(prenom,nom)')
-                    .order('created_at', { ascending: true }),
-                sb.from('allocations_versees')
-                    .select('id,user_id,maison_id,mois,annee,montant,created_at')
-                    .eq('annee', parseInt(annee)),
-                sb.from('profiles').select('id,prenom,nom,maison_id')
+                fetchAll(() => sb.from('transactions').select('*, profiles(prenom,nom)')
+                    .gte('created_at', debut).lt('created_at', fin)
+                    .order('created_at', { ascending: true })),
+                fetchAll(() => sb.from('allocations_versees')
+                    .select('*')
+                    .eq('annee', parseInt(annee))),
+                fetchAll(() => sb.from('profiles').select('id,prenom,nom,maison_id'))
             ]);
 
             const maisons   = maiRes.data || [];
-            const allTx     = (txRes.data||[]).filter(t => new Date(t.created_at).getFullYear() === parseInt(annee));
-            const allAlloc  = allocRes.data || [];
+            const allAlloc  = allocAll.filter(allocConfirmee);
             const profilesMap = {};
-            (profRes.data||[]).forEach(p => { profilesMap[p.id] = p; });
+            profs.forEach(p => { profilesMap[p.id] = p; });
 
             const wb = XLSX.utils.book_new();
             const moisNoms = ['Janvier','Février','Mars','Avril','Mai','Juin',
@@ -559,14 +566,15 @@
             const recapGlobal = {};
             allTx.forEach(t => {
                 const maison = maisons.find(m => m.id === t.maison_id)?.nom || 'Inconnue';
-                if (!recapGlobal[maison]) recapGlobal[maison] = { depenses:0, recettes:0, allocations:0, nbTx:0 };
+                if (!recapGlobal[maison]) recapGlobal[maison] = { depenses:0, recettes:0, allocations:0, attente:0, nbTx:0 };
                 if (t.type === 'recette') recapGlobal[maison].recettes += parseFloat(t.montant||0);
                 else recapGlobal[maison].depenses += parseFloat(t.montant||0);
+                if (t.type === 'depense' && t.statut === 'attente') recapGlobal[maison].attente += parseFloat(t.montant||0);
                 recapGlobal[maison].nbTx++;
             });
             allAlloc.forEach(a => {
                 const maison = maisons.find(m => m.id === a.maison_id)?.nom || 'Inconnue';
-                if (!recapGlobal[maison]) recapGlobal[maison] = { depenses:0, recettes:0, allocations:0, nbTx:0 };
+                if (!recapGlobal[maison]) recapGlobal[maison] = { depenses:0, recettes:0, allocations:0, attente:0, nbTx:0 };
                 recapGlobal[maison].allocations += parseFloat(a.montant||0);
             });
 
@@ -575,7 +583,8 @@
                 'Dépenses (€)': d.depenses.toFixed(2),
                 'Recettes (€)': d.recettes.toFixed(2),
                 'Allocations versées (€)': d.allocations.toFixed(2),
-                'À rembourser (€)': Math.max(0, d.depenses - d.recettes - d.allocations).toFixed(2),
+                'Solde de l\'année (€)': (d.allocations + d.recettes - d.depenses).toFixed(2),
+                'Avances à rembourser (€)': d.attente.toFixed(2),
                 'Nb transactions': d.nbTx
             }));
             const wsRecap = XLSX.utils.json_to_sheet(recapRows);
@@ -593,15 +602,16 @@
                 const recapM = {};
                 txMaison.forEach(t => {
                     const m = t.profiles ? `${t.profiles.prenom} ${t.profiles.nom||''}`.trim() : 'Membre supprimé';
-                    if (!recapM[m]) recapM[m] = { depenses:0, recettes:0, allocations:0, nb:0 };
+                    if (!recapM[m]) recapM[m] = { depenses:0, recettes:0, allocations:0, attente:0, nb:0 };
                     if (t.type === 'recette') recapM[m].recettes += parseFloat(t.montant||0);
                     else recapM[m].depenses += parseFloat(t.montant||0);
+                    if (t.type === 'depense' && t.statut === 'attente') recapM[m].attente += parseFloat(t.montant||0);
                     recapM[m].nb++;
                 });
                 allocMaison.forEach(a => {
                     const p = profilesMap[a.user_id];
                     const m = p ? `${p.prenom} ${p.nom||''}`.trim() : 'Membre supprimé';
-                    if (!recapM[m]) recapM[m] = { depenses:0, recettes:0, allocations:0, nb:0 };
+                    if (!recapM[m]) recapM[m] = { depenses:0, recettes:0, allocations:0, attente:0, nb:0 };
                     recapM[m].allocations += parseFloat(a.montant||0);
                 });
 
@@ -610,12 +620,12 @@
                     'Dépenses (€)': d.depenses.toFixed(2),
                     'Recettes (€)': d.recettes.toFixed(2),
                     'Allocations (€)': d.allocations.toFixed(2),
-                    'À rembourser (€)': Math.max(0, d.depenses - d.recettes - d.allocations).toFixed(2),
+                    'Avances à rembourser (€)': d.attente.toFixed(2),
                     'Nb opérations': d.nb
                 }));
                 const ws = XLSX.utils.json_to_sheet(rows);
                 ws['!cols'] = [{wch:22},{wch:14},{wch:14},{wch:16},{wch:18},{wch:15}];
-                XLSX.utils.book_append_sheet(wb, ws, maison.nom.slice(0,31));
+                XLSX.utils.book_append_sheet(wb, ws, nomOnglet(wb, maison.nom));
             });
 
             // ── Onglet détail toutes transactions ──

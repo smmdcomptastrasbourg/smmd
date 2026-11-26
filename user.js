@@ -6,51 +6,6 @@
         const MOIS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 
 
-        // ── NAV MENU ──
-        let _currentSection = 'saisie';
-
-        function navTo(name, extra) {
-            closeNavMenu();
-            document.querySelectorAll('.section-panel').forEach(s => s.classList.remove('active'));
-            document.getElementById('section-' + name).classList.add('active');
-            _currentSection = name;
-            // Highlight active in menu
-            document.querySelectorAll('.nav-menu-item').forEach(b => {
-                b.classList.toggle('bg-red-50', b.getAttribute('onclick').includes("'" + name + "'"));
-            });
-            // Update saisie button
-            const fabS = document.getElementById('fab-saisie');
-            if (fabS) fabS.classList.toggle('ring-4', name === 'saisie');
-            if (extra) extra();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
-        function toggleNavMenu() {
-            const menu = document.getElementById('nav-menu');
-            const backdrop = document.getElementById('nav-backdrop');
-            const icon = document.getElementById('fab-menu-icon');
-            const isOpen = !menu.classList.contains('hidden');
-            if (isOpen) {
-                closeNavMenu();
-            } else {
-                menu.classList.remove('hidden');
-                backdrop.classList.remove('hidden');
-                if (icon) icon.style.transform = 'rotate(90deg)';
-            }
-        }
-
-        function closeNavMenu() {
-            document.getElementById('nav-menu').classList.add('hidden');
-            document.getElementById('nav-backdrop').classList.add('hidden');
-            const icon = document.getElementById('fab-menu-icon');
-            if (icon) icon.style.transform = 'rotate(0deg)';
-        }
-
-        // Alias pour compatibilité avec le code existant
-        function switchTab(name, btn) {
-            navTo(name);
-        }
-
         // ── Compact nav au scroll ──
         new IntersectionObserver(([e]) => {
             const compact = !e.isIntersecting;
@@ -143,13 +98,12 @@
 
                 document.getElementById('scan-step-loading').classList.add('hidden');
                 document.getElementById('scan-step-result').classList.remove('hidden');
+                scannedFile = file;
 
             } catch (err) {
                 document.getElementById('scan-step-loading').classList.add('hidden');
                 document.getElementById('scan-step-error').classList.remove('hidden');
-                document.getElementById('scan-error-msg').textContent = err.message.includes('400')
-                    ? 'Format non supporté ou image illisible. Essayez avec une photo plus nette.'
-                    : "Impossible de contacter le service d'analyse. Vérifiez votre connexion.";
+                document.getElementById('scan-error-msg').textContent = err.message || "Impossible de contacter le service d'analyse. Réessayez.";
             }
         }
 
@@ -167,51 +121,37 @@
 
             setBtn('<span class="btn-spinner"></span>Enregistrement...', true);
 
-            // Upload Storage optionnel (ne bloque pas si le bucket n'existe pas)
-            let justificatif_url = null;
-            if (scannedFile) {
-                try {
-                    const ext = scannedFile.type?.includes('pdf') ? 'pdf' : 'jpg';
-                    const path = `${userProfile.maison_id}/${userProfile.id}/${Date.now()}.${ext}`;
-                    const { error: upErr } = await sb.storage
-                        .from('justificatifs')
-                        .upload(path, scannedFile, { contentType: scannedFile.type, upsert: false });
-                    if (!upErr) {
-                        const { data: urlData } = sb.storage.from('justificatifs').getPublicUrl(path);
-                        justificatif_url = urlData?.publicUrl || null;
-                    }
-                } catch(e) { /* Storage optionnel */ }
-            }
-
-            setBtn('<span class="btn-spinner"></span>Sauvegarde...', true);
-
-            // Insérer la transaction
             const { data: insertData, error } = await sb.from('transactions').insert([{
                 user_id: userProfile.id, maison_id: userProfile.maison_id,
                 montant: amount, motif, commentaire: comment||null,
-                created_at: new Date(date).toISOString(),
+                created_at: dateSaisieVersISO(date),
                 type: 'depense', methode_paiement: method,
-                statut: method.startsWith('perso_') ? 'attente' : 'valide',
-                justificatif_url
+                statut: estPerso(method) ? 'attente' : 'valide',
+                justificatif_url: null
             }]).select('id');
 
-            setBtn('Enregistrer', false);
-            if (error) { showToast('Erreur : '+error.message,'error'); return; }
+            if (error) { setBtn('Enregistrer', false); showToast('Erreur : '+error.message,'error'); return; }
+            memoriserDerniereSaisie(insertData?.[0]?.id);
 
-            // Sauvegarder TOUJOURS dans justificatifs_images (base64)
-            if (insertData?.[0]?.id && scannedFile) {
-                const allPhotos = [scannedFile, ...extraPhotos].filter(Boolean);
+            // Les photos sont stockées dans justificatifs_images (base64)
+            let justifOk = false;
+            const allPhotos = [scannedFile, ...extraPhotos].filter(Boolean);
+            if (insertData?.[0]?.id && allPhotos.length) {
+                setBtn('<span class="btn-spinner"></span>Justificatif...', true);
                 try {
                     await sauvegarderImagesJustificatif(insertData[0].id, allPhotos);
+                    justifOk = true;
                 } catch(e) {
-                    showToast('Justificatif non sauvegardé : ' + e.message, 'error');
+                    showToast(e.message + ' — ajoutez-le depuis le journal', 'error');
                 }
             }
+            setBtn('Enregistrer', false);
 
             scannedFile = null;
             extraPhotos = [];
             closeScanModal();
-            showToast('Dépense enregistrée avec justificatif !','success');
+            if (justifOk) showToast('Dépense enregistrée avec justificatif !','success');
+            else if (!allPhotos.length) showToast('Dépense enregistrée (sans justificatif)','warning');
             await loadJournal();
             await refreshDashboard();
             await loadRefundHistory();
@@ -237,40 +177,22 @@
             const list  = document.getElementById('journal-list');
             renderJournalSkeleton(list);
 
-            const { data, error } = await sb.from('transactions')
-                .select('id,user_id,maison_id,type,montant,statut,motif,commentaire,created_at,methode_paiement,justificatif_url')
-                .eq('user_id', userProfile.id)
-                .order('created_at', { ascending: false });
-
-            if (error) { list.innerHTML=`<p class="text-center text-red-400 text-[11px] font-bold py-8">Erreur de chargement</p>`; return; }
-
-            const motifFilter = document.getElementById('journal-motif-filter')?.value || 'all';
-            const filtered = (data||[]).filter(t => {
-                const d = new Date(t.created_at);
-                const matchDate = String(d.getMonth()+1).padStart(2,'0') === mois && String(d.getFullYear()) === String(annee);
-                const matchMotif = motifFilter === 'all' || t.motif === motifFilter;
-                return matchDate && matchMotif;
-            });
-            filtered.forEach(t => { _txCache[t.id] = t; });
-
-            // justificatifs en parallèle de l'affichage du filtre motif
-            const txIds = Array.from(filtered.map(t => t.id));
-            const justifRes = txIds.length > 0
-                ? await sb.from('justificatifs_images').select('transaction_id').in('transaction_id', txIds)
-                : { data: [] };
-            const justifSet = new Set((justifRes.data||[]).map(j => j.transaction_id));
-            filtered.forEach(t => { t._hasJustif = justifSet.has(t.id); });
-
-            // Populate motif filter
-            const mfSel = document.getElementById('journal-motif-filter');
-            if (mfSel && mfSel.options.length <= 1) {
-                const allMotifs = [...new Set((data||[]).map(t=>t.motif).filter(Boolean))].sort();
-                allMotifs.forEach(m => {
-                    const opt = document.createElement('option');
-                    opt.value = m; opt.textContent = m.toUpperCase();
-                    mfSel.appendChild(opt);
-                });
+            const { debut, fin } = bornesMois(annee, mois);
+            let data, justifSet;
+            try {
+                data = await fetchAll(() => sb.from('transactions')
+                    .select('id,user_id,maison_id,type,montant,statut,motif,commentaire,created_at,methode_paiement,justificatif_url')
+                    .eq('user_id', userProfile.id)
+                    .gte('created_at', debut).lt('created_at', fin)
+                    .order('created_at', { ascending: false }));
+                justifSet = await idsAvecJustif(data.map(t => t.id));
+            } catch (e) {
+                list.innerHTML=`<p class="text-center text-red-400 text-[11px] font-bold py-8">Erreur de chargement</p>`; return;
             }
+
+            const motifFilter = document.getElementById('journal-motif')?.value || 'all';
+            const filtered = data.filter(t => motifFilter === 'all' || t.motif === motifFilter);
+            filtered.forEach(t => { _txCache[t.id] = t; t._hasJustif = justifSet.has(t.id); });
 
             if (!filtered.length) {
                 list.innerHTML = `<div class="bg-white rounded-[28px] border border-slate-100 shadow-premium p-8 text-center">
@@ -358,7 +280,7 @@
             document.getElementById('edit-tx-id').value   = tx.id;
             document.getElementById('edit-tx-type').value = tx.type;
             document.getElementById('edit-montant').value = parseFloat(tx.montant);
-            document.getElementById('edit-date').value    = tx.created_at ? tx.created_at.split('T')[0] : '';
+            document.getElementById('edit-date').value    = isoVersDateSaisie(tx.created_at);
             document.getElementById('edit-commentaire').value = tx.commentaire||'';
             document.getElementById('edit-methode').value = tx.methode_paiement||'cb_maison';
             const isR = tx.type === 'recette';
@@ -387,16 +309,15 @@
             if (!montant||montant<=0) return showToast('Montant invalide','error');
             if (!date) return showToast('Date requise','error');
 
-            setLoading('edit-modal', false); // not a btn
-            const saveBtn = document.querySelector('#edit-modal button:last-child');
+            const saveBtn = document.getElementById('edit-save-btn');
             if(saveBtn){saveBtn.innerHTML='<span class="btn-spinner"></span>Enregistrement...';saveBtn.disabled=true;}
 
             const update = {
                 montant,
-                created_at: new Date(date).toISOString(),
+                created_at: dateSaisieVersISO(date),
                 commentaire: comment||null,
                 methode_paiement: type==='recette' ? null : methode,
-                statut: (type==='depense' && methode.startsWith('perso_')) ? 'attente' : 'valide'
+                statut: statutApresEdition(_txCache[id], type, methode)
             };
             if (type !== 'recette') update.motif = motif;
 
@@ -427,27 +348,28 @@
             const container = document.getElementById('resume-content');
             container.innerHTML = `<div class="text-center py-8"><div class="w-8 h-8 rounded-full border-2 border-slate-200 border-t-red-700 animate-spin mx-auto"></div></div>`;
 
-            const [txRes, avsRes] = await Promise.all([
-                sb.from('transactions').select('*').eq('user_id', userProfile.id),
-                sb.from('allocations_versees').select('*').eq('user_id', userProfile.id)
-            ]);
-
-            const txs = (txRes.data||[]).filter(t => new Date(t.created_at).getFullYear() === annee);
-            // Double filtre : comparer en int ET en string pour couvrir les deux cas Supabase
-            const avs = (avsRes.data||[]).filter(a => parseInt(a.annee) === annee || String(a.annee) === String(annee));
+            const { debut, fin } = bornesAnnee(annee);
+            let txs, avsAll;
+            try {
+                [txs, avsAll] = await Promise.all([
+                    fetchAll(() => sb.from('transactions').select('*').eq('user_id', userProfile.id).gte('created_at', debut).lt('created_at', fin)),
+                    fetchAll(() => sb.from('allocations_versees').select('*').eq('user_id', userProfile.id).eq('annee', annee))
+                ]);
+            } catch (e) { container.innerHTML = `<p class="text-center text-red-400 text-[11px] font-bold py-8">Erreur de chargement</p>`; return; }
+            const avs = avsAll.filter(allocConfirmee);
 
             const totalAlloc  = avs.reduce((s,a) => s+parseFloat(a.montant), 0);
             const totalDep    = txs.filter(t=>t.type==='depense').reduce((s,t) => s+parseFloat(t.montant), 0);
             const totalRec    = txs.filter(t=>t.type==='recette').reduce((s,t) => s+parseFloat(t.montant), 0);
             const totalRemb   = txs.filter(t=>t.type==='depense'&&t.statut==='valide'&&t.methode_paiement?.startsWith('perso_')).reduce((s,t) => s+parseFloat(t.montant), 0);
-            const totalAttente= txs.filter(t=>t.statut==='attente').reduce((s,t) => s+parseFloat(t.montant), 0);
+            const totalAttente= txs.filter(t=>t.type==='depense'&&t.statut==='attente').reduce((s,t) => s+parseFloat(t.montant), 0);
             const solde       = totalAlloc + totalRec - totalDep;
 
             // Par mois
             const byMonth = {};
             for (let m = 1; m <= 12; m++) {
                 const mTxs = txs.filter(t => new Date(t.created_at).getMonth()+1 === m);
-                const mAvs = avs.filter(a => a.mois === m);
+                const mAvs = avs.filter(a => parseInt(a.mois) === m);
                 byMonth[m] = {
                     alloc: mAvs.reduce((s,a)=>s+parseFloat(a.montant),0),
                     dep:   mTxs.filter(t=>t.type==='depense').reduce((s,t)=>s+parseFloat(t.montant),0),
@@ -659,33 +581,13 @@
                 progTxt.textContent = `Sauvegarde ${justifPhotos.length} photo${justifPhotos.length>1?'s':''}...`;
                 await sauvegarderImagesJustificatif(txId, justifPhotos);
 
-                progTxt.textContent = 'Upload...';
-                let justificatif_url = null;
-                try {
-                    const firstPhoto = justifPhotos[0];
-                    const ext = firstPhoto.type?.includes('png') ? 'png' : firstPhoto.type?.includes('pdf') ? 'pdf' : 'jpg';
-                    const path = `${userProfile.maison_id}/${userProfile.id}/${Date.now()}.${ext}`;
-                    const { error: upErr } = await sb.storage.from('justificatifs')
-                        .upload(path, firstPhoto, { contentType: firstPhoto.type || 'image/jpeg', upsert: false });
-                    if (!upErr) {
-                        const { data: urlData } = sb.storage.from('justificatifs').getPublicUrl(path);
-                        justificatif_url = urlData?.publicUrl || null;
-                    }
-                } catch(e) { /* continuer sans URL */ }
-
-                progTxt.textContent = 'Enregistrement...';
-                const { error } = await sb.from('transactions')
-                    .update({ justificatif_url })
-                    .eq('id', txId)
-                    .eq('user_id', userProfile.id);
-                if (error) throw new Error(error.message);
-
                 justifPhotos = [];
                 prog.classList.add('hidden');
                 fermerJustifModal();
                 showToast('Justificatif enregistré ✓', 'success');
                 await loadJournal();
                 await refreshDashboard();
+                await loadRefundHistory();
             } catch(e) {
                 prog.classList.add('hidden');
                 valBtn.classList.remove('hidden');
@@ -699,6 +601,7 @@
             if (!user) { window.location.href="index.html"; return; }
             const { data: profile } = await sb.from('profiles').select('*, maisons(nom)').eq('id', user.id).single();
             if (!profile) { window.location.href="index.html"; return; }
+            if (!(await verifierCompteActif(profile))) return;
             userProfile = profile;
 
             const fullName = `${profile.prenom} ${profile.nom||''}`.trim();
@@ -719,7 +622,8 @@
             await checkNotifications();
             await checkAllocVersee();
             checkUnreadMessages();
-            initPullToRefresh(async () => { await refreshDashboard(); await loadRefundHistory(); });
+            initAppUpdate();
+            initPullToRefresh(async () => { await refreshDashboard(); await loadRefundHistory(); await loadVersementsHistory(); });
         }
 
         async function checkNotifications() {
@@ -760,7 +664,7 @@
         }
 
         async function markNotifRead(id) {
-            await sb.from('notifications').update({lu:true}).eq('id',id);
+            await sb.from('notifications').update({lu:true}).eq('id',id).eq('user_id',userProfile.id);
             const el = document.querySelector(`[data-notif="${id}"]`);
             if (el) { el.style.cssText='opacity:0;transform:translateY(-8px);transition:all .2s'; setTimeout(()=>el.remove(),200); }
         }
@@ -776,14 +680,15 @@
                     showToast("Impossible de charger les données — vérifiez votre connexion", "error");
                 }
             }, 15000);
-            const [txRes, avsRes] = await Promise.all([
-                sb.from('transactions').select('id,user_id,maison_id,type,montant,statut,motif,commentaire,created_at,methode_paiement,justificatif_url').eq('maison_id',userProfile.maison_id),
-                sb.from('allocations_versees').select('user_id,montant').eq('maison_id',userProfile.maison_id)
-            ]);
+            let txs, avsAll;
+            try {
+                [txs, avsAll] = await Promise.all([
+                    fetchAll(() => sb.from('transactions').select('id,user_id,maison_id,type,montant,statut,motif,commentaire,created_at,methode_paiement,justificatif_url').eq('maison_id',userProfile.maison_id)),
+                    fetchAll(() => sb.from('allocations_versees').select('user_id,montant,statut').eq('maison_id',userProfile.maison_id))
+                ]);
+            } catch (e) { clearTimeout(timeout); showToast("Erreur de chargement des données","error"); return; }
             clearTimeout(timeout);
-            const txs = txRes.data; const txErr = txRes.error;
-            const avs = avsRes.data; const avsErr = avsRes.error;
-            if (txErr || avsErr) { showToast("Erreur de chargement des données","error"); return; }
+            const avs = avsAll.filter(allocConfirmee);
 
             const houseAlloc = (avs||[]).reduce((s,a)=>s+parseFloat(a.montant),0);
             const houseDep   = (txs||[]).filter(t=>t.type==='depense').reduce((s,t)=>s+parseFloat(t.montant),0);
@@ -792,7 +697,7 @@
             const myTx       = (txs||[]).filter(t=>t.user_id===userProfile.id);
             const myDep      = myTx.filter(t=>t.type==='depense').reduce((s,t)=>s+parseFloat(t.montant),0);
             const myRec      = myTx.filter(t=>t.type==='recette').reduce((s,t)=>s+parseFloat(t.montant),0);
-            const pending    = myTx.filter(t=>t.statut==='attente').reduce((s,t)=>s+parseFloat(t.montant),0);
+            const pending    = myTx.filter(t=>t.type==='depense'&&t.statut==='attente').reduce((s,t)=>s+parseFloat(t.montant),0);
             const myAlloc    = parseFloat(userProfile.allocation_mensuelle)||0;
 
             animCounter(document.getElementById('house-balance'), houseAlloc+houseRec-houseDep);
@@ -806,11 +711,8 @@
 
             const hist = [...myTx].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,8);
             if (hist.length > 0) {
-                const txIds = hist.map(t => t.id);
-                const { data: justifs } = await sb.from('justificatifs_images')
-                    .select('transaction_id').in('transaction_id', txIds);
-                const justifSet = new Set((justifs||[]).map(j => j.transaction_id));
-                hist.forEach(t => { t._hasJustif = justifSet.has(t.id); });
+                const justifSet = await idsAvecJustif(hist.map(t => t.id)).catch(() => new Set());
+                hist.forEach(t => { t._hasJustif = justifSet.has(t.id); _txCache[t.id] = t; });
             }
             document.getElementById('tx-history').innerHTML = hist.length===0
                 ? `<div class="text-center py-10"><svg class="w-10 h-10 mx-auto mb-2 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg><p class="text-slate-300 text-[11px] font-black uppercase tracking-widest">Aucune opération</p></div>`
@@ -853,9 +755,18 @@
         }
 
         async function loadRefundHistory() {
-            const { data: notifs } = await sb.from('notifications').select('*').eq('user_id',userProfile.id).order('created_at',{ascending:false});
-            const { data: txs }   = await sb.from('transactions').select('*').eq('user_id',userProfile.id).eq('type','depense').order('created_at',{ascending:false});
-            if (!txs||!txs.length) {
+            let notifs, txs, justifSet;
+            try {
+                [notifs, txs] = await Promise.all([
+                    fetchAll(() => sb.from('notifications').select('id,created_at,type').eq('user_id',userProfile.id).order('created_at',{ascending:false})),
+                    fetchAll(() => sb.from('transactions').select('*').eq('user_id',userProfile.id).eq('type','depense').like('methode_paiement','perso_%').order('created_at',{ascending:false}))
+                ]);
+                justifSet = await idsAvecJustif(txs.filter(t => t.statut === 'attente').map(t => t.id));
+            } catch (e) {
+                document.getElementById('refund-history').innerHTML=`<p class="text-center text-red-300 text-[11px] font-bold uppercase py-8">Erreur de chargement</p>`;
+                return;
+            }
+            if (!txs.length) {
                 document.getElementById('refund-history').innerHTML=`
                     <div class="bg-white rounded-[28px] border border-slate-100 shadow-premium p-8 text-center">
                         <svg class="w-10 h-10 mx-auto mb-3 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
@@ -864,8 +775,10 @@
                     </div>`;
                 return;
             }
+            const virements = notifs.filter(n => !n.type || n.type === 'remboursement');
             const byMonth={};
             txs.forEach(t=>{
+                _txCache[t.id] = t;
                 const d=new Date(t.created_at), key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
                 if(!byMonth[key]) byMonth[key]={label:`${MOIS_FR[d.getMonth()]} ${d.getFullYear()}`,attente:[],valide:[]};
                 if(t.statut==='attente') byMonth[key].attente.push(t); else byMonth[key].valide.push(t);
@@ -873,12 +786,15 @@
             document.getElementById('refund-history').innerHTML = Object.entries(byMonth).sort((a,b)=>b[0].localeCompare(a[0])).map(([key,month],i)=>{
                 const tA=month.attente.reduce((s,t)=>s+parseFloat(t.montant),0);
                 const tV=month.valide.reduce((s,t)=>s+parseFloat(t.montant),0);
-                const nM=(notifs||[]).filter(n=>{const nd=new Date(n.created_at);return`${nd.getFullYear()}-${String(nd.getMonth()+1).padStart(2,'0')}`===key;});
+                // Date du virement : date de validation des avances du mois (sinon notification du mois)
+                const dv = month.valide.map(t=>t.date_validation).filter(Boolean).sort().pop();
+                const nM = dv ? null : virements.find(n=>{const nd=new Date(n.created_at);return`${nd.getFullYear()}-${String(nd.getMonth()+1).padStart(2,'0')}`===key;});
+                const dateVir = dv || nM?.created_at;
                 return`<div class="bg-white rounded-[24px] border border-slate-100 shadow-premium overflow-hidden anim-slide" style="animation-delay:${i*.05}s">
                     <div class="px-5 py-4 flex justify-between items-center border-b border-slate-50">
                         <div>
                             <p class="font-black text-[12px] uppercase tracking-widest text-slate-800">${escapeHtml(month.label)}</p>
-                            ${nM.length?`<p class="text-[9px] text-emerald-600 font-bold mt-0.5">✓ Virement reçu · ${new Date(nM[0].created_at).toLocaleDateString('fr-FR')}</p>`:''}
+                            ${tV>0&&dateVir?`<p class="text-[9px] text-emerald-600 font-bold mt-0.5">✓ Virement reçu · ${new Date(dateVir).toLocaleDateString('fr-FR')}</p>`:''}
                         </div>
                         <div class="text-right">
                             ${tA>0?`<p class="text-[10px] font-black text-amber-500">${tA.toFixed(2)}€ en attente</p>`:''}
@@ -887,7 +803,8 @@
                     </div>
                     <div class="divide-y divide-slate-50">
                         ${[...month.attente,...month.valide].map(t=>{
-                            const needsJustif = t.statut==='attente' && !t.justificatif_url;
+                            const justif = aJustif(t, justifSet);
+                            const needsJustif = t.statut==='attente' && !justif;
                             return `
                         <div class="px-5 py-3 flex justify-between items-start">
                             <div class="flex items-start gap-3 flex-1 min-w-0">
@@ -900,12 +817,12 @@
                                             class="mt-1 text-[8px] font-black text-amber-500 uppercase bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100 hover:bg-amber-100 transition-colors">
                                             ⚠️ Justificatif requis
                                           </button>`
-                                        : t.justificatif_url
-                                            ? `<a href="${escapeHtml(t.justificatif_url)}" target="_blank"
+                                        : (t.statut==='attente'
+                                            ? `<button onclick="previewJustificatif('${escapeHtml(t.id)}','${escapeHtml(t.justificatif_url||'')}')"
                                                 class="mt-1 inline-block text-[8px] font-black text-emerald-500 uppercase bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
                                                 ✓ Justificatif joint
-                                              </a>`
-                                            : ''}
+                                              </button>`
+                                            : '')}
                                 </div>
                             </div>
                             <p class="font-black text-[12px] text-slate-800 flex-shrink-0 ml-2">${parseFloat(t.montant).toFixed(2)}€</p>
@@ -926,15 +843,16 @@
             if(!date) return showToast("Saisissez une date","error");
             const btn=document.getElementById('submit-btn');
             btn.textContent='...'; btn.disabled=true;
-            const {error}=await sb.from('transactions').insert([{
+            const {data:ins,error}=await sb.from('transactions').insert([{
                 user_id:userProfile.id, maison_id:userProfile.maison_id, montant:amount,
                 motif:currentType==='recette'?'RECETTE':motif, commentaire:comment||null,
-                created_at:new Date(date).toISOString(), type:currentType,
+                created_at:dateSaisieVersISO(date), type:currentType,
                 methode_paiement:currentType==='recette'?null:method,
-                statut:(currentType==='depense'&&method.startsWith('perso_'))?'attente':'valide'
-            }]);
+                statut:(currentType==='depense'&&estPerso(method))?'attente':'valide'
+            }]).select('id');
             btn.textContent='Enregistrer'; btn.disabled=false;
-            if(error){showToast("Erreur","error");return;}
+            if(error){showToast("Erreur : "+error.message,"error");return;}
+            memoriserDerniereSaisie(ins?.[0]?.id);
             document.getElementById('tx-amount').value='';
             document.getElementById('tx-comment').value='';
             const needsJustif = currentType==='depense' && method && method.startsWith('perso_');
@@ -945,17 +863,27 @@
             } else {
                 showToast("Opération enregistrée !", "success");
             }
-            await refreshDashboard(); await loadRefundHistory();
+            await refreshDashboard(); await loadRefundHistory(); await loadJournal();
         }
 
+        // « Annuler » = la dernière opération SAISIE sur cet appareil (moins de 24 h),
+        // et non l'opération dont la date est la plus récente.
+        function memoriserDerniereSaisie(id) {
+            if (!id) return;
+            try { localStorage.setItem('smmd_derniere_saisie', JSON.stringify({ id, uid: userProfile.id, t: Date.now() })); } catch (e) {}
+        }
         async function undoLast() {
-            const {data}=await sb.from('transactions').select('id,created_at').eq('user_id',userProfile.id).order('created_at',{ascending:false}).limit(1);
-            if(!data||!data[0]) return showToast("Aucune opération à annuler","warning");
-            if(Date.now()-new Date(data[0].created_at).getTime()>86400000) return showToast("Annulation impossible après 24h","error");
-            showConfirm('Annuler la dernière saisie ?',async()=>{
-                const{error}=await sb.from('transactions').delete().eq('id',data[0].id);
-                if(error) showToast("Erreur","error");
-                else{showToast("Annulée","info");await refreshDashboard();await loadRefundHistory();}
+            let last = null;
+            try { last = JSON.parse(localStorage.getItem('smmd_derniere_saisie') || 'null'); } catch (e) {}
+            if (!last || last.uid !== userProfile.id) return showToast("Aucune saisie récente à annuler","warning");
+            if (Date.now() - last.t > 86400000) return showToast("Annulation impossible après 24h","error");
+            const { data } = await sb.from('transactions').select('id,motif,montant,statut,methode_paiement').eq('id', last.id).eq('user_id', userProfile.id).maybeSingle();
+            if (!data) { localStorage.removeItem('smmd_derniere_saisie'); return showToast("Opération déjà supprimée","warning"); }
+            if (estPerso(data.methode_paiement) && data.statut === 'valide') return showToast("Déjà remboursée : impossible d'annuler","error");
+            showConfirm(`Annuler la dernière saisie (${data.motif||''} ${parseFloat(data.montant).toFixed(2)}€) ?`,async()=>{
+                const{error}=await sb.from('transactions').delete().eq('id',data.id).eq('user_id',userProfile.id);
+                if(error) showToast("Erreur : "+error.message,"error");
+                else{localStorage.removeItem('smmd_derniere_saisie');showToast("Annulée","info");await refreshDashboard();await loadRefundHistory();await loadJournal();}
             },'Annuler',true);
         }
 
@@ -971,7 +899,7 @@
             if(journalMotif) {
                 journalMotif.innerHTML='<option value="all">Tous les motifs</option>' +
                     '<option value="RECETTE">Recettes</option>' +
-                    (data||[]).map(m=>`<option value="${escapeHtml(m.nom)}">${escapeHtml(m.nom)}</option>`).join('');
+                    (data||[]).map(m=>`<option value="${escapeHtml(m.nom)}">${escapeHtml(m.nom.toUpperCase())}</option>`).join('');
             }
         }
 
@@ -1012,6 +940,9 @@
             else{showToast("Mot de passe modifié !","success");document.getElementById('settings-pass').value='';}
         }
 
+        // ── ALLOCATIONS : le membre DÉCLARE, le chef CONFIRME ──
+        // statut 'declare' = signalé par le membre (non compté dans les soldes)
+        // statut 'confirme' (ou absent) = confirmé par le chef
         async function loadVersementsHistory() {
             const allMois = getMoisDepuis2026();
             const { data: vers, error } = await sb.from('allocations_versees')
@@ -1020,47 +951,54 @@
             const container = document.getElementById('versements-history');
             if (error) { container.innerHTML=`<p class="text-center text-red-300 text-[11px] font-bold uppercase py-8">Erreur de chargement</p>`; return; }
 
-            if (alloc <= 0) {
+            if (alloc <= 0 && !(vers||[]).length) {
                 container.innerHTML=`
                     <div class="bg-white rounded-[28px] border border-slate-100 shadow-premium p-8 text-center">
-                        <div class="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-3"><img src="./icon-512.png" style="width:40px;height:40px;object-fit:contain;"></div>
+                        <div class="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-3"><img src="./icon-512.png" style="width:40px;height:40px;object-fit:contain;" alt=""></div>
                         <p class="text-slate-700 text-[12px] font-black uppercase tracking-widest mb-2">Allocation non définie</p>
                         <p class="text-slate-400 text-[11px] font-bold leading-relaxed">Votre allocation mensuelle n'est pas encore configurée. Contactez votre chef de maison.</p>
                     </div>`;
                 return;
             }
 
-            const totalVerse = (vers||[]).reduce((s,v)=>s+parseFloat(v.montant),0);
+            const confirmes = (vers||[]).filter(allocConfirmee);
+            const totalVerse = confirmes.reduce((s,v)=>s+parseFloat(v.montant),0);
+            const totalDecl  = (vers||[]).filter(v=>!allocConfirmee(v)).reduce((s,v)=>s+parseFloat(v.montant),0);
 
             container.innerHTML = `
                 <div class="bg-white rounded-[28px] border border-slate-100 shadow-premium shadow-sm overflow-hidden mb-3">
                     <div class="px-5 py-4 bg-slate-50 flex justify-between items-center">
-                        <p class="text-[9px] font-black uppercase text-slate-400 tracking-widest">Total versé</p>
+                        <p class="text-[9px] font-black uppercase text-slate-400 tracking-widest">Total confirmé</p>
                         <p class="font-black text-base text-slate-800">${totalVerse.toFixed(2)}€</p>
                     </div>
+                    ${totalDecl>0?`<div class="px-5 py-2 flex justify-between items-center"><p class="text-[9px] font-black uppercase text-amber-500 tracking-widest">En attente de confirmation</p><p class="font-black text-[12px] text-amber-500">${totalDecl.toFixed(2)}€</p></div>`:''}
                 </div>
                 <div class="bg-white rounded-[28px] border border-slate-100 shadow-premium shadow-sm overflow-hidden">
                     <div class="px-5 py-4 border-b border-slate-50">
                         <p class="text-[11px] font-black uppercase tracking-widest text-slate-700">Tous les mois</p>
-                        <p class="text-[9px] text-slate-400 font-bold mt-0.5">Appuyez sur un mois pour déclarer ou annuler</p>
+                        <p class="text-[9px] text-slate-400 font-bold mt-0.5">Appuyez sur un mois pour déclarer votre versement — votre chef le confirmera</p>
                     </div>
                     <div class="divide-y divide-slate-50">
                         ${allMois.map((m, i) => {
-                            const v = (vers||[]).find(v=>v.mois===m.mois&&v.annee===m.annee);
-                            const versId = v ? v.id : null;
+                            const v = (vers||[]).find(v=>parseInt(v.mois)===m.mois&&parseInt(v.annee)===m.annee);
+                            const etat = !v ? 'aucun' : (allocConfirmee(v) ? 'confirme' : 'declare');
+                            const montant = v ? parseFloat(v.montant) : alloc;
+                            const libelle = etat==='confirme' ? '✓ Confirmé par le chef'
+                                          : etat==='declare'  ? '⏳ Déclaré le '+new Date(v.created_at).toLocaleDateString('fr-FR')+' — à confirmer'
+                                          : 'Non versé';
                             return `<button type="button"
-                                onclick="userToggleVersement(${m.mois},${m.annee},${alloc},${versId?`'${versId}'`:'null'},this)"
+                                onclick="userToggleVersement(${m.mois},${m.annee},this)"
                                 class="w-full flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 active:scale-[.98] transition-all anim-slide" style="animation-delay:${i*.02}s">
                                 <div class="flex items-center gap-3">
-                                    <span class="w-7 h-7 rounded-lg flex-shrink-0 flex items-center justify-center transition-all ${v?'bg-emerald-500':'bg-slate-100 border-2 border-slate-200'}">
-                                        ${v?`<svg class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>`:''}
+                                    <span class="w-7 h-7 rounded-lg flex-shrink-0 flex items-center justify-center transition-all ${etat==='confirme'?'bg-emerald-500':etat==='declare'?'bg-amber-400':'bg-slate-100 border-2 border-slate-200'}">
+                                        ${etat!=='aucun'?`<svg class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>`:''}
                                     </span>
                                     <div class="text-left">
                                         <p class="text-[11px] font-black uppercase text-slate-800">${MOIS_FR[m.mois-1]} ${m.annee}</p>
-                                        <p class="text-[9px] font-bold ${v?'text-emerald-600':'text-amber-500'}">${v?'✓ Déclaré le '+new Date(v.created_at).toLocaleDateString('fr-FR'):'Non versé'}</p>
+                                        <p class="text-[9px] font-bold ${etat==='confirme'?'text-emerald-600':'text-amber-500'}">${libelle}</p>
                                     </div>
                                 </div>
-                                <p class="font-black text-[13px] ${v?'text-emerald-600':'text-slate-300'}">${v?'+'+parseFloat(v.montant).toFixed(2)+'€':alloc.toFixed(2)+'€'}</p>
+                                <p class="font-black text-[13px] ${etat==='confirme'?'text-emerald-600':etat==='declare'?'text-amber-500':'text-slate-300'}">${etat==='aucun'?'':'+'}${montant.toFixed(2)}€</p>
                             </button>`;
                         }).join('')}
                     </div>
@@ -1074,107 +1012,93 @@
             return liste.reverse();
         }
 
-        async function userToggleVersement(mois, annee, alloc, versId, btn) {
-            btn.disabled = true;
-            if (versId) {
-                // Déjà versé → annuler
-                const { error } = await sb.from('allocations_versees').delete().eq('id', versId);
-                if (error) { showToast("Erreur","error"); btn.disabled=false; return; }
-                showToast(`${MOIS_FR[mois-1]} ${annee} — allocation annulée`,"info");
-            } else {
-                // Pas versé → déclarer
-                const { error } = await sb.from('allocations_versees').insert([{
-                    user_id: userProfile.id, maison_id: userProfile.maison_id,
-                    mois, annee, montant: alloc, valide_par: userProfile.id
-                }]);
-                if (error) { showToast("Erreur","error"); btn.disabled=false; return; }
-                showToast(`${MOIS_FR[mois-1]} ${annee} — allocation déclarée !`,"success");
+        async function lireAllocMois(mois, annee) {
+            const { data } = await sb.from('allocations_versees').select('id,statut,montant')
+                .eq('user_id', userProfile.id).eq('mois', mois).eq('annee', annee).maybeSingle();
+            return data || null;
+        }
+
+        // Déclare (ou retire la déclaration) du versement d'un mois
+        async function basculerDeclaration(mois, annee) {
+            const alloc = parseFloat(userProfile.allocation_mensuelle)||0;
+            const existing = await lireAllocMois(mois, annee);
+            if (existing && allocConfirmee(existing)) {
+                showToast(`${MOIS_FR[mois-1]} ${annee} est confirmé par le chef — demandez-lui pour toute correction`, 'info');
+                return null;
             }
-            // Rafraîchir l'historique et les soldes
+            if (existing) {
+                const { error } = await sb.from('allocations_versees').delete()
+                    .eq('id', existing.id).eq('user_id', userProfile.id).eq('statut', 'declare');
+                if (error) { showToast("Erreur : "+error.message,"error"); return null; }
+                showToast(`${MOIS_FR[mois-1]} ${annee} — déclaration retirée`,"info");
+                return 'aucun';
+            }
+            if (alloc <= 0) { showToast("Allocation non définie","warning"); return null; }
+            const { error } = await sb.from('allocations_versees').insert([{
+                user_id: userProfile.id, maison_id: userProfile.maison_id,
+                mois, annee, montant: alloc, statut: 'declare', valide_par: null
+            }]);
+            if (error) { showToast("Erreur : "+error.message,"error"); return null; }
+            showToast(`${MOIS_FR[mois-1]} ${annee} — versement déclaré, en attente du chef`,"success");
+            return 'declare';
+        }
+
+        async function userToggleVersement(mois, annee, btn) {
+            btn.disabled = true;
+            const etat = await basculerDeclaration(mois, annee);
+            btn.disabled = false;
+            if (etat === null) return;
             await loadVersementsHistory();
             await refreshDashboard();
-            // Mettre à jour le bouton du mois courant dans Profil
             const now=new Date();
-            if (mois===now.getMonth()+1 && annee===now.getFullYear()) {
-                const newVers = await sb.from('allocations_versees').select('id')
-                    .eq('user_id',userProfile.id).eq('mois',mois).eq('annee',annee).maybeSingle();
-                setAllocBtnState(!!newVers.data, mois, annee, alloc);
-            }
+            if (mois===now.getMonth()+1 && annee===now.getFullYear()) setAllocBtnState(etat, mois, annee);
         }
 
         async function checkAllocVersee() {
             const alloc=parseFloat(userProfile.allocation_mensuelle)||0;
             if(alloc<=0) return;
             const now=new Date(),mois=now.getMonth()+1,annee=now.getFullYear();
-            const{data}=await sb.from('allocations_versees').select('id').eq('user_id',userProfile.id).eq('mois',mois).eq('annee',annee).maybeSingle();
-            // Toujours afficher le bouton dans Profil (toggle)
-            const btn=document.getElementById('btn-declarer-alloc');
-            if(btn) btn.classList.remove('hidden');
-            if(!data){
-                // Pas encore versé → pop-up + bouton état OFF
-                document.getElementById('alloc-reminder-text').textContent=`Vous n'avez pas encore déclaré le versement de votre allocation de ${MOIS_FR[mois-1]} ${annee} à votre maison. Confirmez dès que vous l'avez effectué.`;
+            const v = await lireAllocMois(mois, annee);
+            const etat = !v ? 'aucun' : (allocConfirmee(v) ? 'confirme' : 'declare');
+            setAllocBtnState(etat, mois, annee);
+            if(etat === 'aucun'){
+                // Rappel une seule fois par jour
+                const cle = 'smmd_rappel_alloc_' + new Date().toDateString();
+                if (localStorage.getItem(cle)) return;
+                try { localStorage.setItem(cle, '1'); } catch (e) {}
+                document.getElementById('alloc-reminder-text').textContent=`Vous n'avez pas encore déclaré le versement de votre allocation de ${MOIS_FR[mois-1]} ${annee} à votre maison. Déclarez-le dès que vous l'avez effectué : votre chef le confirmera.`;
                 document.getElementById('alloc-reminder-montant').textContent=alloc.toFixed(2)+'€';
                 document.getElementById('alloc-reminder-modal').classList.remove('hidden');
-                setAllocBtnState(false, mois, annee, alloc);
-            } else {
-                // Déjà versé → bouton état ON (permet d'annuler)
-                setAllocBtnState(true, mois, annee, alloc);
             }
         }
 
         async function toggleAllocation() {
-            const alloc = parseFloat(userProfile.allocation_mensuelle)||0;
-            if (alloc<=0) return showToast("Allocation non définie","warning");
             const now=new Date(), mois=now.getMonth()+1, annee=now.getFullYear();
             const btn  = document.getElementById('btn-confirmer-alloc');
             const btn2 = document.getElementById('btn-declarer-alloc');
-            if (btn)  { btn.textContent='...';  btn.disabled=true; }
-            if (btn2) { btn2.textContent='...'; btn2.disabled=true; }
-
-            // Vérifier l'état actuel
-            const { data: existing } = await sb.from('allocations_versees').select('id')
-                .eq('user_id',userProfile.id).eq('mois',mois).eq('annee',annee).maybeSingle();
-
-            if (existing) {
-                // Déjà déclaré → on annule (DELETE)
-                const { error } = await sb.from('allocations_versees').delete()
-                    .eq('id', existing.id);
-                if (error) { showToast("Erreur","error"); }
-                else {
-                    showToast(`Allocation de ${MOIS_FR[mois-1]} ${annee} annulée`,"info");
-                    closeAllocReminder();
-                    setAllocBtnState(false, mois, annee, alloc);
-                    await refreshDashboard();
-                    await loadVersementsHistory();
-                }
-            } else {
-                // Pas encore déclaré → on déclare (INSERT)
-                const { error } = await sb.from('allocations_versees').insert([{
-                    user_id: userProfile.id, maison_id: userProfile.maison_id,
-                    mois, annee, montant: alloc, valide_par: userProfile.id
-                }]);
-                if (error) { showToast("Erreur","error"); }
-                else {
-                    showToast(`Allocation de ${MOIS_FR[mois-1]} ${annee} déclarée !`,"success");
-                    closeAllocReminder();
-                    setAllocBtnState(true, mois, annee, alloc);
-                    await refreshDashboard();
-                    await loadVersementsHistory();
-                }
-            }
-            if (btn)  { btn.disabled=false; }
-            if (btn2) { btn2.disabled=false; }
+            if (btn)  btn.disabled=true;
+            if (btn2) btn2.disabled=true;
+            const etat = await basculerDeclaration(mois, annee);
+            if (btn)  btn.disabled=false;
+            if (btn2) btn2.disabled=false;
+            if (etat === null) return;
+            closeAllocReminder();
+            setAllocBtnState(etat, mois, annee);
+            await refreshDashboard();
+            await loadVersementsHistory();
         }
 
-        function setAllocBtnState(versee, mois, annee, alloc) {
+        function setAllocBtnState(etat, mois, annee) {
             const btn2 = document.getElementById('btn-declarer-alloc');
             if (!btn2) return;
-            if (versee) {
-                btn2.classList.remove('hidden','bg-amber-500','shadow-amber-500/20');
+            btn2.classList.remove('hidden','bg-amber-500','shadow-amber-500/20','bg-emerald-500','shadow-emerald-500/20','bg-slate-400');
+            if (etat === 'confirme') {
                 btn2.classList.add('bg-emerald-500','shadow-emerald-500/20');
-                btn2.textContent = `✓ Allocation ${MOIS_FR[mois-1]} versée — Annuler`;
+                btn2.textContent = `✓ Allocation ${MOIS_FR[mois-1]} confirmée par le chef`;
+            } else if (etat === 'declare') {
+                btn2.classList.add('bg-emerald-500','shadow-emerald-500/20');
+                btn2.textContent = `⏳ ${MOIS_FR[mois-1]} déclarée — Retirer`;
             } else {
-                btn2.classList.remove('hidden','bg-emerald-500','shadow-emerald-500/20');
                 btn2.classList.add('bg-amber-500','shadow-amber-500/20');
                 btn2.textContent = `🏠 Déclarer mon versement du mois`;
             }
@@ -1195,21 +1119,6 @@
             document.addEventListener(ev, resetIdleTimer, { passive: true })
         );
         resetIdleTimer();
-
-
-        // ── AUTO-LOGOUT après 30 minutes d'inactivité ──
-        let _inactivityTimer;
-        function resetInactivityTimer() {
-            clearTimeout(_inactivityTimer);
-            _inactivityTimer = setTimeout(() => {
-                showToast('Déconnexion automatique après 30 min', 'warning');
-                setTimeout(() => logout(), 2000);
-            }, 30 * 60 * 1000);
-        }
-        ['touchstart','click','keydown','scroll'].forEach(e =>
-            document.addEventListener(e, resetInactivityTimer, { passive: true })
-        );
-        resetInactivityTimer();
 
 
         // ── MODAL CONFIRMATION CUSTOM (remplace confirm() natif) ──
@@ -1335,21 +1244,6 @@
         }
 
 
-        // Détecte le vrai type depuis le header base64
-        function detectMimeType(base64, declaredMime) {
-            if (!base64) return declaredMime || 'image/jpeg';
-            const header = base64.substring(0, 30);
-            if (header.includes('data:application/pdf') || header.includes('JVBERi')) return 'application/pdf';
-            if (header.includes('data:image/png') || header.includes('iVBOR')) return 'image/png';
-            if (header.includes('data:image/jpeg') || header.includes('/9j/')) return 'image/jpeg';
-            return declaredMime || 'image/jpeg';
-        }
-        function getExtFromMime(mime) {
-            if (mime?.includes('pdf')) return 'pdf';
-            if (mime?.includes('png')) return 'png';
-            return 'jpg';
-        }
-
         function ouvrirViewer(idx) {
             _viewerIdx = idx;
             const img = _viewerImages[idx];
@@ -1384,7 +1278,7 @@
                 document.getElementById('viewer-download').onclick = () => telechargerJustificatif(img);
             } else {
                 // Image
-                document.getElementById('viewer-img').src = img.base64;
+                document.getElementById('viewer-img').src = img.base64.startsWith('data:') ? img.base64 : `data:${realMime};base64,${img.base64}`;
                 document.getElementById('viewer-download').onclick = () => telechargerJustificatif(img);
             }
         }
@@ -1400,33 +1294,6 @@
             document.getElementById('viewer-modal').classList.add('hidden');
             document.getElementById('viewer-img').src = '';
             document.body.style.overflow = '';
-        }
-
-        function telechargerJustificatif(img) {
-            const ext = img.mime_type?.includes('pdf') ? 'pdf' : img.mime_type?.includes('png') ? 'png' : 'jpg';
-            const b64 = img.base64.includes(',') ? img.base64.split(',')[1] : img.base64;
-            const mime = img.mime_type || 'image/jpeg';
-
-            try {
-                const binary = atob(b64);
-                const bytes = new Uint8Array(binary.length);
-                for (let i=0; i<binary.length; i++) bytes[i] = binary.charCodeAt(i);
-                const blob = new Blob([bytes], {type: mime});
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `justificatif_${Date.now()}.${ext}`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                setTimeout(() => URL.revokeObjectURL(url), 5000);
-            } catch(e) {
-                // Fallback — data URI direct
-                const a = document.createElement('a');
-                a.href = img.base64;
-                a.download = `justificatif_${Date.now()}.${ext}`;
-                a.click();
-            }
         }
 
         // Fermer viewer avec swipe down ou Escape
@@ -1567,94 +1434,22 @@
         let extraPhotos = [];
         let justifPhotos = [];
 
-        function switchTab(name) { _goTab(name); }
         function menuGo(name, cb) { _goTab(name, cb); }
         function goSaisie() { _goTab('saisie'); }
-
-        // ── JUSTIFICATIFS IMAGES — sauvegarde base64 en table ──
-
-        // Redimensionner une image avant stockage (max 1200px, qualité 0.82)
-        async function resizeImageToBase64(file) {
-            // PDF — stocker directement en base64
-            if (file.type === 'application/pdf') {
-                return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result);
-                    reader.onerror = () => reject(new Error('Impossible de lire le PDF'));
-                    reader.readAsDataURL(file);
-                });
-            }
-            // Image — redimensionner
-            return new Promise((resolve, reject) => {
-                const img = new Image();
-                const url = URL.createObjectURL(file);
-                img.onload = () => {
-                    const MAX = 1200;
-                    let w = img.width, h = img.height;
-                    if (w > MAX || h > MAX) {
-                        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
-                        else       { w = Math.round(w * MAX / h); h = MAX; }
-                    }
-                    const canvas = document.createElement('canvas');
-                    canvas.width = w; canvas.height = h;
-                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                    URL.revokeObjectURL(url);
-                    resolve(canvas.toDataURL('image/jpeg', 0.82));
-                };
-                img.onerror = () => reject(new Error('Impossible de lire l\'image'));
-                img.src = url;
-            });
-        }
-
-        // Sauvegarder les images d'un justificatif en base
-        async function sauvegarderImagesJustificatif(txId, photos) {
-            // Supprimer les anciennes images pour cette transaction
-            await sb.from('justificatifs_images').delete().eq('transaction_id', txId);
-            // Insérer les nouvelles
-            const inserts = [];
-            for (let i = 0; i < photos.length; i++) {
-                let b64;
-                if (typeof photos[i] === 'string') {
-                    b64 = photos[i];
-                } else {
-                    b64 = await resizeImageToBase64(photos[i]);
-                }
-                inserts.push({
-                    transaction_id: txId,
-                    ordre: i,
-                    base64: b64,
-                    mime_type: (typeof photos[i] === 'string'
-                        ? (photos[i].includes('application/pdf') ? 'application/pdf' : 'image/jpeg')
-                        : (photos[i]?.type || 'image/jpeg'))
-                });
-            }
-            if (inserts.length) {
-                const { error } = await sb.from('justificatifs_images').insert(inserts);
-                if (error) throw new Error('Erreur insert justificatif: ' + error.message);
-            }
-        }
-
-
-        async function chargerImagesJustificatif(txId) {
-            const { data } = await sb.from('justificatifs_images')
-                .select('base64, mime_type, ordre')
-                .eq('transaction_id', txId)
-                .order('ordre', { ascending: true });
-            return data || [];
-        }
-
 
         async function exportJournalExcel() {
             const mois  = document.getElementById('journal-mois').value;
             const annee = document.getElementById('journal-annee').value;
             showToast('Génération Excel...', 'info');
-            const { data } = await sb.from('transactions')
-                .select('*').eq('user_id', userProfile.id)
-                .order('created_at', { ascending: true });
-            const filtered = (data||[]).filter(t => {
-                const d = new Date(t.created_at);
-                return String(d.getMonth()+1).padStart(2,'0') === mois && String(d.getFullYear()) === String(annee);
-            });
+            const { debut, fin } = bornesMois(annee, mois);
+            let filtered, justifSet;
+            try {
+                filtered = await fetchAll(() => sb.from('transactions')
+                    .select('*').eq('user_id', userProfile.id)
+                    .gte('created_at', debut).lt('created_at', fin)
+                    .order('created_at', { ascending: true }));
+                justifSet = await idsAvecJustif(filtered.map(t => t.id));
+            } catch (e) { showToast('Erreur : ' + e.message, 'error'); return; }
             if (!filtered.length) { showToast('Aucune opération ce mois', 'warning'); return; }
             const rows = filtered.map(t => ({
                 'Date': new Date(t.created_at).toLocaleDateString('fr-FR'),
@@ -1664,7 +1459,7 @@
                 'Montant (€)': parseFloat(t.montant).toFixed(2),
                 'Moyen de paiement': t.methode_paiement || '',
                 'Statut': t.statut === 'attente' ? 'En attente' : 'Validé',
-                'Justificatif': t.justificatif_url ? 'Oui' : 'Non'
+                'Justificatif': aJustif(t, justifSet) ? 'Oui' : 'Non'
             }));
             const ws = XLSX.utils.json_to_sheet(rows);
             ws['!cols'] = [{wch:12},{wch:10},{wch:20},{wch:30},{wch:12},{wch:20},{wch:12},{wch:12}];
@@ -1812,10 +1607,7 @@
                 if (currentX < -50) {
                     inner.style.transform = 'translateX(-80px)';
                     // Confirmer suppression après 1s ou au tap
-                    setTimeout(() => {
-                        showConfirm('Supprimer cette opération ?', () => { onDelete(); }, 'Supprimer', true);
-                        inner.style.transform = '';
-                    }, 100);
+                    setTimeout(() => { onDelete(); inner.style.transform = ''; }, 100);
                 } else {
                     inner.style.transform = '';
                 }

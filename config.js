@@ -5,11 +5,11 @@ window.SMMD_CONFIG = {
 };
 
 // Utilitaires partagés
+// Échappe aussi les guillemets : la valeur peut être placée dans un attribut HTML
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
-  const d = document.createElement('div');
-  d.appendChild(document.createTextNode(String(str)));
-  return d.innerHTML;
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function validateIban(iban) {
@@ -104,7 +104,17 @@ async function scanJustificatif(file) {
   if (!mime || mime === 'application/octet-stream') mime = 'image/jpeg';
   // PDF non supporté — l'UI ne propose plus cette option
 
-  // Appel à l'Edge Function Supabase — la clé Gemini reste côté serveur
+  // Appel à l'Edge Function Supabase — la clé Gemini reste côté serveur.
+  // On envoie le jeton de session de l'utilisateur connecté (et non la clé publique)
+  // pour que la fonction puisse refuser les appels anonymes.
+  let token = SMMD_CONFIG.key;
+  try {
+    if (typeof sb !== 'undefined') {
+      const { data: { session } } = await sb.auth.getSession();
+      if (session?.access_token) token = session.access_token;
+    }
+  } catch (e) { /* on garde la clé publique en repli */ }
+
   let res;
   try {
     res = await fetch(
@@ -113,7 +123,8 @@ async function scanJustificatif(file) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SMMD_CONFIG.key}`
+          'apikey': SMMD_CONFIG.key,
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ base64, mime })
       }
@@ -122,17 +133,181 @@ async function scanJustificatif(file) {
     throw new Error('Pas de connexion réseau. Vérifiez votre connexion et réessayez.');
   }
 
-  const data = await res.json();
+  let data = {};
+  try { data = await res.json(); } catch (e) { /* réponse non JSON */ }
 
   if (!res.ok) {
-    // Afficher le debug complet si disponible
-    const msg = data._debug_raw
-      ? `${data.error} | RAW: ${data._debug_raw}`
-      : (data.error || `Erreur serveur (${res.status}). Réessayez.`);
-    throw new Error(msg);
+    if (res.status === 401 || res.status === 403) throw new Error('Session expirée — reconnectez-vous.');
+    throw new Error(data.error || `Format non supporté ou image illisible (erreur ${res.status}). Essayez avec une photo plus nette.`);
   }
 
   return data;
+}
+
+// ============================================================
+// LECTURE COMPLÈTE (au-delà de la limite de 1000 lignes de Supabase)
+// buildQuery doit renvoyer une requête NEUVE à chaque appel.
+// ============================================================
+async function fetchAll(buildQuery) {
+  const out = [], size = 1000;
+  for (let from = 0; ; from += size) {
+    const { data, error } = await buildQuery().range(from, from + size - 1);
+    if (error) throw new Error(error.message);
+    out.push(...(data || []));
+    if (!data || data.length < size) break;
+  }
+  return out;
+}
+
+// Bornes ISO d'un mois (heure locale) — pour filtrer côté serveur
+function bornesMois(annee, mois) {
+  const a = parseInt(annee), m = parseInt(mois);
+  return { debut: new Date(a, m - 1, 1).toISOString(), fin: new Date(a, m, 1).toISOString() };
+}
+function bornesAnnee(annee) {
+  const a = parseInt(annee);
+  return { debut: new Date(a, 0, 1).toISOString(), fin: new Date(a + 1, 0, 1).toISOString() };
+}
+
+// Date saisie (AAAA-MM-JJ) -> horodatage stocké, et inverse, sans décalage de fuseau
+function dateSaisieVersISO(d) { return new Date(d + 'T12:00:00').toISOString(); }
+function isoVersDateSaisie(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return String(iso).split('T')[0];
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// ============================================================
+// RÈGLES MÉTIER PARTAGÉES
+// ============================================================
+const estPerso = m => !!m && String(m).startsWith('perso_');
+
+// Statut après modification d'une opération :
+// une dépense déjà remboursée reste « valide » tant qu'elle reste « à rembourser ».
+function statutApresEdition(ancien, type, methode) {
+  if (type !== 'depense' || !estPerso(methode)) return 'valide';
+  if (estPerso(ancien?.methode_paiement)) return ancien.statut || 'attente';
+  return 'attente';
+}
+
+// Allocation comptée dans les soldes uniquement quand le chef l'a confirmée
+// (les lignes antérieures sans statut sont considérées confirmées)
+const allocConfirmee = a => (a.statut || 'confirme') === 'confirme';
+
+// Ensemble des ids de transactions qui ont au moins une photo en base
+async function idsAvecJustif(ids) {
+  const set = new Set();
+  const uniques = [...new Set(ids)].filter(Boolean);
+  for (let i = 0; i < uniques.length; i += 150) {
+    const { data, error } = await sb.from('justificatifs_images')
+      .select('transaction_id').in('transaction_id', uniques.slice(i, i + 150));
+    if (error) throw new Error(error.message);
+    (data || []).forEach(r => set.add(r.transaction_id));
+  }
+  return set;
+}
+const aJustif = (t, set) => !!(t.justificatif_url || (set && set.has(t.id)));
+
+// ============================================================
+// JUSTIFICATIFS — stockage base64 dans justificatifs_images
+// ============================================================
+async function resizeImageToBase64(file) {
+  if (file.type === 'application/pdf') {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('Impossible de lire le PDF'));
+      reader.readAsDataURL(file);
+    });
+  }
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const MAX = 1200;
+      let w = img.width, h = img.height;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else       { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', 0.82));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Impossible de lire l'image (format non pris en charge ?)")); };
+    img.src = url;
+  });
+}
+
+// Remplace les photos d'une transaction. Les nouvelles sont insérées AVANT
+// la suppression des anciennes : en cas d'échec, l'ancien justificatif est conservé.
+async function sauvegarderImagesJustificatif(txId, photos) {
+  const files = (photos || []).filter(Boolean);
+  if (!files.length) return;
+  const { data: anciennes } = await sb.from('justificatifs_images').select('id').eq('transaction_id', txId);
+  const inserts = [];
+  for (let i = 0; i < files.length; i++) {
+    const b64 = typeof files[i] === 'string' ? files[i] : await resizeImageToBase64(files[i]);
+    const mime = (b64.match(/^data:([^;]+);/) || [])[1] || 'image/jpeg';
+    inserts.push({ transaction_id: txId, ordre: i, base64: b64, mime_type: mime });
+  }
+  const { error } = await sb.from('justificatifs_images').insert(inserts);
+  if (error) throw new Error('Justificatif non enregistré : ' + error.message);
+  const ids = (anciennes || []).map(r => r.id);
+  if (ids.length) await sb.from('justificatifs_images').delete().in('id', ids);
+}
+
+async function chargerImagesJustificatif(txId) {
+  const { data, error } = await sb.from('justificatifs_images')
+    .select('base64, mime_type, ordre')
+    .eq('transaction_id', txId)
+    .order('ordre', { ascending: true });
+  if (error) { showToast('Erreur de lecture du justificatif', 'error'); return []; }
+  return data || [];
+}
+
+function detectMimeType(base64, declaredMime) {
+  if (!base64) return declaredMime || 'image/jpeg';
+  const header = base64.substring(0, 40);
+  if (header.includes('data:application/pdf') || header.startsWith('JVBER')) return 'application/pdf';
+  if (header.includes('data:image/png') || header.startsWith('iVBOR')) return 'image/png';
+  if (header.includes('data:image/jpeg') || header.startsWith('/9j/')) return 'image/jpeg';
+  return declaredMime || 'image/jpeg';
+}
+function getExtFromMime(mime) {
+  if (mime?.includes('pdf')) return 'pdf';
+  if (mime?.includes('png')) return 'png';
+  return 'jpg';
+}
+function telechargerJustificatif(img) {
+  const mime = detectMimeType(img.base64, img.mime_type);
+  const ext = getExtFromMime(mime);
+  const b64 = img.base64.includes(',') ? img.base64.split(',')[1] : img.base64;
+  try {
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
+    const a = document.createElement('a');
+    a.href = url; a.download = `justificatif_${Date.now()}.${ext}`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  } catch (e) {
+    showToast('Téléchargement impossible : fichier illisible', 'error');
+  }
+}
+
+// Vérifie que le compte connecté est actif ; sinon déconnexion
+async function verifierCompteActif(profile) {
+  if (profile && profile.actif === false) {
+    try { await sb.auth.signOut(); } catch (e) {}
+    window.location.href = 'index.html?desactive=1';
+    return false;
+  }
+  return true;
 }
 
 // Convertir fichier en base64 avec redimensionnement optionnel

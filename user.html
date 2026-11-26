@@ -10,7 +10,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="config.js"></script>
+    <script src="config.js?v=20261126"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,700;0,900;1,900&display=swap');
         * { -webkit-tap-highlight-color: transparent; }
@@ -548,6 +548,7 @@
 
 
     <!-- SPLASH SCREEN -->
+    <div id="push-container" aria-live="polite"></div>
     <div id="splash">
         <div id="splash-logo"><img src="./icon-512.png" class="w-24 h-24 object-contain filter brightness-0 invert" alt="SMMD"></div>
         <div id="splash-title">SMMD</div>
@@ -582,7 +583,7 @@
                     <p class="text-[10px] font-black uppercase text-amber-700 tracking-widest mb-1">Montant à verser</p>
                     <p id="alloc-reminder-montant" class="text-3xl font-black text-amber-600">--€</p>
                 </div>
-                <button onclick="toggleAllocation()" id="btn-confirmer-alloc" class="w-full bg-amber-500 text-white font-black py-4 rounded-2xl uppercase text-[11px] tracking-widest active:scale-95 transition-all mb-3">✓ J'ai versé mon allocation</button>
+                <button onclick="toggleAllocation()" id="btn-confirmer-alloc" class="w-full bg-amber-500 text-white font-black py-4 rounded-2xl uppercase text-[11px] tracking-widest active:scale-95 transition-all mb-3">✓ J'ai versé mon allocation — le déclarer</button>
                 <button onclick="closeAllocReminder()" class="w-full bg-slate-100 text-slate-500 font-black py-3.5 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95 transition-all">Plus tard</button>
             </div>
         </div>
@@ -791,7 +792,7 @@
                 </div>
                 <div class="flex gap-3 pt-2">
                     <button onclick="fermerEditModal()" class="flex-1 bg-slate-100 text-slate-500 font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95">Annuler</button>
-                    <button onclick="sauvegarderEdit()" class="flex-1 bg-red-900 text-white font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95 shadow-lg">Enregistrer</button>
+                    <button id="edit-save-btn" onclick="sauvegarderEdit()" class="flex-1 bg-red-900 text-white font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95 shadow-lg">Enregistrer</button>
                 </div>
             </div>
         </div>
@@ -944,12 +945,6 @@
             </div>
             <!-- Filtre motif -->
             <div class="relative mt-1">
-                <select id="journal-motif-filter" onchange="loadJournal()" class="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 text-[11px] font-black uppercase outline-none appearance-none">
-                    <option value="all">Tous les motifs</option>
-                </select>
-                <svg class="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
-            </div>
-            <div class="relative">
                 <select id="journal-motif" onchange="loadJournal()" class="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 text-[11px] font-black uppercase outline-none appearance-none">
                     <option value="all">Tous les motifs</option>
                 </select>
@@ -994,7 +989,7 @@
                     <button onclick="updateAllocation()" class="bg-red-900 text-white px-6 rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all">OK</button>
                 </div>
                 <p class="text-[9px] text-red-400 font-bold ml-1 mt-2 leading-relaxed">Indique le montant que vous versez chaque mois à votre maison.</p>
-            <button onclick="toggleAllocation()" id="btn-declarer-alloc" class="hidden w-full mt-3 font-black py-3.5 rounded-xl uppercase text-[10px] tracking-widest active:scale-95 transition-all shadow-md">
+            <button onclick="toggleAllocation()" id="btn-declarer-alloc" class="hidden w-full mt-3 text-white font-black py-3.5 rounded-xl uppercase text-[10px] tracking-widest active:scale-95 transition-all shadow-md">
                 🏠 Déclarer mon versement du mois
             </button>
             </div>
@@ -1038,7 +1033,7 @@
         </div>
     </main>
 
-    <script src="user.js?v=20261116"></script>
+    <script src="user.js?v=20261126"></script>
 
     <!-- FAB SAISIE (gauche) -->
     <button id="fab-saisie" class="tap-animate" onclick="goSaisie()" aria-label="Nouvelle saisie">

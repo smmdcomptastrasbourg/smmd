@@ -7,51 +7,6 @@
         const MOIS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 
 
-        // ── NAV MENU ──
-        let _currentSection = 'saisie';
-
-        function navTo(name, extra) {
-            closeNavMenu();
-            document.querySelectorAll('.section-panel').forEach(s => s.classList.remove('active'));
-            document.getElementById('section-' + name).classList.add('active');
-            _currentSection = name;
-            // Highlight active in menu
-            document.querySelectorAll('.nav-menu-item').forEach(b => {
-                b.classList.toggle('bg-red-50', b.getAttribute('onclick').includes("'" + name + "'"));
-            });
-            // Update saisie button
-            const fabS = document.getElementById('fab-saisie');
-            if (fabS) fabS.classList.toggle('ring-4', name === 'saisie');
-            if (extra) extra();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
-        function toggleNavMenu() {
-            const menu = document.getElementById('nav-menu');
-            const backdrop = document.getElementById('nav-backdrop');
-            const icon = document.getElementById('fab-menu-icon');
-            const isOpen = !menu.classList.contains('hidden');
-            if (isOpen) {
-                closeNavMenu();
-            } else {
-                menu.classList.remove('hidden');
-                backdrop.classList.remove('hidden');
-                if (icon) icon.style.transform = 'rotate(90deg)';
-            }
-        }
-
-        function closeNavMenu() {
-            document.getElementById('nav-menu').classList.add('hidden');
-            document.getElementById('nav-backdrop').classList.add('hidden');
-            const icon = document.getElementById('fab-menu-icon');
-            if (icon) icon.style.transform = 'rotate(0deg)';
-        }
-
-        // Alias pour compatibilité avec le code existant
-        function switchTab(name, btn) {
-            navTo(name);
-        }
-
         // ── Compact nav au scroll ──
         new IntersectionObserver(([e]) => {
             const compact = !e.isIntersecting;
@@ -167,48 +122,30 @@
             const btn = document.getElementById('scan-submit-btn');
             const setBtn = (html, disabled) => { if(btn){btn.innerHTML=html;btn.disabled=disabled;} };
 
-            setBtn('<span class="btn-spinner"></span>Upload justificatif...', true);
-
-            // Upload justificatif — assembler toutes les photos en PDF
-            let justificatif_url = null;
-            const allPhotos = [scannedFile, ...extraPhotos].filter(Boolean);
-            if (allPhotos.length) {
-                setBtn('<span class="btn-spinner"></span>Upload...', true);
-                try {
-                    const firstPhoto = allPhotos[0];
-                    const ext = firstPhoto.type?.includes('png') ? 'png' : 'jpg';
-                    const path = `${userProfile.maison_id}/${userProfile.id}/${Date.now()}.${ext}`;
-                    const { error: upErr } = await sb.storage
-                        .from('justificatifs')
-                        .upload(path, firstPhoto, { contentType: firstPhoto.type || 'image/jpeg', upsert: false });
-                    if (!upErr) {
-                        const { data: urlData } = sb.storage.from('justificatifs').getPublicUrl(path);
-                        justificatif_url = urlData?.publicUrl || null;
-                    }
-                } catch(e) { /* continuer sans URL */ }
-            }
-
             setBtn('<span class="btn-spinner"></span>Enregistrement...', true);
 
             const { data: insertData, error } = await sb.from('transactions').insert([{
                 user_id: userProfile.id, maison_id: userProfile.maison_id,
                 montant: amount, motif, commentaire: comment||null,
-                created_at: new Date(date).toISOString(),
+                created_at: dateSaisieVersISO(date),
                 type: 'depense', methode_paiement: method,
-                statut: method.startsWith('perso_') ? 'attente' : 'valide',
-                justificatif_url
+                statut: estPerso(method) ? 'attente' : 'valide',
+                justificatif_url: null
             }]).select('id');
 
-            setBtn('Enregistrer la dépense', false);
-            if (error) { showToast('Erreur : '+error.message,'error'); return; }
-            // Sauvegarder les images en base64 dans la table dédiée
-            if (insertData?.[0]?.id) {
-                const allPhotos = [scannedFile, ...extraPhotos].filter(Boolean);
-                await sauvegarderImagesJustificatif(insertData[0].id, allPhotos);
+            if (error) { setBtn('Enregistrer la dépense', false); showToast('Erreur : '+error.message,'error'); return; }
+            let justifOk = false;
+            const allPhotos = [scannedFile, ...extraPhotos].filter(Boolean);
+            if (insertData?.[0]?.id && allPhotos.length) {
+                setBtn('<span class="btn-spinner"></span>Justificatif...', true);
+                try { await sauvegarderImagesJustificatif(insertData[0].id, allPhotos); justifOk = true; }
+                catch (e) { showToast(e.message + ' — ajoutez-le depuis le journal', 'error'); }
             }
+            setBtn('Enregistrer la dépense', false);
             scannedFile = null;
             closeScanModal();
-            showToast('Dépense enregistrée avec justificatif !','success');
+            if (justifOk) showToast('Dépense enregistrée avec justificatif !','success');
+            else if (!allPhotos.length) showToast('Dépense enregistrée (sans justificatif)','warning');
             refreshAll();
         }
 
@@ -238,10 +175,11 @@
                 ySel.innerHTML += `<option value="${y}">${y}</option>`;
             }
             // Populate membres filter
-            const { data: membres } = await sb.from('profiles').select('id,prenom,nom').eq('maison_id', userProfile.maison_id).order('prenom');
+            const { data: membres } = await sb.from('profiles').select('*').eq('maison_id', userProfile.maison_id).order('prenom');
             const mSel = document.getElementById('journal-membre');
             mSel.innerHTML = '<option value="all">Tous les membres</option>' +
-                (membres||[]).map(m=>`<option value="${escapeHtml(m.id)}">${escapeHtml(m.prenom)} ${escapeHtml(m.nom||'')}</option>`).join('');
+                (membres||[]).map(m=>`<option value="${escapeHtml(m.id)}">${escapeHtml(m.prenom)} ${escapeHtml(m.nom||'')}${m.actif===false?' (désactivé)':''}</option>`).join('') +
+                '<option value="deleted">Membres supprimés</option>';
         }
 
         let _txCache = {}; // cache des transactions pour l'édition
@@ -253,45 +191,25 @@
             const list   = document.getElementById('journal-list');
             renderJournalSkeleton(list);
 
-            let query = sb.from('transactions')
-                .select('*, profiles(prenom,nom)')
-                .eq('maison_id', userProfile.maison_id)
-                .order('created_at', { ascending: false });
-            if (membre === 'deleted') query = query.is('user_id', null);
-            else if (membre !== 'all') query = query.eq('user_id', membre);
-
-            const { data, error } = await query;
-            if (error) { list.innerHTML=`<p class="text-center text-red-400 text-[11px] font-bold py-8">Erreur</p>`; return; }
+            const { debut, fin } = bornesMois(annee, mois);
+            let data, justifSet;
+            try {
+                data = await fetchAll(() => {
+                    let q = sb.from('transactions')
+                        .select('*, profiles(prenom,nom)')
+                        .eq('maison_id', userProfile.maison_id)
+                        .gte('created_at', debut).lt('created_at', fin)
+                        .order('created_at', { ascending: false });
+                    if (membre === 'deleted') q = q.is('user_id', null);
+                    else if (membre !== 'all') q = q.eq('user_id', membre);
+                    return q;
+                });
+                justifSet = await idsAvecJustif(data.map(t => t.id));
+            } catch (e) { list.innerHTML=`<p class="text-center text-red-400 text-[11px] font-bold py-8">Erreur de chargement</p>`; return; }
 
             const motifFilter = document.getElementById('journal-motif')?.value || 'all';
-            const filtered = (data||[]).filter(t => {
-                const d = new Date(t.created_at);
-                const matchDate = String(d.getMonth()+1).padStart(2,'0') === mois && String(d.getFullYear()) === String(annee);
-                const matchMotif = motifFilter === 'all' || t.motif === motifFilter;
-                return matchDate && matchMotif;
-            });
-
-            // Populate motif filter
-            const mfSel = document.getElementById('journal-motif');
-            if (mfSel && mfSel.options.length <= 1) {
-                const allMotifs = [...new Set((data||[]).map(t=>t.motif).filter(Boolean))].sort();
-                allMotifs.forEach(m => {
-                    const opt = document.createElement('option');
-                    opt.value = m; opt.textContent = m.toUpperCase();
-                    mfSel.appendChild(opt);
-                });
-            }
-            // Stocker dans le cache pour accès par ID
-            filtered.forEach(t => { _txCache[t.id] = t; });
-
-            // Vérifier quelles transactions ont des justificatifs en base
-            if (filtered.length > 0) {
-                const txIds = filtered.map(t => t.id);
-                const { data: justifs } = await sb.from('justificatifs_images')
-                    .select('transaction_id').in('transaction_id', txIds);
-                const justifSet = new Set((justifs||[]).map(j => j.transaction_id));
-                filtered.forEach(t => { t._hasJustif = justifSet.has(t.id); });
-            }
+            const filtered = data.filter(t => motifFilter === 'all' || t.motif === motifFilter);
+            filtered.forEach(t => { _txCache[t.id] = t; t._hasJustif = justifSet.has(t.id); });
 
             if (!filtered.length) {
                 list.innerHTML = `<div class="bg-white rounded-[28px] border border-slate-100 shadow-premium p-8 text-center">
@@ -381,7 +299,7 @@
             document.getElementById('edit-tx-type').value = tx.type;
             document.getElementById('edit-tx-user').value = tx.user_id;
             document.getElementById('edit-montant').value = parseFloat(tx.montant);
-            document.getElementById('edit-date').value    = tx.created_at ? tx.created_at.split('T')[0] : '';
+            document.getElementById('edit-date').value    = isoVersDateSaisie(tx.created_at);
             document.getElementById('edit-commentaire').value = tx.commentaire||'';
             document.getElementById('edit-methode').value = tx.methode_paiement||'cb_maison';
             const isR = tx.type === 'recette';
@@ -410,10 +328,10 @@
 
             const update = {
                 montant,
-                created_at: new Date(date).toISOString(),
+                created_at: dateSaisieVersISO(date),
                 commentaire: comment||null,
                 methode_paiement: type==='recette' ? null : methode,
-                statut: (type==='depense' && methode.startsWith('perso_')) ? 'attente' : 'valide'
+                statut: statutApresEdition(_txCache[id], type, methode)
             };
             if (type !== 'recette') update.motif = motif;
 
@@ -443,29 +361,30 @@
             const container = document.getElementById('resume-content');
             container.innerHTML = `<div class="text-center py-8"><div class="w-8 h-8 rounded-full border-2 border-slate-200 border-t-red-700 animate-spin mx-auto"></div></div>`;
 
-            const [txRes, avsRes, membresRes] = await Promise.all([
-                sb.from('transactions').select('*, profiles(prenom,nom)').eq('maison_id', userProfile.maison_id),
-                sb.from('allocations_versees').select('*, profiles!allocations_versees_user_id_fkey(prenom,nom)').eq('maison_id', userProfile.maison_id),
-                sb.from('profiles').select('*').eq('maison_id', userProfile.maison_id)
-            ]);
-
-            const txs     = (txRes.data||[]).filter(t => new Date(t.created_at).getFullYear() === annee);
-            const avs     = (avsRes.data||[]).filter(a => parseInt(a.annee) === annee || String(a.annee) === String(annee));
-            const membres = membresRes.data||[];
+            const { debut, fin } = bornesAnnee(annee);
+            let txs, avsAll, membres;
+            try {
+                [txs, avsAll, membres] = await Promise.all([
+                    fetchAll(() => sb.from('transactions').select('*').eq('maison_id', userProfile.maison_id).gte('created_at', debut).lt('created_at', fin)),
+                    fetchAll(() => sb.from('allocations_versees').select('*').eq('maison_id', userProfile.maison_id).eq('annee', annee)),
+                    fetchAll(() => sb.from('profiles').select('*').eq('maison_id', userProfile.maison_id))
+                ]);
+            } catch (e) { container.innerHTML = `<p class="text-center text-red-400 text-[11px] font-bold py-8">Erreur de chargement</p>`; return; }
+            const avs = avsAll.filter(allocConfirmee);
 
             const totalAlloc   = avs.reduce((s,a)=>s+parseFloat(a.montant),0);
             const totalDep     = txs.filter(t=>t.type==='depense').reduce((s,t)=>s+parseFloat(t.montant),0);
             const totalRec     = txs.filter(t=>t.type==='recette').reduce((s,t)=>s+parseFloat(t.montant),0);
-            const totalAttente = txs.filter(t=>t.statut==='attente').reduce((s,t)=>s+parseFloat(t.montant),0);
+            const totalAttente = txs.filter(t=>t.type==='depense'&&t.statut==='attente').reduce((s,t)=>s+parseFloat(t.montant),0);
             const solde        = totalAlloc + totalRec - totalDep;
 
             // Par membre
             const byMembre = {};
-            membres.forEach(m => {
+            membres.filter(m => m.actif !== false || txs.some(t=>t.user_id===m.id) || avs.some(a=>a.user_id===m.id)).forEach(m => {
                 const mTxs = txs.filter(t=>t.user_id===m.id);
                 const mAvs = avs.filter(a=>a.user_id===m.id);
                 byMembre[m.id] = {
-                    name: `${m.prenom} ${m.nom||''}`.trim(),
+                    name: `${m.prenom} ${m.nom||''}`.trim() + (m.actif===false?' (désactivé)':''),
                     alloc: mAvs.reduce((s,a)=>s+parseFloat(a.montant),0),
                     dep:   mTxs.filter(t=>t.type==='depense').reduce((s,t)=>s+parseFloat(t.montant),0),
                     moisVerses: mAvs.length
@@ -589,7 +508,8 @@
             const { data: { user } } = await sb.auth.getUser();
             if (!user) { window.location.href="index.html"; return; }
             const { data: profile } = await sb.from('profiles').select('*, maisons(*)').eq('id', user.id).single();
-            if (!profile || profile.role !== 'chef') { window.location.href="user.html"; return; }
+            if (!profile || profile.role !== 'chef') { window.location.href="index.html"; return; }
+            if (!(await verifierCompteActif(profile))) return;
             userProfile = profile;
 
             const fullName = `${profile.prenom} ${profile.nom||''}`.trim();
@@ -605,9 +525,11 @@
             initResumeAnnee();
             initJournalFiltres();
             await refreshAll();
-            checkAllocVersee();
             checkNotifications();
             initChefAllocBtn();
+            checkUnreadMessages();
+            initAppUpdate();
+            initPullToRefresh(async () => { await refreshAll(); if (document.getElementById('section-journal')?.classList.contains('active')) await loadJournal(); });
         }
 
         async function refreshAll() {
@@ -615,10 +537,14 @@
         }
 
         async function refreshSoldes() {
-            const { data: txs, error: txErr } = await sb.from('transactions').select('*').eq('maison_id', userProfile.maison_id);
-            if (txErr) { showToast("Erreur de chargement","error"); return; }
-            const { data: avs, error: avsErr } = await sb.from('allocations_versees').select('*').eq('maison_id', userProfile.maison_id);
-            if (avsErr) { showToast("Erreur de chargement","error"); return; }
+            let txs, avs;
+            try {
+                [txs, avs] = await Promise.all([
+                    fetchAll(() => sb.from('transactions').select('user_id,type,montant').eq('maison_id', userProfile.maison_id)),
+                    fetchAll(() => sb.from('allocations_versees').select('user_id,montant,statut').eq('maison_id', userProfile.maison_id))
+                ]);
+            } catch (e) { showToast("Erreur de chargement","error"); return; }
+            avs = avs.filter(allocConfirmee);
 
             const houseAlloc = (avs||[]).reduce((s,a)=>s+parseFloat(a.montant),0);
             const houseDep   = (txs||[]).filter(t=>t.type==='depense').reduce((s,t)=>s+parseFloat(t.montant),0);
@@ -640,11 +566,17 @@
         }
 
         async function loadAvancesChef() {
-            const { data } = await sb.from('transactions')
-                .select('*, profiles(*)')
-                .eq('maison_id', userProfile.maison_id)
-                .eq('statut', 'attente')
-                .order('created_at', { ascending: true });
+            let data, justifSet;
+            try {
+                data = await fetchAll(() => sb.from('transactions')
+                    .select('*, profiles(prenom,nom,iban)')
+                    .eq('maison_id', userProfile.maison_id)
+                    .eq('type', 'depense')
+                    .eq('statut', 'attente')
+                    .order('created_at', { ascending: true }));
+                justifSet = await idsAvecJustif(data.map(t => t.id));
+            } catch (e) { showToast("Erreur de chargement des remboursements","error"); return; }
+            data.forEach(t => { t._hasJustif = justifSet.has(t.id); });
 
             if (!data || data.length === 0) {
                 document.getElementById('total-dettes').classList.add('hidden');
@@ -661,15 +593,16 @@
             // Grouper par membre → puis par mois
             const byMember = {};
             data.forEach(t => {
-                if (!byMember[t.user_id]) byMember[t.user_id] = {
-                    name: `${t.profiles ? escapeHtml(t.profiles.prenom+' '+(t.profiles.nom||'')) : '<span style="color:#94a3b8;font-style:italic">Membre supprimé</span>'}`.trim(),
+                const uidKey = t.user_id || 'null';
+                if (!byMember[uidKey]) byMember[uidKey] = {
+                    name: t.profiles ? `${t.profiles.prenom} ${t.profiles.nom||''}`.trim() : 'Membre supprimé',
                     iban: t.profiles?.iban||null, months: {}
                 };
                 const d = new Date(t.created_at);
                 const mKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-                if (!byMember[t.user_id].months[mKey]) byMember[t.user_id].months[mKey] = { label:`${MOIS_FR[d.getMonth()]} ${d.getFullYear()}`, txs:[], total:0 };
-                byMember[t.user_id].months[mKey].txs.push(t);
-                byMember[t.user_id].months[mKey].total += parseFloat(t.montant);
+                if (!byMember[uidKey].months[mKey]) byMember[uidKey].months[mKey] = { label:`${MOIS_FR[d.getMonth()]} ${d.getFullYear()}`, txs:[], total:0 };
+                byMember[uidKey].months[mKey].txs.push(t);
+                byMember[uidKey].months[mKey].total += parseFloat(t.montant);
             });
 
             document.getElementById('list-avances-attente').innerHTML = Object.entries(byMember).map(([uid, member], mi) => {
@@ -687,7 +620,7 @@
                                     <p class="text-[10px] font-bold text-slate-700">${escapeHtml(t.motif||'-')}</p>
                                     <p class="text-[8px] text-slate-400">${new Date(t.created_at).toLocaleDateString('fr-FR')}${t.commentaire?' · '+escapeHtml(t.commentaire):''}</p>
                                     ${t.justificatif_url || t._hasJustif
-                                        ? `<span class="text-[8px] font-black text-emerald-500 uppercase">✓ Justificatif joint</span>`
+                                        ? `<button onclick="previewJustificatif('${escapeHtml(t.id)}','${escapeHtml(t.justificatif_url||'')}')" class="text-[8px] font-black text-emerald-500 uppercase">✓ Justificatif joint — voir</button>`
                                         : `<span class="sans-justif sans-justif-${t.user_id} text-[8px] font-black text-red-400 uppercase">⚠️ Sans justificatif</span>`}
                                 </div>
                                 <p class="text-[11px] font-black text-slate-700 flex-shrink-0 ml-2">${parseFloat(t.montant).toFixed(2)}€</p>
@@ -704,8 +637,8 @@
                 return `<div class="bg-white p-5 rounded-[28px] border border-amber-100 shadow-sm anim-slide" style="animation-delay:${mi*.06}s">
                     <div class="flex justify-between items-center mb-4">
                         <div class="flex items-center gap-3">
-                            <div class="w-9 h-9 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-black text-xs flex-shrink-0">${member.name.charAt(0)}</div>
-                            <p class="font-black text-[12px] uppercase tracking-wider text-slate-800">${member.name}</p>
+                            <div class="w-9 h-9 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-black text-xs flex-shrink-0">${escapeHtml(member.name.charAt(0))}</div>
+                            <p class="font-black text-[12px] uppercase tracking-wider text-slate-800">${escapeHtml(member.name)}</p>
                         </div>
                         <p class="font-black text-base text-slate-900">${totalMember.toFixed(2)}€</p>
                     </div>
@@ -725,19 +658,24 @@
         function validerMois(uid, moisKey, montant) {
             showConfirm(`Confirmer le virement de ${montant}€ pour ce mois ?`, ()=>_doValiderMois(uid, moisKey, montant), 'Valider');
         }
+        // uid 'null' = avances d'un membre supprimé (user_id vide)
+        function filtreMembre(q, uid) { return uid === 'null' ? q.is('user_id', null) : q.eq('user_id', uid); }
+
         async function _doValiderMois(uid, moisKey, montant) {
             const [year, month] = moisKey.split('-');
-            const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
-            const { error } = await sb.from('transactions')
+            const { debut, fin } = bornesMois(year, month);
+            const { error } = await filtreMembre(sb.from('transactions')
                 .update({ statut:'valide', date_validation:new Date().toISOString() })
-                .eq('user_id', uid).eq('statut','attente')
-                .gte('created_at', `${year}-${month}-01T00:00:00+00:00`)
-                .lte('created_at', `${year}-${month}-${lastDay}T23:59:59+00:00`);
-            if (error) { showToast("Erreur","error"); return; }
-            await sb.from('notifications').insert([{
-                user_id:uid, lu:false, type:'remboursement',
-                message:`Votre chef de maison a effectué un virement de ${parseFloat(montant).toFixed(2)}€ pour vos avances du mois de ${MOIS_FR[parseInt(month)-1]} ${year}.`
-            }]);
+                .eq('maison_id', userProfile.maison_id).eq('type','depense').eq('statut','attente')
+                .gte('created_at', debut).lt('created_at', fin), uid);
+            if (error) { showToast("Erreur : "+error.message,"error"); return; }
+            if (uid !== 'null') {
+                const { error: nErr } = await sb.from('notifications').insert([{
+                    user_id:uid, lu:false, type:'remboursement',
+                    message:`Votre chef de maison a effectué un virement de ${parseFloat(montant).toFixed(2)}€ pour vos avances du mois de ${MOIS_FR[parseInt(month)-1]} ${year}.`
+                }]);
+                if (nErr) showToast("Virement validé, mais le membre n'a pas pu être notifié","warning");
+            }
             showToast("Virement validé !","success"); refreshAll();
         }
 
@@ -745,14 +683,17 @@
             showConfirm(`Confirmer le virement global de ${montantTotal.toFixed(2)}€ ?`, ()=>_doValiderTout(uid, montantTotal), 'Valider');
         }
         async function _doValiderTout(uid, montantTotal) {
-            const { error } = await sb.from('transactions')
+            const { error } = await filtreMembre(sb.from('transactions')
                 .update({ statut:'valide', date_validation:new Date().toISOString() })
-                .eq('user_id', uid).eq('statut','attente').eq('maison_id', userProfile.maison_id);
-            if (error) { showToast("Erreur","error"); return; }
-            await sb.from('notifications').insert([{
-                user_id:uid, lu:false, type:'remboursement',
-                message:`Votre chef de maison a effectué un virement global de ${montantTotal.toFixed(2)}€ pour toutes vos avances de frais.`
-            }]);
+                .eq('maison_id', userProfile.maison_id).eq('type','depense').eq('statut','attente'), uid);
+            if (error) { showToast("Erreur : "+error.message,"error"); return; }
+            if (uid !== 'null') {
+                const { error: nErr } = await sb.from('notifications').insert([{
+                    user_id:uid, lu:false, type:'remboursement',
+                    message:`Votre chef de maison a effectué un virement global de ${montantTotal.toFixed(2)}€ pour toutes vos avances de frais.`
+                }]);
+                if (nErr) showToast("Virement validé, mais le membre n'a pas pu être notifié","warning");
+            }
             showToast("Remboursement validé !","success"); refreshAll();
         }
 
@@ -764,52 +705,68 @@
             return liste.reverse();
         }
 
+        // ── ALLOCATIONS : le membre déclare, le chef confirme ──
+        let _pushVersementsMontre = false;
         async function loadVersements() {
-            const { data: membres } = await sb.from('profiles').select('*').eq('maison_id', userProfile.maison_id).order('prenom');
-            const { data: tousVers } = await sb.from('allocations_versees').select('*').eq('maison_id', userProfile.maison_id);
-            const vers = tousVers||[];
+            let membres, vers;
+            try {
+                [membres, vers] = await Promise.all([
+                    fetchAll(() => sb.from('profiles').select('*').eq('maison_id', userProfile.maison_id).order('prenom')),
+                    fetchAll(() => sb.from('allocations_versees').select('*').eq('maison_id', userProfile.maison_id))
+                ]);
+            } catch (e) { showToast("Erreur de chargement des versements","error"); return; }
             const allMois = getMoisDepuis2026();
             const now = new Date(), moisCur=now.getMonth()+1, anneeCur=now.getFullYear();
+            const trouver = (uid, mois, annee) => vers.find(v=>v.user_id===uid&&parseInt(v.mois)===mois&&parseInt(v.annee)===annee);
 
-            // Badge pending (mois courant seulement)
-            const withAllocAll = (membres||[]).filter(m=>parseFloat(m.allocation_mensuelle)>0);
-            const nvCur = withAllocAll.filter(m=>!vers.find(v=>v.user_id===m.id&&v.mois===moisCur&&v.annee===anneeCur));
+            // Badge : mois courant non confirmé + déclarations en attente (tous mois)
+            const actifsAlloc = membres.filter(m=>m.actif!==false && parseFloat(m.allocation_mensuelle)>0);
+            const nonConfCur = actifsAlloc.filter(m=>{ const v=trouver(m.id,moisCur,anneeCur); return !v || !allocConfirmee(v); });
+            const aConfirmer = vers.filter(v=>!allocConfirmee(v)).length;
             const dot = document.getElementById('fab-badge');
-            const badge = document.getElementById('versements-badge');
-            if(nvCur.length>0){ if(dot){dot.classList.remove('hidden');dot.textContent=nvCur.length;} if(badge){badge.classList.remove('hidden');badge.textContent=`${nvCur.length} en attente`;} showPushNotif('Versements en attente', `${nvCur.length} membre${nvCur.length>1?'s':''} n'ont pas versé ce mois`, '⚠️', 7000); }
-            else { if(dot)dot.classList.add('hidden'); if(badge)badge.classList.add('hidden'); }
+            const nb = Math.max(nonConfCur.length, aConfirmer);
+            if (dot) { dot.classList.toggle('hidden', nb===0); dot.textContent = nb; }
+            if (aConfirmer>0 && !_pushVersementsMontre) {
+                _pushVersementsMontre = true;
+                showPushNotif('Versements à confirmer', `${aConfirmer} déclaration${aConfirmer>1?'s':''} de versement en attente`, '⚠️', 7000);
+            }
 
             document.getElementById('list-versements').innerHTML = allMois.map(({mois, annee}, idx) => {
                 const isCur = mois===moisCur && annee===anneeCur;
                 const moisLabel = `${MOIS_FR[mois-1]} ${annee}`;
-                const withAlloc = (membres||[]).filter(m=>parseFloat(m.allocation_mensuelle)>0);
-                const noAlloc   = (membres||[]).filter(m=>!(parseFloat(m.allocation_mensuelle)>0));
-                const nonVerses = withAlloc.filter(m=>!vers.find(v=>v.user_id===m.id&&v.mois===mois&&v.annee===annee));
-                const totalMois   = withAlloc.reduce((s,m)=>s+parseFloat(m.allocation_mensuelle),0);
-                const totalVerse  = withAlloc.filter(m=>vers.find(v=>v.user_id===m.id&&v.mois===mois&&v.annee===annee)).reduce((s,m)=>s+parseFloat(m.allocation_mensuelle),0);
+                // Membres concernés : actifs avec allocation, ou toute personne ayant une ligne ce mois-là
+                const concernes = membres.filter(m => (m.actif!==false && parseFloat(m.allocation_mensuelle)>0) || trouver(m.id,mois,annee));
+                const sansAlloc = membres.filter(m => m.actif!==false && !(parseFloat(m.allocation_mensuelle)>0) && !trouver(m.id,mois,annee));
+                const nonConf = concernes.filter(m => { const v=trouver(m.id,mois,annee); return !v || !allocConfirmee(v); });
+                const totalMois  = concernes.reduce((s,m)=>{ const v=trouver(m.id,mois,annee); return s+(v?parseFloat(v.montant):parseFloat(m.allocation_mensuelle)||0); },0);
+                const totalConf  = concernes.reduce((s,m)=>{ const v=trouver(m.id,mois,annee); return s+(v&&allocConfirmee(v)?parseFloat(v.montant):0); },0);
 
-                const rows = withAlloc.map(m => {
-                    const v = vers.find(v=>v.user_id===m.id&&v.mois===mois&&v.annee===annee);
-                    const alloc = parseFloat(m.allocation_mensuelle);
-                    const versId = v ? v.id : null;
+                const rows = concernes.map(m => {
+                    const v = trouver(m.id,mois,annee);
+                    const etat = !v ? 'aucun' : (allocConfirmee(v) ? 'confirme' : 'declare');
+                    const montant = v ? parseFloat(v.montant) : parseFloat(m.allocation_mensuelle)||0;
+                    const nomAff = `${m.prenom} ${m.nom||''}`.trim();
+                    const info = etat==='confirme' ? '✓ Confirmé le '+new Date(v.date_confirmation||v.created_at).toLocaleDateString('fr-FR')
+                               : etat==='declare' ? '⏳ Déclaré le '+new Date(v.created_at).toLocaleDateString('fr-FR')+' — appuyer pour confirmer'
+                               : 'Pas encore versé';
                     return `<button type="button"
-                        onclick="chefToggleVersement('${escapeHtml(m.id)}','${escapeHtml(m.prenom)} ${escapeHtml(m.nom||'')}',${mois},${annee},${alloc},${versId?`'${versId}'`:'null'},this)"
+                        data-uid="${escapeHtml(m.id)}" data-nom="${escapeHtml(nomAff)}" data-mois="${mois}" data-annee="${annee}" data-montant="${montant}" data-vid="${v?escapeHtml(v.id):''}" data-etat="${etat}"
+                        onclick="chefToggleVersement(this)"
                         class="w-full flex items-center justify-between py-3 border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors rounded-xl px-2 -mx-2 active:scale-[.98]">
                         <div class="flex items-center gap-3">
-                            <span class="w-6 h-6 rounded-lg flex-shrink-0 flex items-center justify-center transition-all ${v?'bg-emerald-500':'bg-slate-100 border-2 border-slate-200'}">
-                                ${v?`<svg class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>`:''}
+                            <span class="w-6 h-6 rounded-lg flex-shrink-0 flex items-center justify-center transition-all ${etat==='confirme'?'bg-emerald-500':etat==='declare'?'bg-amber-400':'bg-slate-100 border-2 border-slate-200'}">
+                                ${etat!=='aucun'?`<svg class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>`:''}
                             </span>
                             <div class="text-left">
-                                <p class="text-[11px] font-black uppercase text-slate-800">${escapeHtml(m.prenom)} ${escapeHtml(m.nom||'')}</p>
-                            <p class="text-[9px] text-slate-400 font-bold">${m.role?.toUpperCase()||''}</p>
-                                <p class="text-[9px] font-bold ${v?'text-emerald-600':'text-amber-500'}">${v?'✓ '+new Date(v.created_at).toLocaleDateString('fr-FR'):'Pas encore versé'}</p>
+                                <p class="text-[11px] font-black uppercase text-slate-800">${escapeHtml(nomAff)}${m.actif===false?' <span class="text-slate-400">(désactivé)</span>':''}</p>
+                                <p class="text-[9px] font-bold ${etat==='confirme'?'text-emerald-600':'text-amber-500'}">${info}</p>
                             </div>
                         </div>
-                        <p class="font-black text-[13px] ${v?'text-emerald-600':'text-slate-400'}">${alloc.toFixed(2)}€</p>
+                        <p class="font-black text-[13px] ${etat==='confirme'?'text-emerald-600':etat==='declare'?'text-amber-500':'text-slate-400'}">${montant.toFixed(2)}€</p>
                     </button>`;
                 }).join('');
 
-                const rowsBlocked = noAlloc.map(m=>`
+                const rowsBlocked = sansAlloc.map(m=>`
                     <div class="flex items-center justify-between py-2.5 border-b border-slate-50 last:border-0 opacity-40 px-2">
                         <div class="flex items-center gap-3">
                             <span class="w-6 h-6 rounded-lg border-2 border-red-200 bg-red-50 flex items-center justify-center text-red-400 text-[10px] font-black flex-shrink-0">!</span>
@@ -827,43 +784,56 @@
                             <span class="w-2 h-2 rounded-full ${isCur?'bg-amber-400 pulse-amber':'bg-slate-200'}"></span>
                             <p class="font-black text-[13px] uppercase tracking-widest text-slate-800">${moisLabel}</p>
                         </div>
-                        <span class="text-[10px] font-black uppercase tracking-widest ${nonVerses.length===0?'text-emerald-600':'text-amber-500'}">
-                            ${nonVerses.length===0?'✓ Complet':`${nonVerses.length} manquant${nonVerses.length>1?'s':''}`}
+                        <span class="text-[10px] font-black uppercase tracking-widest ${nonConf.length===0?'text-emerald-600':'text-amber-500'}">
+                            ${nonConf.length===0?'✓ Complet':`${nonConf.length} à confirmer`}
                         </span>
                     </div>
                     <div class="px-5 py-1">${rows}${rowsBlocked}</div>
                     <div class="px-5 pb-4 pt-2 flex justify-between items-center">
-                        <p class="text-[9px] text-slate-300 font-bold uppercase tracking-widest">${withAlloc.length} membre${withAlloc.length>1?'s':''}</p>
-                        <p class="text-[11px] font-black ${totalVerse>=totalMois?'text-emerald-600':'text-amber-500'}">${totalVerse.toFixed(2)}€ / ${totalMois.toFixed(2)}€</p>
+                        <p class="text-[9px] text-slate-300 font-bold uppercase tracking-widest">${concernes.length} membre${concernes.length>1?'s':''}</p>
+                        <p class="text-[11px] font-black ${totalConf>=totalMois?'text-emerald-600':'text-amber-500'}">${totalConf.toFixed(2)}€ / ${totalMois.toFixed(2)}€</p>
                     </div>
                 </div>`;
             }).join('');
         }
 
-        async function chefToggleVersement(uid, nom, mois, annee, alloc, versId, btn) {
-            btn.disabled = true;
-            if (versId) {
-                // Déjà versé → annuler (DELETE)
-                const { error } = await sb.from('allocations_versees').delete().eq('id', versId);
-                if (error) { showToast("Erreur","error"); btn.disabled=false; return; }
-                showToast(`${nom} — ${MOIS_FR[mois-1]} ${annee} annulé`,"info");
-            } else {
-                // Pas versé → confirmer (INSERT)
-                const { error } = await sb.from('allocations_versees').insert([{
-                    user_id: uid, maison_id: userProfile.maison_id,
-                    mois, annee, montant: alloc, valide_par: userProfile.id
-                }]);
-                if (error) { showToast("Erreur","error"); btn.disabled=false; return; }
-                showToast(`${nom} — ${MOIS_FR[mois-1]} ${annee} confirmé`,"success");
+        // aucun → confirmé directement · déclaré → confirmé · confirmé → annulé (avec confirmation)
+        async function chefToggleVersement(btn) {
+            const { uid, nom, vid, etat } = btn.dataset;
+            const mois = parseInt(btn.dataset.mois), annee = parseInt(btn.dataset.annee), montant = parseFloat(btn.dataset.montant);
+            const label = `${nom} — ${MOIS_FR[mois-1]} ${annee}`;
+            const apres = async () => { await loadVersements(); refreshSoldes(); };
+            if (etat === 'confirme') {
+                showConfirm(`Annuler le versement confirmé de ${label} (${montant.toFixed(2)}€) ?`, async () => {
+                    const { error } = await sb.from('allocations_versees').delete().eq('id', vid).eq('maison_id', userProfile.maison_id);
+                    if (error) return showToast("Erreur : "+error.message,"error");
+                    showToast(`${label} annulé`,"info"); apres();
+                }, 'Annuler le versement', true);
+                return;
             }
-            await loadVersements();
-            refreshSoldes();
+            btn.disabled = true;
+            let error;
+            if (etat === 'declare') {
+                ({ error } = await sb.from('allocations_versees')
+                    .update({ statut:'confirme', valide_par:userProfile.id, date_confirmation:new Date().toISOString() })
+                    .eq('id', vid).eq('maison_id', userProfile.maison_id));
+            } else {
+                if (!(montant > 0)) { btn.disabled=false; return showToast("Allocation non définie pour ce membre","warning"); }
+                ({ error } = await sb.from('allocations_versees').insert([{
+                    user_id: uid, maison_id: userProfile.maison_id, mois, annee, montant,
+                    statut:'confirme', valide_par: userProfile.id, date_confirmation:new Date().toISOString()
+                }]));
+            }
+            btn.disabled = false;
+            if (error) return showToast("Erreur : "+error.message,"error");
+            showToast(`${label} confirmé`,"success");
+            apres();
         }
 
         async function loadMembres() {
             const { data, error } = await sb.from('profiles').select('*').eq('maison_id', userProfile.maison_id).order('prenom');
             if (error) { showToast("Erreur chargement membres","error"); return; }
-            document.getElementById('list-membres').innerHTML = (data||[]).map((m,i)=>`
+            document.getElementById('list-membres').innerHTML = (data||[]).filter(m=>m.actif!==false).map((m,i)=>`
                 <div class="bg-white p-5 rounded-[26px] border border-slate-100 shadow-sm anim-slide" style="animation-delay:${i*.04}s">
                     <div class="flex items-center gap-3 mb-4">
                         <div class="w-9 h-9 rounded-full bg-red-900 text-white flex items-center justify-center font-black text-xs flex-shrink-0 italic">${escapeHtml((m.prenom||'?')[0])}</div>
@@ -909,9 +879,9 @@
             const {error}=await sb.from('transactions').insert([{
                 user_id:userProfile.id, maison_id:userProfile.maison_id, montant:amount,
                 motif:currentType==='recette'?'RECETTE':motif, commentaire:note||null,
-                created_at:new Date(date).toISOString(), type:currentType,
+                created_at:dateSaisieVersISO(date), type:currentType,
                 methode_paiement:currentType==='recette'?null:method,
-                statut:(currentType==='depense'&&method.startsWith('perso_'))?'attente':'valide',
+                statut:(currentType==='depense'&&estPerso(method))?'attente':'valide',
                 justificatif_url: null
             }]);
             setLoading('submit-btn', false);
@@ -920,6 +890,7 @@
             document.getElementById('tx-note').value='';
             showSuccess('Enregistré !');
             refreshAll();
+            if (document.getElementById('section-journal')?.classList.contains('active')) loadJournal();
         }
 
         async function loadMotifs() {
@@ -967,8 +938,8 @@
             if(alloc<=0){ btn.classList.add('hidden'); return; }
             btn.classList.remove('hidden');
             const now=new Date(),mois=now.getMonth()+1,annee=now.getFullYear();
-            const{data}=await sb.from('allocations_versees').select('id').eq('user_id',userProfile.id).eq('mois',mois).eq('annee',annee).maybeSingle();
-            setAllocBtnState(!!data, mois, annee, alloc);
+            const{data}=await sb.from('allocations_versees').select('id,statut').eq('user_id',userProfile.id).eq('mois',mois).eq('annee',annee).maybeSingle();
+            setAllocBtnState(!!data && allocConfirmee(data), mois, annee, alloc);
         }
 
         async function toggleAllocation() {
@@ -978,17 +949,22 @@
             const btn=document.getElementById('btn-chef-alloc');
             if(btn){btn.textContent='...';btn.disabled=true;}
 
-            const{data:existing}=await sb.from('allocations_versees').select('id')
+            const{data:existing}=await sb.from('allocations_versees').select('id,statut')
                 .eq('user_id',userProfile.id).eq('mois',mois).eq('annee',annee).maybeSingle();
 
-            if(existing){
+            if(existing && !allocConfirmee(existing)){
+                const{error}=await sb.from('allocations_versees').update({statut:'confirme',valide_par:userProfile.id,date_confirmation:new Date().toISOString()}).eq('id',existing.id);
+                if(error){showToast("Erreur : "+error.message,"error");}
+                else{showToast(`Allocation de ${MOIS_FR[mois-1]} ${annee} confirmée`,"success");setAllocBtnState(true,mois,annee,alloc);refreshSoldes();loadVersements();}
+            } else if(existing){
                 const{error}=await sb.from('allocations_versees').delete().eq('id',existing.id);
                 if(error){showToast("Erreur","error");}
                 else{showToast(`Allocation de ${MOIS_FR[mois-1]} ${annee} annulée`,"info");setAllocBtnState(false,mois,annee,alloc);refreshSoldes();loadVersements();}
             } else {
                 const{error}=await sb.from('allocations_versees').insert([{
                     user_id:userProfile.id,maison_id:userProfile.maison_id,
-                    mois,annee,montant:alloc,valide_par:userProfile.id
+                    mois,annee,montant:alloc,valide_par:userProfile.id,
+                    statut:'confirme',date_confirmation:new Date().toISOString()
                 }]);
                 if(error){showToast("Erreur","error");}
                 else{showToast(`Allocation de ${MOIS_FR[mois-1]} ${annee} déclarée !`,"success");setAllocBtnState(true,mois,annee,alloc);refreshSoldes();loadVersements();}
@@ -1031,20 +1007,6 @@
             navigator.clipboard.writeText(iban).then(()=>showToast("IBAN copié !","success")).catch(()=>showToast("Impossible de copier","error"));
         }
 
-        async function checkAllocVersee() {
-            const now=new Date(), mois=now.getMonth()+1, annee=now.getFullYear();
-            const {data:membres}=await sb.from('profiles').select('id,allocation_mensuelle').eq('maison_id',userProfile.maison_id);
-            const {data:vers}=await sb.from('allocations_versees').select('user_id').eq('maison_id',userProfile.maison_id).eq('mois',mois).eq('annee',annee);
-            const versIds=new Set((vers||[]).map(v=>v.user_id));
-            const nv=(membres||[]).filter(m=>parseFloat(m.allocation_mensuelle)>0&&!versIds.has(m.id));
-            // Chef : pas de pop-up, uniquement le point orange + badge dans la bottom bar
-            const dot   = document.getElementById('fab-badge');
-            const badge = document.getElementById('versements-badge');
-            if(nv.length>0){
-                if(dot)   dot.classList.remove('hidden');
-                if(badge) { badge.classList.remove('hidden'); badge.textContent=`${nv.length} en attente`; }
-            } else { if(dot)dot.classList.add('hidden'); if(badge)badge.classList.add('hidden'); }
-        }
         function closeAllocReminder() {
             document.getElementById('alloc-reminder-modal').classList.add('hidden');
             _goTab('versements');
@@ -1079,129 +1041,15 @@
         }
 
         async function markNotifRead(id) {
-            await sb.from('notifications').update({ lu: true }).eq('id', id);
+            await sb.from('notifications').update({ lu: true }).eq('id', id).eq('user_id', userProfile.id);
             const el = document.querySelector(`[data-notif="${id}"]`);
             if (el) { el.style.cssText='opacity:0;transform:translateY(-8px);transition:all .2s'; setTimeout(()=>el.remove(),200); }
         }
-
-        // ── EXPORT PDF JUSTIFICATIFS ──
-
-        // ── JUSTIFICATIFS IMAGES — sauvegarde base64 en table ──
-
-        // Redimensionner une image avant stockage (max 1200px, qualité 0.82)
-        async function resizeImageToBase64(file) {
-            // PDF — stocker directement en base64
-            if (file.type === 'application/pdf') {
-                return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result);
-                    reader.onerror = () => reject(new Error('Impossible de lire le PDF'));
-                    reader.readAsDataURL(file);
-                });
-            }
-            // Image — redimensionner
-            return new Promise((resolve, reject) => {
-                const img = new Image();
-                const url = URL.createObjectURL(file);
-                img.onload = () => {
-                    const MAX = 1200;
-                    let w = img.width, h = img.height;
-                    if (w > MAX || h > MAX) {
-                        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
-                        else       { w = Math.round(w * MAX / h); h = MAX; }
-                    }
-                    const canvas = document.createElement('canvas');
-                    canvas.width = w; canvas.height = h;
-                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                    URL.revokeObjectURL(url);
-                    resolve(canvas.toDataURL('image/jpeg', 0.82));
-                };
-                img.onerror = () => reject(new Error('Impossible de lire l\'image'));
-                img.src = url;
-            });
-        }
-
-        // Sauvegarder les images d'un justificatif en base
-        async function sauvegarderImagesJustificatif(txId, photos) {
-            // Supprimer les anciennes images pour cette transaction
-            await sb.from('justificatifs_images').delete().eq('transaction_id', txId);
-            // Insérer les nouvelles
-            const inserts = [];
-            for (let i = 0; i < photos.length; i++) {
-                let base64;
-                if (typeof photos[i] === 'string') {
-                    // Déjà en base64 (datauristring)
-                    base64 = photos[i];
-                } else {
-                    // File object — redimensionner
-                    base64 = await resizeImageToBase64(photos[i]);
-                }
-                inserts.push({
-                    transaction_id: txId,
-                    ordre: i,
-                    base64,
-                    mime_type: (typeof photos[i] === 'string'
-                        ? (photos[i].includes('application/pdf') ? 'application/pdf' : 'image/jpeg')
-                        : (photos[i]?.type || 'image/jpeg'))
-                });
-            }
-            if (inserts.length) {
-                const { error } = await sb.from('justificatifs_images').insert(inserts);
-                if (error) console.error('Erreur sauvegarde images:', error.message);
-            }
-        }
-
-        // Récupérer les images d'un justificatif
-        async function chargerImagesJustificatif(txId) {
-            const { data } = await sb.from('justificatifs_images')
-                .select('base64, mime_type, ordre')
-                .eq('transaction_id', txId)
-                .order('ordre', { ascending: true });
-            return data || [];
-        }
-
 
         // ── EXPORT EXCEL ──
 
         function goToProfil() { _goTab('profil'); }
 
-
-        async function exportJournalExcel() {
-            const mois   = document.getElementById('journal-mois').value;
-            const annee  = document.getElementById('journal-annee').value;
-            const membre = document.getElementById('journal-membre').value;
-            showToast('Génération Excel...', 'info');
-            let query = sb.from('transactions')
-                .select('*, profiles(prenom,nom)')
-                .eq('maison_id', userProfile.maison_id)
-                .order('created_at', { ascending: true });
-            if (membre === 'deleted') query = query.is('user_id', null);
-            else if (membre !== 'all') query = query.eq('user_id', membre);
-            const { data } = await query;
-            const filtered = (data||[]).filter(t => {
-                const d = new Date(t.created_at);
-                return String(d.getMonth()+1).padStart(2,'0') === mois && String(d.getFullYear()) === String(annee);
-            });
-            if (!filtered.length) { showToast('Aucune opération ce mois', 'warning'); return; }
-            const rows = filtered.map(t => ({
-                'Date': new Date(t.created_at).toLocaleDateString('fr-FR'),
-                'Membre': `${t.profiles ? t.profiles.prenom+' '+(t.profiles.nom||'') : 'Membre supprimé'}`.trim(),
-                'Type': t.type === 'recette' ? 'Recette' : 'Dépense',
-                'Motif': t.motif || '',
-                'Commentaire': t.commentaire || '',
-                'Montant (€)': parseFloat(t.montant).toFixed(2),
-                'Moyen de paiement': t.methode_paiement || '',
-                'Statut': t.statut === 'attente' ? 'En attente' : 'Validé',
-                'Justificatif': t.justificatif_url ? 'Oui' : 'Non'
-            }));
-            const ws = XLSX.utils.json_to_sheet(rows);
-            ws['!cols'] = [{wch:12},{wch:20},{wch:10},{wch:20},{wch:30},{wch:12},{wch:20},{wch:12},{wch:12}];
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Journal');
-            const moisNom = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-            XLSX.writeFile(wb, `Journal_Maison_${moisNom[parseInt(mois)-1]}_${annee}.xlsx`);
-            showToast('Excel téléchargé !', 'success');
-        }
 
         function goSaisie() { _goTab('saisie'); }
         function menuGo(name, cb) { _goTab(name, cb); }
@@ -1305,33 +1153,12 @@
                 progTxt.textContent = `Sauvegarde ${justifPhotos.length} photo${justifPhotos.length>1?'s':''}...`;
                 await sauvegarderImagesJustificatif(txId, justifPhotos);
 
-                progTxt.textContent = 'Upload...';
-                let justificatif_url = null;
-                try {
-                    const firstPhoto = justifPhotos[0];
-                    const ext = firstPhoto.type?.includes('png') ? 'png' : 'jpg';
-                    const path = `${userProfile.maison_id}/${userProfile.id}/${Date.now()}.${ext}`;
-                    const { error: upErr } = await sb.storage.from('justificatifs')
-                        .upload(path, firstPhoto, { contentType: firstPhoto.type || 'image/jpeg', upsert: false });
-                    if (!upErr) {
-                        const { data: urlData } = sb.storage.from('justificatifs').getPublicUrl(path);
-                        justificatif_url = urlData?.publicUrl || null;
-                    }
-                } catch(e) { /* continuer sans URL */ }
-
-                progTxt.textContent = 'Enregistrement...';
-                const { error } = await sb.from('transactions')
-                    .update({ justificatif_url })
-                    .eq('id', txId)
-                    .eq('maison_id', userProfile.maison_id);
-                if (error) throw new Error(error.message);
-
                 justifPhotos = [];
                 prog.classList.add('hidden');
                 fermerJustifModal();
                 showToast('Justificatif ajouté !', 'success');
                 await loadJournal();
-                refreshSoldes();
+                refreshAll();
             } catch(e) {
                 prog.classList.add('hidden');
                 valBtn.classList.remove('hidden');
@@ -1357,21 +1184,6 @@
             document.addEventListener(ev, resetIdleTimer, { passive: true })
         );
         resetIdleTimer();
-
-
-        // ── AUTO-LOGOUT après 30 minutes d'inactivité ──
-        let _inactivityTimer;
-        function resetInactivityTimer() {
-            clearTimeout(_inactivityTimer);
-            _inactivityTimer = setTimeout(() => {
-                showToast('Déconnexion automatique après 30 min', 'warning');
-                setTimeout(() => logout(), 2000);
-            }, 30 * 60 * 1000);
-        }
-        ['touchstart','click','keydown','scroll'].forEach(e =>
-            document.addEventListener(e, resetInactivityTimer, { passive: true })
-        );
-        resetInactivityTimer();
 
 
         // ── MODAL CONFIRMATION CUSTOM (remplace confirm() natif) ──
@@ -1530,7 +1342,7 @@
                 document.getElementById('viewer-download').onclick = () => telechargerJustificatif(img);
             } else {
                 // Image
-                document.getElementById('viewer-img').src = img.base64;
+                document.getElementById('viewer-img').src = img.base64.startsWith('data:') ? img.base64 : `data:${realMime};base64,${img.base64}`;
                 document.getElementById('viewer-download').onclick = () => telechargerJustificatif(img);
             }
         }
@@ -1546,34 +1358,6 @@
             document.getElementById('viewer-modal').classList.add('hidden');
             document.getElementById('viewer-img').src = '';
             document.body.style.overflow = '';
-        }
-
-        function telechargerJustificatif(img) {
-            const realMime = detectMimeType(img.base64, img.mime_type);
-                        const ext = getExtFromMime(realMime);
-            const b64 = img.base64.includes(',') ? img.base64.split(',')[1] : img.base64;
-            const mime = img.mime_type || 'image/jpeg';
-
-            try {
-                const binary = atob(b64);
-                const bytes = new Uint8Array(binary.length);
-                for (let i=0; i<binary.length; i++) bytes[i] = binary.charCodeAt(i);
-                const blob = new Blob([bytes], {type: mime});
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `justificatif_${Date.now()}.${ext}`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                setTimeout(() => URL.revokeObjectURL(url), 5000);
-            } catch(e) {
-                // Fallback — data URI direct
-                const a = document.createElement('a');
-                a.href = img.base64;
-                a.download = `justificatif_${Date.now()}.${ext}`;
-                a.click();
-            }
         }
 
         // Fermer viewer avec swipe down ou Escape
@@ -1759,15 +1543,13 @@
         // ── EXPORT 1 : Excel Journal mensuel ──
         async function exportExcelJournal(mois, annee, moisNom) {
             setExportProgress('Chargement transactions...', 20);
-            const { data } = await sb.from('transactions')
+            const { debut, fin } = bornesMois(annee, mois);
+            const filtered = await fetchAll(() => sb.from('transactions')
                 .select('*, profiles(prenom,nom)')
                 .eq('maison_id', userProfile.maison_id)
-                .order('created_at', { ascending: true });
-
-            const filtered = (data||[]).filter(t => {
-                const d = new Date(t.created_at);
-                return String(d.getMonth()+1).padStart(2,'0') === mois && String(d.getFullYear()) === annee;
-            });
+                .gte('created_at', debut).lt('created_at', fin)
+                .order('created_at', { ascending: true }));
+            const justifSet = await idsAvecJustif(filtered.map(t => t.id));
 
             if (!filtered.length) { showToast('Aucune transaction ce mois', 'warning'); return; }
             setExportProgress('Génération Excel...', 60);
@@ -1781,7 +1563,7 @@
                 'Montant (€)': parseFloat(t.montant).toFixed(2),
                 'Paiement': t.methode_paiement || '',
                 'Statut': t.statut === 'attente' ? 'En attente' : 'Validé',
-                'Justificatif': t.justificatif_url ? 'Oui' : 'Non'
+                'Justificatif': t.type === 'recette' ? '' : (aJustif(t, justifSet) ? 'Oui' : 'Non')
             }));
 
             const ws = XLSX.utils.json_to_sheet(rows);
@@ -1799,26 +1581,24 @@
             setExportProgress("Chargement de l\'année...", 10);
 
             // Charger transactions + allocations + profiles en parallèle
-            const [txRes, allocRes, profRes] = await Promise.all([
-                sb.from('transactions')
+            const { debut, fin } = bornesAnnee(annee);
+            const [allTx, allocAll, profs] = await Promise.all([
+                fetchAll(() => sb.from('transactions')
                     .select('*, profiles(prenom,nom)')
                     .eq('maison_id', userProfile.maison_id)
-                    .order('created_at', { ascending: true }),
-                sb.from('allocations_versees')
-                    .select('id,user_id,mois,annee,montant,created_at,valide_par')
+                    .gte('created_at', debut).lt('created_at', fin)
+                    .order('created_at', { ascending: true })),
+                fetchAll(() => sb.from('allocations_versees')
+                    .select('*')
                     .eq('maison_id', userProfile.maison_id)
-                    .eq('annee', parseInt(annee)),
-                sb.from('profiles')
+                    .eq('annee', parseInt(annee))),
+                fetchAll(() => sb.from('profiles')
                     .select('id,prenom,nom')
-                    .eq('maison_id', userProfile.maison_id)
+                    .eq('maison_id', userProfile.maison_id))
             ]);
-
-            const allTx = (txRes.data||[]).filter(t =>
-                new Date(t.created_at).getFullYear() === parseInt(annee)
-            );
-            const allAlloc = allocRes.data || [];
+            const allAlloc = allocAll.filter(allocConfirmee);
             const profilesMap = {};
-            (profRes.data||[]).forEach(p => { profilesMap[p.id] = p; });
+            profs.forEach(p => { profilesMap[p.id] = p; });
 
             // Enrichir les allocations avec le profil
             allAlloc.forEach(a => {
@@ -1842,16 +1622,17 @@
                 const m = t.profiles
                     ? `${t.profiles.prenom} ${t.profiles.nom||''}`.trim()
                     : 'Membre supprimé';
-                if (!recap[m]) recap[m] = { depenses:0, recettes:0, allocations:0, nbTx:0, nbAlloc:0 };
+                if (!recap[m]) recap[m] = { depenses:0, recettes:0, allocations:0, attente:0, nbTx:0, nbAlloc:0 };
                 if (t.type === 'recette') recap[m].recettes += parseFloat(t.montant||0);
                 else recap[m].depenses += parseFloat(t.montant||0);
+                if (t.type === 'depense' && t.statut === 'attente') recap[m].attente += parseFloat(t.montant||0);
                 recap[m].nbTx++;
             });
 
             allAlloc.forEach(a => {
                 const p = a._profile;
                 const m = p ? `${p.prenom} ${p.nom||''}`.trim() : 'Membre supprimé';
-                if (!recap[m]) recap[m] = { depenses:0, recettes:0, allocations:0, nbTx:0, nbAlloc:0 };
+                if (!recap[m]) recap[m] = { depenses:0, recettes:0, allocations:0, attente:0, nbTx:0, nbAlloc:0 };
                 recap[m].allocations += parseFloat(a.montant||0);
                 recap[m].nbAlloc++;
             });
@@ -1861,7 +1642,7 @@
                 'Dépenses (€)': d.depenses.toFixed(2),
                 'Recettes (€)': d.recettes.toFixed(2),
                 'Allocations versées (€)': d.allocations.toFixed(2),
-                'À rembourser (€)': Math.max(0, d.depenses - d.recettes - d.allocations).toFixed(2),
+                'Avances à rembourser (€)': d.attente.toFixed(2),
                 'Nb transactions': d.nbTx,
                 'Nb versements': d.nbAlloc
             }));
@@ -1879,7 +1660,7 @@
                             'Mois': moisNoms[(a.mois||1)-1],
                             'Membre': p ? `${p.prenom} ${p.nom||''}`.trim() : 'Membre supprimé',
                             'Montant (€)': parseFloat(a.montant||0).toFixed(2),
-                            'Validé par': a.valide_par ? 'Chef' : 'Auto',
+                            'Validé par': profilesMap[a.valide_par] ? `${profilesMap[a.valide_par].prenom} ${profilesMap[a.valide_par].nom||''}`.trim() : (a.valide_par ? 'Chef' : ''),
                             'Date': a.created_at ? new Date(a.created_at).toLocaleDateString('fr-FR') : ''
                         };
                     });
@@ -1962,24 +1743,6 @@
         }
         async function exportZipParMembre(mois, annee, moisNom) { return _zipJustifsChef(mois, annee, moisNom, true); }
         async function exportZipParMois(mois, annee, moisNom)   { return _zipJustifsChef(mois, annee, moisNom, false); }
-
-
-        // Détecte le vrai type depuis le header base64
-        function detectMimeType(base64, declaredMime) {
-            if (!base64) return declaredMime || 'image/jpeg';
-            const header = base64.substring(0, 30);
-            if (header.includes('data:application/pdf') || header.startsWith('JV')) return 'application/pdf';
-            if (header.includes('data:image/png') || header.includes('iVBOR')) return 'image/png';
-            if (header.includes('data:image/jpeg') || header.includes('/9j/')) return 'image/jpeg';
-            // Fallback sur le mime_type déclaré
-            return declaredMime || 'image/jpeg';
-        }
-
-        function getExtFromMime(mime) {
-            if (mime?.includes('pdf')) return 'pdf';
-            if (mime?.includes('png')) return 'png';
-            return 'jpg';
-        }
 
 
         function ouvrirAjoutJustificatif(txId) {
@@ -2082,10 +1845,7 @@
                 if (currentX < -50) {
                     inner.style.transform = 'translateX(-80px)';
                     // Confirmer suppression après 1s ou au tap
-                    setTimeout(() => {
-                        showConfirm('Supprimer cette opération ?', () => { onDelete(); }, 'Supprimer', true);
-                        inner.style.transform = '';
-                    }, 100);
+                    setTimeout(() => { onDelete(); inner.style.transform = ''; }, 100);
                 } else {
                     inner.style.transform = '';
                 }

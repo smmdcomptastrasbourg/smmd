@@ -48,10 +48,10 @@ let _longPressTimer = null;
 let _actionMsgId   = null;
 let _actionMsgText = null;
 
-function startLongPress(msgId, msgText) {
+function startLongPress(msgId) {
     _longPressTimer = setTimeout(() => {
         if (navigator.vibrate) navigator.vibrate(15);
-        ouvrirActionMenu(msgId, msgText);
+        ouvrirActionMenu(msgId);
     }, 600);
 }
 function cancelLongPress() {
@@ -59,6 +59,7 @@ function cancelLongPress() {
 }
 
 function ouvrirActionMenu(msgId, msgText) {
+    if (msgText === undefined) msgText = _msgTexts[msgId] || '';
     _actionMsgId   = msgId;
     _actionMsgText = msgText;
     const preview = document.getElementById('msg-action-preview');
@@ -119,6 +120,8 @@ async function init() {
 
     const { data: profile } = await sb.from('profiles')
         .select('*').eq('id', user.id).maybeSingle();
+    if (!profile) { window.location.href = 'index.html'; return; }
+    if (!(await verifierCompteActif(profile))) return;
     userProfile = profile;
     document.getElementById('header-subtitle').textContent =
         `${profile.prenom} ${profile.nom} — ${profile.role}`;
@@ -132,7 +135,7 @@ async function init() {
         profiles = r.data || [];
     }
     allProfiles = profiles
-        .filter(p => p.id !== user.id)
+        .filter(p => p.id !== user.id && p.actif !== false)
         .sort((a, b) => (a.prenom || '').localeCompare(b.prenom || '', 'fr'));
 
     await chargerConversations();
@@ -186,7 +189,7 @@ function renderConversations() {
     }
     el.innerHTML = filteredConvs.map(conv => {
         const other = conv.user1_id === userProfile.id ? conv.user2 : conv.user1;
-        const initials = `${other.prenom[0]}${(other.nom||'')[0]||''}`.toUpperCase();
+        const initials = escapeHtml(`${(other.prenom||'?')[0]}${(other.nom||'')[0]||''}`.toUpperCase());
         const lastMsg = conv._lastMsg;
         let lastText = 'Commencer la conversation';
         if (lastMsg) {
@@ -199,7 +202,7 @@ function renderConversations() {
         const time = lastMsg ? formatTime(lastMsg.created_at) : '';
         const unread = conv._unread > 0;
 
-        return `<div class="conv-item" onclick="ouvrirConversation('${conv.id}','${other.id}')">
+        return `<div class="conv-item" onclick="ouvrirConversation('${escapeHtml(conv.id)}','${escapeHtml(other.id)}')">
             <div class="conv-avatar">${initials}</div>
             <div class="flex-1 min-w-0">
                 <div class="flex justify-between items-center">
@@ -250,8 +253,8 @@ function renderContacts(profiles) {
     }
     const ROLES = { chef: '👑 Chef', admin: '⚙️ Admin', user: '👤 Membre' };
     el.innerHTML = profiles.map(p => {
-        const initials = `${p.prenom[0]}${(p.nom||'')[0]||''}`.toUpperCase();
-        return `<button class="new-conv-btn" onclick="demarrerConversation('${p.id}')">
+        const initials = escapeHtml(`${(p.prenom||'?')[0]}${(p.nom||'')[0]||''}`.toUpperCase());
+        return `<button class="new-conv-btn" onclick="demarrerConversation('${escapeHtml(p.id)}')">
             <div class="conv-avatar" style="width:38px;height:38px;font-size:14px;flex-shrink:0">${initials}</div>
             <div class="text-left">
                 <p class="font-black text-[13px] text-slate-800">${escapeHtml(p.prenom)} ${escapeHtml(p.nom||'')}</p>
@@ -287,7 +290,8 @@ async function demarrerConversation(otherId) {
 async function ouvrirConversation(convId, otherId) {
     currentConvId = convId;
     currentOtherId = otherId;
-    currentOtherProfile = allProfiles.find(p => p.id === otherId);
+    currentOtherProfile = allProfiles.find(p => p.id === otherId)
+        || conversations.map(c => c.user1_id === otherId ? c.user1 : c.user2_id === otherId ? c.user2 : null).find(Boolean);
 
     const ROLES = { chef: 'Chef de maison', admin: 'Administrateur', user: 'Membre' };
     const initials = currentOtherProfile
@@ -339,8 +343,19 @@ async function chargerMessages() {
     scrollBas();
 }
 
+let _msgTexts = {};
+// N'accepte qu'un data-URI image/PDF en base64 (empêche l'injection via media_base64)
+function mediaSur(b64, type) {
+    if (!b64 || typeof b64 !== 'string') return null;
+    const re = type === 'pdf'
+        ? /^data:application\/pdf;base64,[A-Za-z0-9+/=\s]+$/
+        : /^data:image\/(png|jpe?g|gif|webp|heic|heif);base64,[A-Za-z0-9+/=\s]+$/;
+    return re.test(b64) ? b64 : null;
+}
+
 function renderMessages(msgs) {
     _mediaCache = {}; // Reset cache
+    _msgTexts = {};
     const list = document.getElementById('messages-list');
     if (!msgs.length) {
         list.innerHTML = `<div class="text-center py-12">
@@ -367,18 +382,19 @@ function renderMessages(msgs) {
         const time = date.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
         const isDeleted = !!msg.deleted_at;
 
-        // Stocker media dans cache pour onclick
-        if (msg.media_base64) _mediaCache[msg.id] = msg.media_base64;
+        // Stocker media dans cache pour onclick (uniquement de vraies données image/PDF)
+        const mediaOk = mediaSur(msg.media_base64, msg.type);
+        if (mediaOk) _mediaCache[msg.id] = mediaOk;
 
         // Contenu message
         let content = '';
         if (isDeleted) {
             content = `<span class="msg-deleted">🚫 Message supprimé</span>`;
-        } else if (msg.type === 'image' && msg.media_base64) {
-            content = `<img src="${msg.media_base64}" class="msg-img" onclick="_viewMedia('${msg.id}','image')" loading="lazy">`;
+        } else if (msg.type === 'image' && mediaOk) {
+            content = `<img src="${mediaOk}" class="msg-img" onclick="_viewMedia('${escapeHtml(msg.id)}','image')" loading="lazy" alt="Image">`;
             if (msg.contenu) content += `<div style="margin-top:4px">${escapeHtml(msg.contenu)}</div>`;
-        } else if (msg.type === 'pdf' && msg.media_base64) {
-            content = `<div class="msg-pdf" onclick="_viewMedia('${msg.id}','pdf')">
+        } else if (msg.type === 'pdf' && mediaOk) {
+            content = `<div class="msg-pdf" onclick="_viewMedia('${escapeHtml(msg.id)}','pdf')">
                 <span class="msg-pdf-icon">📄</span>
                 <span class="msg-pdf-name">Document PDF — Appuyer pour télécharger</span>
             </div>`;
@@ -395,9 +411,11 @@ function renderMessages(msgs) {
         }
 
         // Long press pour supprimer (seulement ses propres messages)
-        const msgText = msg.type === 'text' ? (msg.contenu || '') : '';
+        // Le texte n'est plus injecté dans les attributs : on le retrouve par l'id
+        if (isMine && !isDeleted) _msgTexts[msg.id] = msg.type === 'text' ? (msg.contenu || '') : '';
+        const idSafe = escapeHtml(msg.id);
         const onLongPress = isMine && !isDeleted
-            ? `oncontextmenu="ouvrirActionMenu('${msg.id}','${msgText.replace(/'/g,"\\'").replace(/\n/g,' ')}')" ontouchstart="startLongPress('${msg.id}','${msgText.replace(/'/g,"\\'").replace(/\n/g,' ')}')" ontouchend="cancelLongPress()" ontouchmove="cancelLongPress()"`
+            ? `oncontextmenu="event.preventDefault();ouvrirActionMenu('${idSafe}')" ontouchstart="startLongPress('${idSafe}')" ontouchend="cancelLongPress()" ontouchmove="cancelLongPress()"`
             : '';
 
         html += `<div class="msg-row ${isMine ? 'mine' : 'other'} anim-slide" ${onLongPress}>
@@ -571,9 +589,5 @@ function _confirmCancel() {
     _confirmCallback = null;
 }
 
-// ── ESCAPE ──
-function escapeHtml(str) {
-    if (!str) return '';
-    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+// escapeHtml vient de config.js
 init();
