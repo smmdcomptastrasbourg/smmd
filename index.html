@@ -1,262 +1,140 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SMMD — Connexion</title>
-    <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
-    <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="./icon-192.png">
-    <link rel="apple-touch-icon" sizes="192x192" href="./icon-192.png">
-    <link rel="apple-touch-icon" sizes="512x512" href="./icon-512.png">
-    <meta name="apple-mobile-web-app-title" content="SMMD">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#7f1d1d">
-    <link rel="preconnect" href="https://xccnnckuphxloxfrqtkf.supabase.co" crossorigin>
-    <link rel="stylesheet" href="tailwind.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="config.js?v=20261126c"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,700;0,900;1,900&display=swap');
-        * { -webkit-tap-highlight-color: transparent; }
-        body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(160deg, #1a0505 0%, #7f1d1d 60%, #991b1b 100%);
-            min-height: 100vh; min-height: 100dvh;
-        }
-
-        @keyframes slideUp  { from{opacity:0;transform:translateY(28px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes fadeIn   { from{opacity:0} to{opacity:1} }
-        @keyframes logoPulse {
-            0%   { transform: scale(0.8); opacity:0; }
-            60%  { transform: scale(1.08); opacity:1; }
-            100% { transform: scale(1); }
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        .anim-up   { animation: slideUp .5s cubic-bezier(.4,0,.2,1) both; }
-        .anim-fade { animation: fadeIn .4s ease both; }
-        .anim-logo { animation: logoPulse .7s cubic-bezier(.4,0,.2,1) both; }
-
-        input:-webkit-autofill { -webkit-box-shadow: 0 0 0 100px #f8fafc inset; }
-
-        #btn-login {
-            background: linear-gradient(135deg, #991b1b, #7f1d1d);
-            box-shadow: 0 8px 24px rgba(153,27,27,.4);
-        }
-        #btn-login:active { transform: scale(.97); }
-
-        .input-field {
-            transition: all .2s;
-            border: 2px solid transparent;
-        }
-        .input-field:focus {
-            background: white;
-            border-color: #fca5a5;
-            box-shadow: 0 0 0 4px rgba(239,68,68,.08);
-        }
-
-        /* Loading spinner */
-        .spinner {
-            width: 48px; height: 48px;
-            border: 4px solid rgba(255,255,255,.2);
-            border-top-color: white;
-            border-radius: 50%;
-            animation: spin .8s linear infinite;
-        }
-
-        /* Card glassmorphism */
-        #login-card {
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>SMMD — Connexion</title>
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<link rel="apple-touch-icon" sizes="512x512" href="./icon-512.png">
+<meta name="apple-mobile-web-app-title" content="SMMD">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#8B1E2D">
+<link rel="preconnect" href="https://xccnnckuphxloxfrqtkf.supabase.co" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="v2/style.css?v=3">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js?v=20261126c"></script>
+<style>
+  body { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); }
+  .login { width: 100%; max-width: 400px; }
+  .logo { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 24px; text-align: center; }
+  .logo img { width: 72px; height: 72px; border-radius: 18px; }
+  .logo h1 { font-size: 30px; font-weight: 800; color: var(--primary); }
+  .pass-wrap { position: relative; }
+  .pass-wrap .iconbtn { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); }
+  .pass-wrap .input { padding-right: 52px; }
+</style>
 </head>
-<body class="flex flex-col items-center justify-center p-6 min-h-screen">
+<body>
+<main class="login">
+  <div class="logo">
+    <img src="./icon-192.png" alt="">
+    <h1>SMMD</h1>
+    <p class="muted" style="margin:0">Comptabilité des maisons</p>
+  </div>
 
-    <!-- Logo + titre -->
-    <div class="text-center mb-8" style="animation: slideUp .6s .05s cubic-bezier(.4,0,.2,1) both">
-        <div class="anim-logo flex justify-center mb-5">
-            <img src="./icon-512.png" style="width:90px;height:90px;object-fit:contain;filter:brightness(0) invert(1) drop-shadow(0 4px 16px rgba(255,255,255,.2))">
-        </div>
-        <h1 class="text-5xl font-black italic text-white tracking-tighter leading-none">SMMD.</h1>
-        <p class="text-[10px] font-black uppercase tracking-[.4em] text-white/40 mt-2">Comptabilité des Maisons</p>
-    </div>
+  <div id="login-card" class="card stack" style="padding:24px">
+    <h2>Connexion</h2>
+    <label class="field"><span>Identifiant</span>
+      <input type="text" id="login-user" class="input" placeholder="prenom.nom" autocomplete="username" autocapitalize="none" spellcheck="false"
+        onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()"></label>
+    <label class="field"><span>Mot de passe</span>
+      <span class="pass-wrap"><input type="password" id="login-pass" class="input" autocomplete="current-password" onkeydown="if(event.key==='Enter')handleLogin()">
+        <button type="button" class="iconbtn" onclick="togglePass()" aria-label="Afficher ou masquer le mot de passe" id="toggle-pass-btn">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button></span></label>
+    <div id="error-msg" class="banner warn hidden" role="alert"><p style="margin:0"></p></div>
+    <button id="btn-login" class="btn block" style="min-height:54px" onclick="handleLogin()">Se connecter</button>
+    <p class="small muted" style="margin:0;text-align:center">Mot de passe oublié ? Demandez à l'administrateur de vous en définir un nouveau.</p>
+  </div>
 
-    <!-- Card connexion -->
-    <div id="login-card" class="bg-white/95 rounded-[40px] w-full max-w-sm shadow-2xl p-8 anim-up" style="animation-delay:.15s">
+  <div id="loading-screen" class="hidden" style="text-align:center;padding:40px 0" role="status">
+    <div class="spin" style="margin:0 auto 14px;width:40px;height:40px;border-width:4px"></div>
+    <p class="muted bold">Connexion en cours…</p>
+  </div>
 
-        <!-- Bande couleur top -->
-        <div class="h-1 rounded-full bg-gradient-to-r from-red-700 to-red-900 -mt-8 mx-4 mb-7 rounded-t-none" style="margin-top:-32px;margin-left:-32px;margin-right:-32px;border-radius:32px 32px 0 0"></div>
+  <div id="install-banner" class="hidden" style="margin-top:16px">
+    <button id="install-btn" class="btn ghost block" onclick="installApp()">
+      <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+      Installer l'application</button>
+  </div>
+  <p class="xs muted" style="text-align:center;margin-top:20px">© SMMD Strasbourg</p>
+</main>
 
-        <div class="space-y-5">
-            <div class="anim-up" style="animation-delay:.2s">
-                <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1.5 block tracking-widest">Identifiant</label>
-                <input type="text" id="login-user" placeholder="prenom.nom"
-                    autocomplete="username" autocapitalize="none" spellcheck="false"
-                    class="input-field w-full p-4 bg-slate-50 rounded-2xl font-bold text-sm outline-none"
-                    onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()" aria-label="prenom.nom">
-            </div>
-            <div class="anim-up" style="animation-delay:.25s">
-                <label class="text-[9px] font-black uppercase text-slate-400 ml-1 mb-1.5 block tracking-widest">Mot de passe</label>
-                <div class="relative">
-                    <input type="password" id="login-pass" placeholder="••••••••"
-                        autocomplete="current-password"
-                        class="input-field w-full p-4 bg-slate-50 rounded-2xl font-bold text-sm outline-none pr-12"
-                        onkeydown="if(event.key==='Enter')handleLogin()" aria-label="••••••••">
-                    <button onclick="togglePass()" class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors" id="toggle-pass-btn" aria-label="Afficher ou masquer le mot de passe">
-                        <svg id="eye-icon" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                    </button>
-                </div>
-            </div>
+<div id="offline-banner" class="hidden banner warn" role="status" style="position:fixed;top:12px;left:12px;right:12px;justify-content:center">Pas de connexion réseau</div>
 
-            <div id="error-msg" class="hidden bg-red-50 border border-red-100 rounded-2xl px-4 py-3 anim-up">
-                <p class="text-[11px] font-bold text-red-600 text-center"></p>
-            </div>
+<script>
+  const sb = supabase.createClient(SMMD_CONFIG.url, SMMD_CONFIG.key);
+  // Destination selon le rôle (nouvelle interface)
+  const DEST = { chef: 'v2/chef.html', admin: 'v2/admin.html', user: 'v2/membre.html' };
 
-            <button id="btn-login" onclick="handleLogin()"
-                class="anim-up w-full text-white font-black py-5 rounded-[22px] uppercase tracking-[.2em] text-[12px] active:scale-[.97] transition-all"
-                style="animation-delay:.3s">
-                Se connecter
-            </button>
-        </div>
-    </div>
+  window.addEventListener('offline', () => document.getElementById('offline-banner').classList.remove('hidden'));
+  window.addEventListener('online', () => document.getElementById('offline-banner').classList.add('hidden'));
+  if (!navigator.onLine) document.getElementById('offline-banner').classList.remove('hidden');
 
-    <!-- Loading -->
-    <div id="loading-screen" class="hidden text-center anim-fade">
-        <div class="spinner mx-auto mb-5"></div>
-        <p class="text-white/60 font-black uppercase tracking-[.3em] text-[10px]">Connexion en cours...</p>
-    </div>
+  function togglePass() { const i = document.getElementById('login-pass'); i.type = i.type === 'password' ? 'text' : 'password'; }
+  function showError(msg) { const el = document.getElementById('error-msg'); el.querySelector('p').textContent = msg; el.classList.remove('hidden'); }
+  function hideError() { document.getElementById('error-msg').classList.add('hidden'); }
+  function showLoading(on) {
+    document.getElementById('login-card').classList.toggle('hidden', on);
+    document.getElementById('loading-screen').classList.toggle('hidden', !on);
+  }
 
-    <!-- Offline banner -->
-    <div id="offline-banner" class="hidden fixed top-4 left-4 right-4 bg-amber-500 text-white rounded-2xl px-4 py-3 text-[11px] font-bold text-center shadow-lg z-50">
-        ⚠️ Pas de connexion réseau
-    </div>
+  async function checkSession() {
+    const { data: { user } } = await sb.auth.getUser();
+    if (user) { showLoading(true); await redirectUser(user.id); }
+  }
 
-    <p class="text-white/20 text-[9px] font-bold uppercase tracking-widest mt-8 anim-up" style="animation-delay:.4s">
-        © SMMD Strasbourg
-    </p>
+  async function handleLogin() {
+    if (!navigator.onLine) return showError("Pas de connexion réseau");
+    const btn = document.getElementById('btn-login');
+    let id = document.getElementById('login-user').value.trim().toLowerCase();
+    const pw = document.getElementById('login-pass').value;
+    if (!id || !pw) return showError("Saisissez votre identifiant et votre mot de passe");
+    if (!id.includes('@')) id += '@smmd.fr';
+    hideError();
+    btn.disabled = true; btn.textContent = 'Connexion…';
+    const { data, error } = await sb.auth.signInWithPassword({ email: id, password: pw });
+    btn.disabled = false; btn.textContent = 'Se connecter';
+    if (error) return showError("Identifiant ou mot de passe incorrect");
+    showLoading(true);
+    await redirectUser(data.user.id);
+  }
 
-    <script>
-        const sb = supabase.createClient(SMMD_CONFIG.url, SMMD_CONFIG.key);
+  async function redirectUser(uid) {
+    const { data: profile, error } = await sb.from('profiles').select('role,actif').eq('id', uid).maybeSingle();
+    if (!error && profile && profile.actif === false) {
+      showLoading(false); showError("Compte désactivé — contactez l'administrateur");
+      await sb.auth.signOut(); return;
+    }
+    if (error || !profile) {
+      showLoading(false); showError("Profil introuvable — contactez l'administrateur");
+      await sb.auth.signOut(); return;
+    }
+    location.href = DEST[profile.role] || DEST.user;
+  }
 
-        window.addEventListener('offline', () => document.getElementById('offline-banner').classList.remove('hidden'));
-        window.addEventListener('online',  () => document.getElementById('offline-banner').classList.add('hidden'));
-        if (!navigator.onLine) document.getElementById('offline-banner').classList.remove('hidden');
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
 
-        function togglePass() {
-            const input = document.getElementById('login-pass');
-            input.type = input.type === 'password' ? 'text' : 'password';
-        }
+  let _deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); _deferredPrompt = e; document.getElementById('install-banner').classList.remove('hidden'); });
+  window.addEventListener('appinstalled', () => { document.getElementById('install-banner').classList.add('hidden'); _deferredPrompt = null; });
+  async function installApp() {
+    if (!_deferredPrompt) {
+      const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      showError(ios ? 'Sur iPhone : touchez le bouton Partager, puis « Sur l\'écran d\'accueil ».' : 'Ouvrez le menu du navigateur (⋮) puis « Ajouter à l\'écran d\'accueil ».');
+      return;
+    }
+    _deferredPrompt.prompt(); await _deferredPrompt.userChoice; _deferredPrompt = null;
+    document.getElementById('install-banner').classList.add('hidden');
+  }
 
-        function showError(msg) {
-            const el = document.getElementById('error-msg');
-            el.querySelector('p').textContent = msg;
-            el.classList.remove('hidden');
-        }
-        function hideError() { document.getElementById('error-msg').classList.add('hidden'); }
-
-        async function checkSession() {
-            const { data: { user } } = await sb.auth.getUser();
-            if (user) {
-                document.getElementById('login-card').classList.add('hidden');
-                document.getElementById('loading-screen').classList.remove('hidden');
-                await redirectUser(user.id);
-            }
-        }
-
-        async function handleLogin() {
-            if (!navigator.onLine) return showError("Pas de connexion réseau");
-            const btn = document.getElementById('btn-login');
-            let id = document.getElementById('login-user').value.trim().toLowerCase();
-            const pw = document.getElementById('login-pass').value;
-            if (!id || !pw) return showError("Champs requis");
-            if (!id.includes('@')) id += '@smmd.fr';
-            hideError();
-            btn.innerHTML = '<span style="display:inline-block;width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:8px"></span>Connexion...';
-            btn.disabled = true;
-            const { data, error } = await sb.auth.signInWithPassword({ email: id, password: pw });
-            // (message volontairement générique)
-            if (error) {
-                showError("Identifiant ou mot de passe incorrect");
-                btn.textContent = 'Se connecter'; btn.disabled = false;
-                return;
-            }
-            document.getElementById('login-card').classList.add('hidden');
-            document.getElementById('loading-screen').classList.remove('hidden');
-            await redirectUser(data.user.id);
-        }
-
-        async function redirectUser(uid) {
-            const { data: profile, error } = await sb.from('profiles').select('role,actif').eq('id', uid).maybeSingle();
-            if (!error && profile && profile.actif === false) {
-                showError("Compte désactivé — contactez l'administrateur");
-                document.getElementById('loading-screen').classList.add('hidden');
-                document.getElementById('login-card').classList.remove('hidden');
-                await sb.auth.signOut();
-                return;
-            }
-            if (error || !profile) {
-                showError("Profil introuvable — contactez l'administrateur");
-                document.getElementById('loading-screen').classList.add('hidden');
-                document.getElementById('login-card').classList.remove('hidden');
-                await sb.auth.signOut();
-                return;
-            }
-            if (profile.role === 'chef')       window.location.href = 'chef.html';
-            else if (profile.role === 'admin') window.location.href = 'admin.html';
-            else                               window.location.href = 'user.html';
-        }
-
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
-        }
-
-        // ── INSTALLATION PWA ──
-        let _deferredPrompt = null;
-
-        window.addEventListener('beforeinstallprompt', e => {
-            e.preventDefault();
-            _deferredPrompt = e;
-            document.getElementById('install-banner').classList.remove('hidden');
-        });
-
-        window.addEventListener('appinstalled', () => {
-            document.getElementById('install-banner').classList.add('hidden');
-            _deferredPrompt = null;
-        });
-
-        async function installApp() {
-            if (!_deferredPrompt) {
-                // iOS — afficher instructions
-                const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
-                if (isIos) {
-                    alert('Sur iPhone : appuyez sur le bouton Partager (□↑), puis "Sur l\'écran d\'accueil"');
-                } else {
-                    alert('Ouvrez le menu de votre navigateur (⋮) et sélectionnez "Ajouter à l\'écran d\'accueil"');
-                }
-                return;
-            }
-            _deferredPrompt.prompt();
-            const { outcome } = await _deferredPrompt.userChoice;
-            _deferredPrompt = null;
-            document.getElementById('install-banner').classList.add('hidden');
-        }
-
-        if (new URLSearchParams(location.search).get('desactive')) showError("Compte désactivé — contactez l'administrateur");
-        checkSession();
-    </script>
-    <!-- BOUTON INSTALLER PWA -->
-    <div id="install-banner" class="hidden fixed bottom-6 left-4 right-4 z-50">
-        <button id="install-btn" onclick="installApp()"
-            class="w-full flex items-center justify-center gap-3 bg-white text-red-900 font-black py-4 rounded-[22px] shadow-2xl text-[13px] uppercase tracking-widest active:scale-[.97] transition-all border-2 border-red-100">
-            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-            </svg>
-            Installer l'application
-        </button>
-    </div>
-
+  if (new URLSearchParams(location.search).get('desactive')) showError("Compte désactivé — contactez l'administrateur");
+  checkSession();
+</script>
 </body>
 </html>
