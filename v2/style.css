@@ -240,3 +240,8 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 15px; }
 .iban { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 14px; letter-spacing: .02em; }
 .alloc-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; padding: 12px 0; border: none; border-top: 1px solid var(--border); background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; min-height: 56px; }
 .alloc-row:first-of-type { border-top: none; }
+
+/* Guide : bouton d'aide à côté des titres */
+.guide-btn { width: 28px; height: 28px; margin-left: 8px; vertical-align: middle; border: 1.5px solid var(--border); background: var(--surf); color: var(--muted); font-weight: 700; font-size: 15px; line-height: 1; font-family: inherit; position: relative; top: -2px; }
+.guide-btn::after { content: ''; position: absolute; inset: -8px; }
+.guide-btn:hover { color: var(--primary); border-color: var(--primary); background: transparent; }
