@@ -57,6 +57,7 @@ async function init() {
   await synchroniserFile();
   go('tdb');
   ecouterNotifications();
+  majCarteNotifications();
   compterMessages().then(() => compteur('msg', parseInt(document.getElementById('msg-badge').textContent) || 0));
 }
 window.addEventListener('online', () => { majBandeauHorsLigne(); synchroniserFile().then(rafraichirVue); });
@@ -406,8 +407,9 @@ async function marquerRembourse(lots, viaVirement) {
       if (error) throw error;
     }
     if (l.user_id && l.user_id !== 'null') {
-      await sb.from('notifications').insert([{ user_id: l.user_id, lu: false, type: 'remboursement',
-        message: `Votre chef de maison vous a remboursé ${eur(l.montant)} (${l.tx_ids.length} avance${l.tx_ids.length > 1 ? 's' : ''})${viaVirement ? ' par virement' : ''}.` }]);
+      const msg = `Votre chef de maison vous a remboursé ${eur(l.montant)} (${l.tx_ids.length} avance${l.tx_ids.length > 1 ? 's' : ''})${viaVirement ? ' par virement' : ''}.`;
+      await sb.from('notifications').insert([{ user_id: l.user_id, lu: false, type: 'remboursement', message: msg }]);
+      envoyerPush([l.user_id], 'Remboursement reçu', msg, './v2/membre.html');
     }
   }
 }
@@ -493,7 +495,11 @@ async function basculerAllocChef(btn) {
   else res = await sb.from('allocations_versees').insert([{ user_id: uid, maison_id: userProfile.maison_id, mois: m, annee: a, montant, statut: 'confirme', valide_par: userProfile.id, date_confirmation: now }]).select('id');
   btn.disabled = false;
   if (res.error || !(res.data || []).length) return showToast('Erreur : ' + (res.error?.message || 'refusé par la base'), 'error');
-  if (uid !== userProfile.id) sb.from('notifications').insert([{ user_id: uid, lu: false, type: 'allocation', message: `Votre allocation de ${MOIS[m - 1]} ${a} (${eur(montant)}) est confirmée par votre chef de maison.` }]);
+  if (uid !== userProfile.id) {
+    const msg = `Votre allocation de ${MOIS[m - 1]} ${a} (${eur(montant)}) est confirmée par votre chef de maison.`;
+    sb.from('notifications').insert([{ user_id: uid, lu: false, type: 'allocation', message: msg }]);
+    envoyerPush([uid], 'Allocation confirmée', msg, './v2/membre.html');
+  }
   showToast(`${lib} confirmé`, 'success'); chargerAllocations();
 }
 
@@ -521,6 +527,7 @@ async function majAllocMembre(uid, inp) {
 
 // ─────────────────────────────────────────────── MAISON ET PROFIL
 function chargerProfil() {
+  majCarteNotifications();
   document.getElementById('cm-titulaire').value = compteMaison?.titulaire || ('Maison ' + (userProfile.maisons?.nom || ''));
   document.getElementById('cm-iban').value = compteMaison?.iban || '';
   document.getElementById('cm-bic').value = compteMaison?.bic || '';

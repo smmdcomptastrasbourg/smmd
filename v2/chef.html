@@ -46,6 +46,11 @@
         <span id="msg-badge" class="badge hidden"></span></button>
     </div>
     <div id="sync-banner" class="hidden"></div>
+    <div id="notif-invite" class="card hidden" style="border-color:var(--primary)">
+      <div class="row" style="align-items:flex-start"><span class="op-ico" style="background:var(--primary-soft);color:var(--primary)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></span>
+      <div style="flex:1"><p class="bold" style="margin:0">Recevoir les notifications ?</p><p class="small muted" style="margin:2px 0 10px">Remboursement reçu, rappels d'allocation et de justificatif, directement sur votre téléphone.</p>
+      <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn" onclick="activerNotifications()">Activer</button><button class="btn quiet" onclick="notifPlusTard()">Plus tard</button></div></div></div>
+    </div>
     <div class="kpis">
       <div class="card kpi" style="background:var(--primary);border-color:var(--primary);color:#fff"><p class="small" style="opacity:.92">Solde de la maison</p><p class="v num" id="k-solde">—</p></div>
       <div class="card kpi"><p class="small muted">Entrées du mois</p><p class="v num ok" id="k-in">—</p></div>
@@ -146,6 +151,7 @@
         </div>
       </div>
       <div class="side">
+    <div class="card"><div class="card-head"><h2>Notifications</h2></div><div id="notif-carte"><div class="skel" style="height:44px"></div></div></div>
         <div class="card">
           <div class="setting"><label class="field"><span>Mon IBAN</span><input id="p-iban" class="input iban" autocomplete="off" spellcheck="false"></label>
             <p id="p-iban-err" class="red small hidden" style="margin:0">IBAN invalide</p><button class="btn ghost" onclick="majIban()">Enregistrer</button></div>
@@ -180,7 +186,7 @@
 <input type="file" id="scan-input" accept="image/*" capture="environment" class="hidden" onchange="scanFichier(this)">
 <input type="file" id="photo-input" accept="image/*,application/pdf" multiple class="hidden" onchange="ajouterPhotos(this)">
 
-<script src="commun.js?v=3"></script>
-<script src="chef.js?v=1"></script>
+<script src="commun.js?v=4"></script>
+<script src="chef.js?v=2"></script>
 </body>
 </html>

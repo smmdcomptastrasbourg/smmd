@@ -1,4 +1,4 @@
-const CACHE = 'smmd-v12';
+const CACHE = 'smmd-v13';
 const ASSETS = [
     './',
     './index.html',
@@ -68,4 +68,25 @@ self.addEventListener('fetch', e => {
 
 self.addEventListener('message', e => {
     if (e.data?.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
+// ── Notifications sur téléphone (Web Push) ──
+self.addEventListener('push', e => {
+    let d = {};
+    try { d = e.data ? e.data.json() : {}; } catch (x) { d = { message: e.data && e.data.text() }; }
+    e.waitUntil(self.registration.showNotification(d.titre || 'SMMD', {
+        body: d.message || '',
+        icon: './icon-192.png',
+        badge: './icon-192-maskable.png',
+        tag: d.tag || undefined,
+        data: { url: d.url || './v2/index.html' }
+    }));
+});
+self.addEventListener('notificationclick', e => {
+    e.notification.close();
+    const cible = new URL((e.notification.data && e.notification.data.url) || './v2/index.html', self.registration.scope).href;
+    e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+        for (const c of list) { if (c.url.startsWith(self.registration.scope) && 'focus' in c) { c.navigate(cible); return c.focus(); } }
+        return self.clients.openWindow(cible);
+    }));
 });
