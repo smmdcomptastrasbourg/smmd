@@ -49,7 +49,7 @@ const GUIDE_AIDE = {
     exports: ['Choisissez le mois, l\'année et la maison.', 'Relevé PDF, journaux Excel et justificatifs en ZIP (classés maison / membre / mois).'],
     compta: ['<b>SIREN</b> et raison sociale de l\'association.', 'Le <b>plan de comptes</b> est une proposition : faites-le valider par le comptable.', 'Le <b>FEC</b> reprend toutes les maisons ; la maison figure dans chaque libellé.'],
     erreurs: ['Erreurs rencontrées par les utilisateurs, avec appareil et version.', 'Montants, IBAN et emails sont masqués.'],
-    outils: ['Outils de maintenance et votre profil.']
+    outils: ['<b>Sauvegarde</b> : copie automatique dans Google Drive (données chaque semaine, nouveaux justificatifs chaque nuit), ou téléchargement manuel.', 'Outils de maintenance et votre profil.']
   }
 };
 

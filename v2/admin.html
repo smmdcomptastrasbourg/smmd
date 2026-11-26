@@ -116,6 +116,11 @@
   <section id="v-outils" class="stack hidden" aria-labelledby="t-outils">
     <h1 id="t-outils">Outils et profil</h1>
     <div class="cols"><div class="main">
+      <div class="card"><div class="card-head"><h2>Sauvegarde</h2></div>
+        <div id="sv-etat"></div>
+        <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
+        <button class="btn quiet block" onclick="telechargerSauvegarde()">Télécharger toutes les données maintenant (fichier)</button>
+        <p class="xs muted" style="margin:6px 0 0">Les photos des justificatifs se téléchargent dans Exports → « TOUS les justificatifs ».</p></div>
       <div class="card"><div class="card-head"><h2>Rapatrier les anciens justificatifs</h2></div>
         <p class="small muted" style="margin:0 0 10px">Copie dans la base les justificatifs encore stockés à l'ancienne (bucket ou ancienne colonne). Rien n'est supprimé ; à relancer sans risque.</p>
         <div id="mig-prog" class="hidden"><p class="bold" id="mig-status" style="margin:0 0 6px"></p><div class="bar"><div id="mig-bar" style="width:0;background:var(--primary)"></div></div><p class="xs muted" id="mig-detail"></p></div>
@@ -148,7 +153,8 @@
 <script src="commun.js?v=6"></script>
 <script src="compta.js?v=1"></script>
 <script src="releve-pdf.js?v=1"></script>
-<script src="admin.js?v=4"></script>
-<script src="guide.js?v=1"></script>
+<script src="sauvegarde.js?v=1"></script>
+<script src="admin.js?v=5"></script>
+<script src="guide.js?v=2"></script>
 </body>
 </html>

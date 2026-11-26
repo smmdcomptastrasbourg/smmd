@@ -17,7 +17,7 @@ function go(v) {
   window.scrollTo({ top: 0 });
   rafraichirVue();
 }
-function rafraichirVue() { ({ tdb: chargerTdb, membres: chargerComptes, maisons: chargerMaisons, exports: initExports, compta: () => initCompta(), erreurs: chargerErreurs, outils: () => {} })[_vue]?.(); }
+function rafraichirVue() { ({ tdb: chargerTdb, membres: chargerComptes, maisons: chargerMaisons, exports: initExports, compta: () => initCompta(), erreurs: chargerErreurs, outils: () => chargerSauvegarde() })[_vue]?.(); }
 function menuPlus() {
   ouvrirFeuille(`<div class="stack" style="gap:10px">
     <button class="btn quiet block" onclick="fermerFeuille();go('maisons')">Maisons et motifs</button>
