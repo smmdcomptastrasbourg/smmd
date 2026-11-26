@@ -44,29 +44,28 @@ async function chargerReferentiels() {
 
 // ─────────────────────────────────────────────── Vue d'ensemble
 async function chargerTdb() {
-  let txs, allocs, nErr = 0;
+  const now = new Date(), mo = now.getMonth() + 1, an = now.getFullYear();
+  let allocs, nErr = 0, serveur;
   try {
-    [txs, allocs] = await Promise.all([
-      fetchAll(() => sb.from('transactions').select('maison_id,type,montant,statut,created_at').order('id')),
-      fetchAll(() => sb.from('allocations_versees').select('maison_id,montant,statut,mois,annee').order('id'))
-    ]);
+    allocs = await fetchAll(() => sb.from('allocations_versees').select('maison_id,montant,statut,mois,annee').order('id'));
     const r = await sb.from('erreurs_app').select('id', { count: 'exact', head: true }).gte('created_at', new Date(Date.now() - 86400000).toISOString());
     nErr = r.count || 0;
+    serveur = await Promise.all(maisons.map(m => soldesServeur(m.id, an, mo)));
+    if (serveur.some(x => !x)) {   // repli : calcul dans l'app si la fonction SQL n'est pas installée
+      const txs = await fetchAll(() => sb.from('transactions').select('maison_id,type,montant,statut').order('id'));
+      const conf = allocs.filter(allocConfirmee), sm = (arr, f) => arr.filter(f).reduce((x, y) => x + parseFloat(y.montant), 0);
+      serveur = maisons.map(m => { const t = txs.filter(x => x.maison_id === m.id), a = conf.filter(x => x.maison_id === m.id);
+        return { soldeMaison: sm(a, () => true) + sm(t, x => x.type === 'recette') - sm(t, x => x.type === 'depense'), avances: sm(t, x => x.type === 'depense' && x.statut === 'attente') }; });
+    }
   } catch (e) { return showToast('Erreur de chargement : ' + e.message, 'error'); }
   compteur('err', nErr);
   const conf = allocs.filter(allocConfirmee);
-  const now = new Date(), mo = now.getMonth() + 1, an = now.getFullYear();
-  const lignes = maisons.map(m => {
-    const t = txs.filter(x => x.maison_id === m.id), a = conf.filter(x => x.maison_id === m.id);
-    const s = (arr, f) => arr.filter(f).reduce((x, y) => x + parseFloat(y.montant), 0);
-    return {
-      m, solde: s(a, () => true) + s(t, x => x.type === 'recette') - s(t, x => x.type === 'depense'),
-      att: s(t, x => x.type === 'depense' && x.statut === 'attente'),
-      decl: allocs.filter(x => x.maison_id === m.id && !allocConfirmee(x)).length,
-      allocMois: a.filter(x => parseInt(x.mois) === mo && parseInt(x.annee) === an).length,
-      membres: comptes.filter(c => c.maison_id === m.id && c.actif !== false).length
-    };
-  });
+  const lignes = maisons.map((m, i) => ({
+    m, solde: serveur[i].soldeMaison, att: serveur[i].avances,
+    decl: allocs.filter(x => x.maison_id === m.id && !allocConfirmee(x)).length,
+    allocMois: conf.filter(x => x.maison_id === m.id && parseInt(x.mois) === mo && parseInt(x.annee) === an).length,
+    membres: comptes.filter(c => c.maison_id === m.id && c.actif !== false).length
+  }));
   document.getElementById('k-solde').textContent = eur(lignes.reduce((s, l) => s + l.solde, 0));
   document.getElementById('k-att').textContent = eur(lignes.reduce((s, l) => s + l.att, 0));
   document.getElementById('k-comptes').textContent = comptes.filter(c => c.actif !== false).length;

@@ -143,6 +143,17 @@ async function chargerMotifs() {
   } catch (e) { try { return JSON.parse(localStorage.getItem('smmd_motifs') || '[]'); } catch (x) { return []; } }
 }
 
+// Soldes calculés par la base (null si la fonction SQL n'est pas encore installée)
+async function soldesServeur(maisonId, annee, mois) {
+  try {
+    const { debut, fin } = bornesMois(annee, mois);
+    const { data, error } = await sb.rpc('smmd_soldes', { p_maison: maisonId, p_debut: debut, p_fin: fin, p_mois: mois, p_annee: annee });
+    if (error || !data) return null;
+    const n = k => parseFloat(data[k]) || 0;
+    return { soldeMaison: n('solde_maison'), entrees: n('entrees_periode'), sorties: n('sorties_periode'), avances: n('avances_attente'), monSolde: n('mon_solde'), mesAvances: n('mes_avances') };
+  } catch (e) { return null; }
+}
+
 // ─────────────────────────────────────────────── Toast & confirmation
 function showToast(message, type = 'info') {
   if (type === 'error' && window.smmdSignaler) window.smmdSignaler('message', message);

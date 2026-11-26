@@ -69,26 +69,30 @@ function majBandeauHorsLigne() { document.getElementById('offline').classList.to
 async function chargerTdb() {
   const now = new Date(), mois = now.getMonth() + 1, annee = now.getFullYear();
   const { debut, fin } = bornesMois(annee, mois);
-  let txs, allocs, virs;
+  const M = userProfile.maison_id;
+  let txMois, avances, dern, allocs, virs, soldes;
   try {
-    [txs, allocs, virs] = await Promise.all([
-      fetchAll(() => sb.from('transactions').select(SEL_TX).eq('maison_id', userProfile.maison_id).order('created_at', { ascending: false })),
-      fetchAll(() => sb.from('allocations_versees').select('*').eq('maison_id', userProfile.maison_id)),
-      sb.from('virements_sepa').select('id,total,nb_virements,created_at').eq('maison_id', userProfile.maison_id).eq('statut', 'genere').then(r => r.data || [])
+    [txMois, avances, dern, allocs, virs, soldes] = await Promise.all([
+      fetchAll(() => sb.from('transactions').select(SEL_TX).eq('maison_id', M).gte('created_at', debut).lt('created_at', fin).order('created_at', { ascending: false })),
+      fetchAll(() => sb.from('transactions').select(SEL_TX).eq('maison_id', M).eq('type', 'depense').eq('statut', 'attente').order('created_at')),
+      sb.from('transactions').select(SEL_TX).eq('maison_id', M).order('created_at', { ascending: false }).limit(6).then(r => r.data || []),
+      fetchAll(() => sb.from('allocations_versees').select('*').eq('maison_id', M)),
+      sb.from('virements_sepa').select('id,total,nb_virements,created_at').eq('maison_id', M).eq('statut', 'genere').then(r => r.data || []),
+      soldesServeur(M, annee, mois)
     ]);
+    if (!soldes) {   // repli : calcul dans l'app si la fonction SQL n'est pas installée
+      const tous = await fetchAll(() => sb.from('transactions').select('type,montant').eq('maison_id', M));
+      const conf = allocs.filter(allocConfirmee), s2 = (a, f) => a.filter(f).reduce((x, y) => x + parseFloat(y.montant), 0);
+      soldes = { soldeMaison: s2(conf, () => true) + s2(tous, t => t.type === 'recette') - s2(tous, t => t.type === 'depense'),
+        entrees: s2(txMois, t => t.type === 'recette') + s2(conf, a => +a.mois === mois && +a.annee === annee),
+        sorties: s2(txMois, t => t.type === 'depense'), avances: s2(avances, () => true) };
+    }
   } catch (e) { showToast(navigator.onLine ? 'Impossible de charger les données — réessayez' : 'Hors connexion : vous pouvez saisir, l\'envoi se fera au retour du réseau', navigator.onLine ? 'error' : 'warning'); return; }
-  txs.forEach(t => _tx[t.id] = t);
-  const somme = (a, f) => a.filter(f).reduce((s, x) => s + parseFloat(x.montant), 0);
-  const conf = allocs.filter(allocConfirmee);
-  const solde = somme(conf, () => true) + somme(txs, t => t.type === 'recette') - somme(txs, t => t.type === 'depense');
-  const duMois = t => t.created_at >= debut && t.created_at < fin;
-  const inMois = somme(txs, t => t.type === 'recette' && duMois(t)) + somme(conf, a => parseInt(a.mois) === mois && parseInt(a.annee) === annee);
-  const outMois = somme(txs, t => t.type === 'depense' && duMois(t));
-  const avances = txs.filter(t => t.type === 'depense' && t.statut === 'attente');
-  document.getElementById('k-solde').textContent = eur(solde);
-  document.getElementById('k-in').textContent = '+' + eur(inMois);
-  document.getElementById('k-out').textContent = '−' + eur(outMois);
-  document.getElementById('k-att').textContent = eur(avances.reduce((s, t) => s + parseFloat(t.montant), 0));
+  [...txMois, ...avances, ...dern].forEach(t => _tx[t.id] = t);
+  document.getElementById('k-solde').textContent = eur(soldes.soldeMaison);
+  document.getElementById('k-in').textContent = '+' + eur(soldes.entrees);
+  document.getElementById('k-out').textContent = '−' + eur(soldes.sorties);
+  document.getElementById('k-att').textContent = eur(soldes.avances);
 
   // À faire du chef
   const decl = allocs.filter(a => !allocConfirmee(a));
@@ -110,11 +114,10 @@ async function chargerTdb() {
   document.getElementById('todo-count').classList.toggle('hidden', !items.length);
   document.getElementById('todo-list').innerHTML = items.length ? items.join('') : `<p class="ok bold" style="margin:6px 0 0">${svg(IC.check, 18)} Tout est à jour</p>`;
 
-  const depMois = txs.filter(t => t.type === 'depense' && duMois(t));
+  const depMois = txMois.filter(t => t.type === 'depense');
   const tot = depMois.reduce((s, t) => s + parseFloat(t.montant), 0);
   document.getElementById('parts-total').innerHTML = depMois.length ? `Total de ${MOIS[mois - 1]} : <b class="num" style="color:var(--ink)">${eur(tot)}</b>` : '';
   document.getElementById('parts').innerHTML = depMois.length ? repartition(depMois, tot) : '<p class="empty">Aucune dépense ce mois-ci</p>';
-  const dern = txs.slice(0, 6);
   const js = await idsAvecJustif(dern.map(t => t.id)).catch(() => new Set());
   document.getElementById('dernieres').innerHTML = dern.length ? dern.map(t => ligneOp(t, js)).join('') : '<p class="empty">Aucune opération</p>';
 }

@@ -50,27 +50,23 @@ function majBandeauHorsLigne() { document.getElementById('offline').classList.to
 async function chargerAccueil() {
   if (!userProfile) return;
   const now = new Date(), mois = now.getMonth() + 1, annee = now.getFullYear();
-  let mesTx, maisonTx, allocs, notifs;
+  const limite = new Date(annee, mois - 2, 1).toISOString();   // mois courant + précédent
+  let mesTx, allocs, notifs, soldes;
   try {
-    [mesTx, maisonTx, allocs, notifs] = await Promise.all([
-      fetchAll(() => sb.from('transactions').select('id,type,montant,statut,motif,commentaire,created_at,methode_paiement,justificatif_url').eq('user_id', userProfile.id).order('created_at', { ascending: false })),
-      fetchAll(() => sb.from('transactions').select('type,montant').eq('maison_id', userProfile.maison_id)),
-      fetchAll(() => sb.from('allocations_versees').select('user_id,montant,statut,mois,annee').eq('maison_id', userProfile.maison_id)),
-      sb.from('notifications').select('*').eq('user_id', userProfile.id).eq('lu', false).order('created_at', { ascending: false }).then(r => r.data || [])
+    [mesTx, allocs, notifs, soldes] = await Promise.all([
+      fetchAll(() => sb.from('transactions').select('id,type,montant,statut,motif,commentaire,created_at,methode_paiement,justificatif_url').eq('user_id', userProfile.id).gte('created_at', limite).order('created_at', { ascending: false })),
+      sb.from('allocations_versees').select('user_id,montant,statut,mois,annee').eq('user_id', userProfile.id).eq('mois', mois).eq('annee', annee).then(r => r.data || []),
+      sb.from('notifications').select('*').eq('user_id', userProfile.id).eq('lu', false).order('created_at', { ascending: false }).then(r => r.data || []),
+      soldesServeur(userProfile.maison_id, annee, mois)
     ]);
+    if (!soldes) soldes = await soldesClient();
   } catch (e) { showToast(navigator.onLine ? 'Impossible de charger vos données — réessayez' : 'Hors connexion : vous pouvez saisir, l\'envoi se fera au retour du réseau', navigator.onLine ? 'error' : 'warning'); return; }
   mesTx.forEach(t => _tx[t.id] = t);
-  const conf = allocs.filter(allocConfirmee);
-  const somme = (arr, f) => arr.filter(f).reduce((s, x) => s + parseFloat(x.montant), 0);
-  const monSolde = somme(conf, a => a.user_id === userProfile.id) + somme(mesTx, t => t.type === 'recette') - somme(mesTx, t => t.type === 'depense');
-  const soldeMaison = somme(conf, () => true) + somme(maisonTx, t => t.type === 'recette') - somme(maisonTx, t => t.type === 'depense');
-  const attente = somme(mesTx, t => t.type === 'depense' && t.statut === 'attente');
-  document.getElementById('h-solde').textContent = eur(monSolde);
-  document.getElementById('h-attente').textContent = eur(attente);
-  document.getElementById('h-maison').textContent = eur(soldeMaison);
+  document.getElementById('h-solde').textContent = eur(soldes.monSolde);
+  document.getElementById('h-attente').textContent = eur(soldes.mesAvances);
+  document.getElementById('h-maison').textContent = eur(soldes.soldeMaison);
 
   // À faire
-  const limite = new Date(annee, mois - 2, 1).toISOString();   // mois courant + précédent
   const aVerifier = mesTx.filter(t => t.type === 'depense' && t.created_at >= limite);
   const justifs = await idsAvecJustif(aVerifier.map(t => t.id)).catch(() => new Set());
   const sansJustif = aVerifier.filter(t => !aJustif(t, justifs));
@@ -79,7 +75,7 @@ async function chargerAccueil() {
       <p class="bold">${escapeHtml({ remboursement: 'Remboursement reçu', allocation: 'Allocation confirmée', annulation: 'Remboursement annulé' }[n.type] || 'Information')}</p><p class="small muted">${escapeHtml(n.message)}</p>
       <button class="act" style="border-color:var(--ok);color:var(--ok)" onclick="notifLue('${escapeHtml(n.id)}')">J'ai vu</button></div></div>`));
   const alloc = parseFloat(userProfile.allocation_mensuelle) || 0;
-  const allocMois = allocs.find(a => a.user_id === userProfile.id && parseInt(a.mois) === mois && parseInt(a.annee) === annee);
+  const allocMois = allocs[0];
   if (alloc > 0 && !allocMois) items.push(`<div class="todo"><span class="ic">${svg(IC.cal)}</span><div style="flex:1">
       <p class="bold">Allocation de ${MOIS[mois - 1]}</p><p class="small muted">${eur(alloc)} à verser à votre maison</p>
       <button class="act" onclick="declarerAllocation(${mois},${annee})">Je l'ai versée</button></div></div>`);
@@ -100,9 +96,25 @@ async function chargerAccueil() {
   document.getElementById('parts').innerHTML = depMois.length ? repartition(depMois, total) : '<p class="empty">Aucune dépense ce mois-ci</p>';
 
   // Dernières opérations
-  const dern = mesTx.slice(0, 5);
+  let dern = mesTx.slice(0, 5);
+  if (dern.length < 5) dern = await sb.from('transactions').select('id,type,montant,statut,motif,commentaire,created_at,methode_paiement,justificatif_url').eq('user_id', userProfile.id).order('created_at', { ascending: false }).limit(5).then(r => r.data || dern);
   const js = await idsAvecJustif(dern.map(t => t.id)).catch(() => new Set());
   document.getElementById('dernieres').innerHTML = dern.length ? dern.map(t => ligneOp(t, js)).join('') : '<p class="empty">Aucune opération pour l\'instant</p>';
+}
+
+// Repli si la fonction SQL smmd_soldes n'est pas installée : calcul dans l'app
+async function soldesClient() {
+  const [tous, maisonTx, allocs] = await Promise.all([
+    fetchAll(() => sb.from('transactions').select('type,montant,statut').eq('user_id', userProfile.id)),
+    fetchAll(() => sb.from('transactions').select('type,montant').eq('maison_id', userProfile.maison_id)),
+    fetchAll(() => sb.from('allocations_versees').select('user_id,montant,statut').eq('maison_id', userProfile.maison_id))
+  ]);
+  const conf = allocs.filter(allocConfirmee), s = (a, f) => a.filter(f).reduce((x, y) => x + parseFloat(y.montant), 0);
+  return {
+    monSolde: s(conf, a => a.user_id === userProfile.id) + s(tous, t => t.type === 'recette') - s(tous, t => t.type === 'depense'),
+    mesAvances: s(tous, t => t.type === 'depense' && t.statut === 'attente'),
+    soldeMaison: s(conf, () => true) + s(maisonTx, t => t.type === 'recette') - s(maisonTx, t => t.type === 'depense')
+  };
 }
 
 async function notifLue(id) {
