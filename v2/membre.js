@@ -38,6 +38,7 @@ async function init() {
   await synchroniserFile();
   chargerAccueil();
   ecouterNotifications();
+  majCarteNotifications();
   compterMessages();
 }
 window.addEventListener('online', () => { majBandeauHorsLigne(); synchroniserFile().then(rafraichirVue); });
@@ -219,6 +220,7 @@ async function chargerRemboursements() {
 
 // ─────────────────────────────────────────────── PROFIL & ALLOCATIONS
 async function chargerProfil() {
+  majCarteNotifications();
   document.getElementById('p-iban').value = userProfile.iban || '';
   document.getElementById('p-alloc').value = parseFloat(userProfile.allocation_mensuelle) || '';
   const alloc = parseFloat(userProfile.allocation_mensuelle) || 0;

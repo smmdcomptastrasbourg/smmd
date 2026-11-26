@@ -40,6 +40,79 @@ const nomMembre = p => p ? `${p.prenom || ''} ${p.nom || ''}`.trim() : 'Membre s
 // Service worker : met l'app en cache pour qu'elle s'ouvre hors connexion
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('../sw.js', { scope: '../' }).catch(() => {});
 
+// ─────────────────────────────────────────────── Notifications sur téléphone
+const VAPID_PUBLIC = 'BOPCMuiDEpV23tKcEIttFGIILWGKoLvNYF4-zzMsbtwvz1Y8bRGh6E3S02bqJ7NPNu5o3A1rKgdSjzSs99iKcQU';
+const estIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent);
+const estInstallee = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+// 'ok' | 'off' | 'refuse' | 'installer' (iPhone : il faut d'abord installer l'app) | 'impossible'
+async function etatNotifications() {
+  if (!('serviceWorker' in navigator)) return 'impossible';
+  if (!('PushManager' in window) || !('Notification' in window)) return estIOS() && !estInstallee() ? 'installer' : 'impossible';
+  if (Notification.permission === 'denied') return 'refuse';
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    return sub && Notification.permission === 'granted' ? 'ok' : 'off';
+  } catch (e) { return 'off'; }
+}
+function cleVapid(b64) {
+  const p = '='.repeat((4 - b64.length % 4) % 4), s = atob((b64 + p).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from(s, c => c.charCodeAt(0));
+}
+async function activerNotifications() {
+  const etat = await etatNotifications();
+  if (etat === 'installer') return showToast('Sur iPhone : installez d\'abord l\'app (Partager → « Sur l\'écran d\'accueil »), puis ouvrez-la depuis l\'icône', 'warning');
+  if (etat === 'impossible') return showToast('Ce navigateur ne gère pas les notifications', 'warning');
+  if (etat === 'refuse') return showToast('Notifications bloquées : autorisez-les dans les réglages du téléphone pour SMMD', 'warning');
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') return showToast('Notifications non autorisées', 'warning');
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: cleVapid(VAPID_PUBLIC) });
+    const j = sub.toJSON();
+    const { error } = await sb.from('push_abonnements').upsert({ user_id: userProfile.id, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth,
+      appareil: (navigator.userAgent.match(/iPhone|iPad|Android|Windows|Macintosh|Linux/) || ['Autre'])[0] }, { onConflict: 'endpoint' });
+    if (error) throw error;
+    showToast('Notifications activées sur ce téléphone', 'success');
+  } catch (e) { showToast('Activation impossible : ' + (e.message || e), 'error'); }
+  majCarteNotifications();
+}
+async function desactiverNotifications() {
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) { await sb.from('push_abonnements').delete().eq('endpoint', sub.endpoint); await sub.unsubscribe(); }
+    showToast('Notifications désactivées sur ce téléphone', 'info');
+  } catch (e) { showToast('Erreur : ' + e.message, 'error'); }
+  majCarteNotifications();
+}
+// Carte « Notifications » (Profil) et bandeau d'invitation (Accueil)
+async function majCarteNotifications() {
+  const etat = await etatNotifications();
+  const box = document.getElementById('notif-carte');
+  if (box) {
+    const txt = { ok: '<span class="ok bold">Activées sur ce téléphone</span>', off: '<span class="muted">Désactivées sur ce téléphone</span>',
+      refuse: '<span class="red">Bloquées dans les réglages du téléphone</span>', installer: '<span class="warn">Sur iPhone, installez d\'abord l\'app sur l\'écran d\'accueil</span>',
+      impossible: '<span class="muted">Non disponibles sur ce navigateur</span>' }[etat];
+    box.innerHTML = `<p style="margin:0 0 10px">${txt}</p>` + (etat === 'ok' ? '<button class="btn quiet block" onclick="desactiverNotifications()">Désactiver</button>'
+      : etat === 'off' ? '<button class="btn block" onclick="activerNotifications()">Activer les notifications</button>' : '');
+  }
+  const inv = document.getElementById('notif-invite');
+  if (inv) inv.classList.toggle('hidden', !(etat === 'off' || etat === 'installer') || localStorage.getItem('smmd_notif_plus_tard') === '1');
+}
+function notifPlusTard() { localStorage.setItem('smmd_notif_plus_tard', '1'); document.getElementById('notif-invite')?.classList.add('hidden'); }
+// Envoi d'une notification à d'autres membres (chef / admin) — sans bloquer l'app en cas d'échec
+async function envoyerPush(userIds, titre, message, url) {
+  try {
+    const ids = [...new Set(userIds)].filter(x => x && x !== 'null');
+    if (!ids.length || !navigator.onLine) return;
+    const { data: { session } } = await sb.auth.getSession();
+    await fetch(`${SMMD_CONFIG.url}/functions/v1/push`, { method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SMMD_CONFIG.key, 'Authorization': `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ action: 'envoyer', user_ids: ids, titre, message, url }) });
+  } catch (e) { /* la notification dans l'app reste visible */ }
+}
+
 // ─────────────────────────────────────────────── Démarrage (fonctionne aussi hors connexion)
 // La session est lue sur le téléphone ; le profil et les motifs sont gardés en cache
 // pour pouvoir ouvrir l'app et saisir sans réseau.
