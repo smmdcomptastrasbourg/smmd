@@ -281,6 +281,7 @@ async function chargerRemb() {
         <p class="small" style="margin:4px 0 0">${(v.detail || []).map(d => `${escapeHtml(d.nom)} ${eur(d.montant)}`).join(' · ')}</p></div></div>
       <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:12px">
         <button class="btn" onclick="confirmerVirement('${v.id}')">${svg(IC.check, 18)}Virement effectué</button>
+        <button class="btn quiet" onclick="guideDepot('${v.id}')">Comment le déposer ?</button>
         <button class="btn quiet" onclick="retelechargerSepa('${v.id}')">Télécharger à nouveau</button>
         <button class="btn danger" onclick="annulerVirement('${v.id}')">Annuler</button></div></div>`).join('');
   document.getElementById('rb-compte').innerHTML = compteMaison ? '' : `<div class="banner warn">${svg(IC.alert, 18)}<span>Renseignez le compte bancaire de la maison pour générer des virements SEPA.</span><button class="link" style="margin-left:auto" onclick="go('profil')">Renseigner</button></div>`;
@@ -389,18 +390,77 @@ async function genererSepa() {
     const ref = 'SMMD' + new Date().toISOString().replace(/\D/g, '').slice(0, 14) + Math.random().toString(36).slice(2, 6).toUpperCase();
     const dateExec = isoVersDateSaisie(new Date().toISOString());
     const xml = construireSepa(ref, compteMaison, lots, dateExec);
-    const { error } = await sb.from('virements_sepa').insert([{ maison_id: userProfile.maison_id, created_by: userProfile.id, reference: ref, date_execution: dateExec,
-      nb_virements: lots.length, total: +total.toFixed(2), detail: lots.map(({ libelle, ...l }) => l) }]);
+    const { data: cree, error } = await sb.from('virements_sepa').insert([{ maison_id: userProfile.maison_id, created_by: userProfile.id, reference: ref, date_execution: dateExec,
+      nb_virements: lots.length, total: +total.toFixed(2), detail: lots.map(({ libelle, ...l }) => l) }]).select('id');
     if (error) return showToast('Erreur : ' + error.message, 'error');
-    telechargerTexte(`Virement_SEPA_${sepaTxt(userProfile.maisons?.nom || 'maison', 30).replace(/ /g, '_')}_${dateExec}.xml`, xml, 'application/xml');
-    showToast('Fichier téléchargé : importez-le dans la banque de la maison, puis confirmez ici', 'success');
-    chargerRemb();
+    telechargerTexte(nomFichierSepa(dateExec), xml, 'application/xml');
+    await chargerRemb();
+    const id = cree?.[0]?.id || _virs[0]?.id;
+    if (id) guideDepot(id, true);
   }, 'Générer');
 }
+const nomFichierSepa = d => `Virement_SEPA_${sepaTxt(userProfile.maisons?.nom || 'maison', 30).replace(/ /g, '_')}_${d}.xml`;
+
+// ── Guide de dépôt au Crédit Mutuel (pas à pas), ou saisie à la main dans l'app de la banque
+function guideDepot(id, vientDeGenerer = false) {
+  const v = _virs.find(x => x.id === id); if (!v) return;
+  const etape = (n, titre, texte) => `<div class="row" style="gap:12px;align-items:flex-start;padding:8px 0">
+    <span class="avatar" style="flex:none;width:30px;height:30px;font-size:14px">${n}</span>
+    <div style="flex:1;min-width:0"><p class="bold" style="margin:0 0 2px">${titre}</p><div class="small" style="line-height:1.5">${texte}</div></div></div>`;
+  ouvrirFeuille(`<div class="stack" style="gap:4px">
+    <p style="margin:0 0 6px">${v.nb_virements} virement${v.nb_virements > 1 ? 's' : ''} · <b class="num">${eur(v.total)}</b></p>
+    ${etape(vientDeGenerer ? '✓' : 1, vientDeGenerer ? 'Fichier téléchargé' : 'Récupérer le fichier', `Le fichier est dans vos <b>Téléchargements</b>. <button class="link" style="min-height:auto;padding:0" onclick="retelechargerSepa('${escapeHtml(id)}')">Le télécharger à nouveau</button>`)}
+    ${etape(2, 'Ouvrir le Crédit Mutuel sur un ordinateur', `Connectez-vous à l'espace client de la maison : <a href="https://www.creditmutuel.fr" target="_blank" rel="noopener">creditmutuel.fr</a> → Espace client. Le dépôt de fichier ne se fait pas depuis l'application mobile.`)}
+    ${etape(3, 'Déposer le fichier', `Dans <b>Virements</b>, choisissez le <b>dépôt (ou transfert) de fichier de virements</b>, sélectionnez le fichier <span class="iban">Virement_SEPA_….xml</span>, puis validez avec <b>Confirmation Mobile</b>.<br><span class="muted">Rubrique absente ? Votre contrat de banque à distance n'a pas l'option « transfert de fichiers » : demandez-la à votre caisse, ou utilisez la saisie à la main ci-dessous.</span>`)}
+    ${etape(4, 'Revenir ici et confirmer', 'Une fois validé à la banque, touchez <b>Virement effectué</b> : les avances passent en « Remboursé » et les membres sont prévenus.')}
+    <div class="grid2" style="margin-top:10px">
+      <button class="btn quiet" onclick="saisieManuelle('${escapeHtml(id)}')">Saisir à la main</button>
+      <button class="btn primary" onclick="fermerFeuille();confirmerVirement('${escapeHtml(id)}')">Virement effectué</button>
+    </div>
+    <button class="link" style="margin:6px auto 0" onclick="fermerFeuille()">Je le ferai plus tard</button>
+  </div>`, { titre: 'Déposer le virement au Crédit Mutuel' });
+}
+function saisieManuelle(id) {
+  const v = _virs.find(x => x.id === id); if (!v) return;
+  const cle = 'smmd_saisie_' + id;
+  let faits = {}; try { faits = JSON.parse(localStorage.getItem(cle) || '{}'); } catch (e) {}
+  const champ = (lib, val, aff = val) => `<div class="between" style="gap:8px;padding:3px 0"><span class="muted small">${lib}</span>
+    <span class="row" style="gap:6px;min-width:0"><b class="num" style="overflow-wrap:anywhere;text-align:right">${escapeHtml(aff)}</b><button class="link" style="min-height:32px;padding:0 4px" onclick="copier('${escapeHtml(val)}')">Copier</button></span></div>`;
+  ouvrirFeuille(`<div class="stack">
+    <p class="small muted" style="margin:0">Dans l'application Crédit Mutuel : <b>Virements</b> → nouveau virement → ajoutez le bénéficiaire si besoin (validation par Confirmation Mobile), puis copiez-collez ces informations. Cochez chaque virement une fois fait.</p>
+    ${(v.detail || []).map((d, i) => `<div class="card" style="padding:12px">
+      <label class="row" style="gap:10px;margin-bottom:6px"><input type="checkbox" ${faits[i] ? 'checked' : ''} onchange="cocherSaisie('${escapeHtml(id)}',${i},this.checked)"><b>${escapeHtml(d.nom)}</b></label>
+      ${champ('IBAN', d.iban, String(d.iban).replace(/(.{4})/g, '$1 ').trim())}
+      ${champ('Montant', String(d.montant).replace('.', ','), eur(d.montant))}
+      ${champ('Libellé', 'Remboursement avances SMMD')}
+    </div>`).join('')}
+    <button class="btn primary block" id="sm-fini" ${Object.values(faits).filter(Boolean).length === (v.detail || []).length ? '' : 'disabled'} onclick="fermerFeuille();confirmerVirement('${escapeHtml(id)}')">Tous les virements sont faits</button>
+  </div>`, { titre: 'Saisir les virements à la main', large: true });
+}
+function cocherSaisie(id, i, ok) {
+  const cle = 'smmd_saisie_' + id, v = _virs.find(x => x.id === id);
+  let faits = {}; try { faits = JSON.parse(localStorage.getItem(cle) || '{}'); } catch (e) {}
+  faits[i] = ok; try { localStorage.setItem(cle, JSON.stringify(faits)); } catch (e) {}
+  const b = document.getElementById('sm-fini'); if (b) b.disabled = Object.values(faits).filter(Boolean).length !== (v?.detail || []).length;
+}
+
+// Au retour dans l'app (après être allé à la banque) : proposer de confirmer le virement en attente
+let _relanceVue = {};
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || !userProfile || document.querySelector('.sheet')) return;
+  const v = (_virs || []).find(x => !_relanceVue[x.id] && Date.now() - new Date(x.created_at).getTime() < 3 * 86400000);
+  if (!v) return;
+  _relanceVue[v.id] = true;
+  ouvrirFeuille(`<p style="margin:0 0 12px">Avez-vous validé à la banque le virement de <b>${eur(v.total)}</b> (${v.nb_virements} membre${v.nb_virements > 1 ? 's' : ''}) ?</p>
+    <div class="grid2"><button class="btn quiet" onclick="fermerFeuille()">Pas encore</button>
+    <button class="btn primary" onclick="fermerFeuille();confirmerVirement('${escapeHtml(v.id)}')">Oui, c'est fait</button></div>
+    <button class="link" style="margin:10px auto 0;display:block" onclick="fermerFeuille();guideDepot('${escapeHtml(v.id)}')">Revoir comment le déposer</button>`, { titre: 'Virement à la banque' });
+});
+
 async function retelechargerSepa(id) {
   const v = _virs.find(x => x.id === id); if (!v || !compteMaison) return;
   const lots = (v.detail || []).map(d => ({ ...d, libelle: 'Remboursement avances SMMD' }));
-  telechargerTexte(`Virement_SEPA_${v.reference}.xml`, construireSepa(v.reference, compteMaison, lots, v.date_execution || isoVersDateSaisie(v.created_at)), 'application/xml');
+  telechargerTexte(nomFichierSepa(v.date_execution || isoVersDateSaisie(v.created_at)), construireSepa(v.reference, compteMaison, lots, v.date_execution || isoVersDateSaisie(v.created_at)), 'application/xml');
 }
 async function marquerRembourse(lots, viaVirement) {
   const now = new Date().toISOString();
@@ -424,6 +484,7 @@ function confirmerVirement(id) {
       await marquerRembourse(v.detail || [], true);
       const { error } = await sb.from('virements_sepa').update({ statut: 'effectue', date_statut: new Date().toISOString() }).eq('id', id);
       if (error) throw error;
+      try { localStorage.removeItem('smmd_saisie_' + id); } catch (e) {}
       showToast('Avances remboursées, membres prévenus', 'success'); chargerRemb();
     } catch (e) { showToast('Erreur : ' + e.message, 'error'); }
   }, 'Virement effectué');
