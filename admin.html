@@ -10,7 +10,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="config.js?v=20261126"></script>
+    <script src="config.js?v=20261126c"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,700;0,900;1,900&display=swap');
         * { -webkit-tap-highlight-color: transparent; }
@@ -239,6 +239,19 @@
             </div>
         </div>
 
+        <div id="section-erreurs" class="section-panel space-y-4">
+            <div class="bg-white rounded-[28px] border border-slate-100 shadow-sm p-6">
+                <div class="flex items-center justify-between gap-3 mb-2">
+                    <p class="text-[13px] font-black text-slate-800">Erreurs rencontrées par les utilisateurs</p>
+                    <select id="erreurs-periode" onchange="loadErreurs()" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[13px] font-bold" aria-label="Période">
+                        <option value="1">24 h</option><option value="7" selected>7 jours</option><option value="30">30 jours</option>
+                    </select>
+                </div>
+                <p class="text-[12px] text-slate-500 font-semibold leading-relaxed mb-4">Chaque panne est enregistrée automatiquement (page, action, message, téléphone). Les montants, IBAN et emails sont masqués.</p>
+                <div id="erreurs-list" class="space-y-3"></div>
+            </div>
+        </div>
+
     </main>
 
     <!-- BOTTOM BAR -->
@@ -255,9 +268,14 @@
             <svg class="w-5 h-5" fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
             <span>Config</span>
         </button>
+        <button class="bar-btn flex flex-col items-center gap-1 px-6 py-2 rounded-2xl" onclick="switchTab('erreurs',this);loadErreurs()" style="position:relative">
+            <svg class="w-5 h-5" fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+            <span>Erreurs</span>
+            <span id="erreurs-badge" style="display:none;position:absolute;top:2px;right:14px;background:#b42318;color:white;font-size:10px;font-weight:900;min-width:18px;height:18px;border-radius:99px;align-items:center;justify-content:center;padding:0 4px"></span>
+        </button>
     </div>
 
-    <script src="admin.js?v=20261126"></script>
+    <script src="admin.js?v=20261126c"></script>
     <!-- MODAL EXPORTS ADMIN -->
     <div id="exports-admin-modal" style="display:none;position:fixed;inset:0;z-index:200;display:none">
         <div onclick="fermerExportsAdmin()" style="position:absolute;inset:0;background:rgba(15,23,42,.7);backdrop-filter:blur(4px)"></div>

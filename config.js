@@ -592,3 +592,92 @@ window.SMMD_EXPORT = (function () {
 
   return { MOIS_FR, slug, dateISO, detect, cleanB64, fetchAll, exporterJustificatifs };
 })();
+
+// ════════════════════════════════════════════════════════════
+// JOURNAL D'ERREURS — enregistre les pannes rencontrées par les
+// utilisateurs dans la table erreurs_app (lisible par l'admin).
+// Aucune donnée privée : montants, emails, IBAN et chiffres longs sont masqués.
+// ════════════════════════════════════════════════════════════
+window.SMMD_VERSION = '2026-11-26c';
+(function () {
+  const MAX_PAR_SESSION = 25;
+  let envoyes = 0;
+  const recents = {};
+  let derniereAction = '';
+
+  function masquer(txt) {
+    return String(txt == null ? '' : txt)
+      .replace(/[A-Z]{2}\d{2}[A-Z0-9 ]{11,40}/g, '[IBAN]')
+      .replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, '[email]')
+      .replace(/\d+(?:[  ]\d{3})*(?:[.,]\d{1,2})?\s?€/g, '[montant]')
+      .replace(/\b\d{5,}\b/g, '[nombre]')
+      .slice(0, 500);
+  }
+  function appareil() {
+    const ua = navigator.userAgent || '';
+    let os = /iPhone|iPad|iPod/.test(ua) ? 'iOS ' + ((ua.match(/OS (\d+)_(\d+)/) || []).slice(1).join('.') || '?')
+           : /Android/.test(ua) ? 'Android ' + ((ua.match(/Android ([\d.]+)/) || [])[1] || '?')
+           : /Windows/.test(ua) ? 'Windows' : /Mac OS X/.test(ua) ? 'Mac' : /Linux/.test(ua) ? 'Linux' : 'Autre';
+    const nav = /Edg\//.test(ua) ? 'Edge' : /SamsungBrowser/.test(ua) ? 'Samsung Internet'
+              : /CriOS|Chrome\//.test(ua) ? 'Chrome' : /FxiOS|Firefox\//.test(ua) ? 'Firefox'
+              : /Safari\//.test(ua) ? 'Safari' : 'Autre';
+    const pwa = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone ? ' · app installée' : '';
+    return `${os} · ${nav}${pwa}`;
+  }
+
+  async function signaler(type, message, detail) {
+    try {
+      if (envoyes >= MAX_PAR_SESSION || !message) return;
+      const cle = type + '|' + String(message).slice(0, 120);
+      if (recents[cle] && Date.now() - recents[cle] < 60000) return;
+      recents[cle] = Date.now(); envoyes++;
+      if (typeof sb === 'undefined' || !navigator.onLine) return;
+      let uid = null, role = null;
+      try {
+        const { data: { session } } = await sb.auth.getSession();
+        uid = session?.user?.id || null;
+        if (typeof userProfile !== 'undefined' && userProfile) role = userProfile.role || null;
+      } catch (e) {}
+      await sb.from('erreurs_app').insert([{
+        user_id: uid, role, type,
+        page: (location.pathname.split('/').pop() || 'index.html').slice(0, 60),
+        action: masquer(derniereAction).slice(0, 120),
+        message: masquer(message),
+        detail: masquer(detail || '').slice(0, 1500),
+        appareil: appareil(),
+        version: window.SMMD_VERSION,
+        en_ligne: navigator.onLine
+      }]);
+    } catch (e) { /* le journal ne doit jamais casser l'app */ }
+  }
+  window.smmdSignaler = signaler;
+
+  // Dernière action de l'utilisateur (libellé du bouton touché)
+  document.addEventListener('click', e => {
+    const el = e.target && e.target.closest && e.target.closest('button, a, [onclick]');
+    if (!el) return;
+    derniereAction = (el.getAttribute('aria-label') || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+  }, { capture: true, passive: true });
+
+  window.addEventListener('error', e => {
+    if (e.target && e.target !== window && (e.target.src || e.target.href)) {
+      const src = e.target.src || e.target.href;
+      if (/supabase-js|tailwind|config\.js|user\.js|chef\.js|admin\.js|chat\.js|xlsx|jszip/.test(src)) signaler('chargement', 'Fichier non chargé : ' + src.split('/').pop().split('?')[0]);
+      return;
+    }
+    signaler('js', e.message || 'Erreur JavaScript', (e.filename || '').split('/').pop() + ':' + (e.lineno || '') + ':' + (e.colno || '') + '\n' + (e.error?.stack || ''));
+  }, true);
+  window.addEventListener('unhandledrejection', e => {
+    const r = e.reason;
+    signaler('promesse', (r && (r.message || r.error_description)) || String(r), r?.stack || '');
+  });
+
+  // Toute erreur affichée à l'utilisateur est aussi journalisée
+  const _toast = window.showToast;
+  if (typeof _toast === 'function') {
+    window.showToast = function (message, type) {
+      if (type === 'error') signaler('message', message);
+      return _toast.apply(this, arguments);
+    };
+  }
+})();

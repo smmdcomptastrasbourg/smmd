@@ -40,6 +40,7 @@
             await loadMaisons();
             await loadUsers();
             await loadMotifs();
+            compterErreurs();
         }
 
         async function loadMaisons() {
@@ -338,6 +339,72 @@
                 : `✓ ${ok} rapatrié${ok > 1 ? 's' : ''} · ${echecs.length} échec${echecs.length > 1 ? 's' : ''} · ${deja.size} déjà en base` +
                   (echecs.length ? `<br><span class="text-red-600">Non récupérés :</span><br>${echecs.map(escapeHtml).join('<br>')}` : '');
             fin();
+        }
+
+        // ── JOURNAL D'ERREURS ──
+        let _profilsErreurs = {};
+        async function compterErreurs() {
+            const depuis = new Date(Date.now() - 86400000).toISOString();
+            const { count } = await sb.from('erreurs_app').select('id', { count: 'exact', head: true }).gte('created_at', depuis);
+            const b = document.getElementById('erreurs-badge');
+            if (b) { b.textContent = count > 99 ? '99+' : count; b.style.display = count > 0 ? 'flex' : 'none'; }
+        }
+        async function loadErreurs() {
+            const box = document.getElementById('erreurs-list');
+            box.innerHTML = '<p class="text-center text-slate-400 text-[13px] font-bold py-6">Chargement…</p>';
+            const jours = parseInt(document.getElementById('erreurs-periode').value);
+            const depuis = new Date(Date.now() - jours * 86400000).toISOString();
+            let rows;
+            try {
+                rows = await fetchAll(() => sb.from('erreurs_app').select('*').gte('created_at', depuis).order('created_at', { ascending: false }));
+                if (!Object.keys(_profilsErreurs).length) {
+                    const profs = await fetchAll(() => sb.from('profiles').select('id,prenom,nom'));
+                    profs.forEach(p => _profilsErreurs[p.id] = `${p.prenom} ${p.nom || ''}`.trim());
+                }
+            } catch (e) {
+                box.innerHTML = `<p class="text-center text-red-500 text-[13px] font-bold py-6">Lecture impossible : ${escapeHtml(e.message)}</p>`;
+                return;
+            }
+            if (!rows.length) { box.innerHTML = '<p class="text-center text-emerald-600 text-[14px] font-bold py-6">✓ Aucune erreur sur la période</p>'; return; }
+            // Regroupement par page + message
+            const groupes = {};
+            rows.forEach(r => {
+                const k = r.page + '|' + r.message;
+                (groupes[k] = groupes[k] || []).push(r);
+            });
+            const nom = id => id ? (_profilsErreurs[id] || 'Compte inconnu') : 'Non connecté';
+            box.innerHTML = Object.values(groupes).sort((a, b) => b.length - a.length).map(g => {
+                const r = g[0];
+                const qui = [...new Set(g.map(x => nom(x.user_id)))];
+                const apps = [...new Set(g.map(x => x.appareil).filter(Boolean))];
+                const ids = g.map(x => x.id);
+                return `<details class="bg-slate-50 border border-slate-200 rounded-2xl p-4">
+                    <summary class="cursor-pointer list-none">
+                        <div class="flex justify-between gap-3">
+                            <p class="text-[14px] font-bold text-slate-800 leading-snug">${escapeHtml(r.message)}</p>
+                            <span class="flex-shrink-0 bg-red-100 text-red-700 text-[12px] font-black rounded-full px-2.5 py-0.5 h-fit">${g.length}×</span>
+                        </div>
+                        <p class="text-[12px] text-slate-500 font-semibold mt-1">${escapeHtml(r.page)} · ${escapeHtml(r.type)} · dernière fois ${new Date(r.created_at).toLocaleString('fr-FR')}</p>
+                    </summary>
+                    <div class="mt-3 space-y-1 text-[12px] text-slate-600">
+                        <p><b>Qui :</b> ${escapeHtml(qui.join(', '))}</p>
+                        <p><b>Appareils :</b> ${escapeHtml(apps.join(' ; '))}</p>
+                        ${r.action ? `<p><b>Dernière action :</b> ${escapeHtml(r.action)}</p>` : ''}
+                        <p><b>Version :</b> ${escapeHtml(r.version || '?')}${r.en_ligne === false ? ' · hors connexion' : ''}</p>
+                        ${r.detail ? `<pre class="whitespace-pre-wrap break-all bg-white border border-slate-200 rounded-xl p-2 mt-2 text-[11px]">${escapeHtml(r.detail)}</pre>` : ''}
+                        <button type="button" data-ids="${escapeHtml(ids.join(','))}" onclick="erreurTraitee(this)" class="mt-2 bg-slate-900 text-white rounded-xl px-4 py-2 text-[12px] font-bold">Marquer comme traitée</button>
+                    </div>
+                </details>`;
+            }).join('');
+        }
+        async function erreurTraitee(btn) {
+            const ids = btn.dataset.ids.split(',');
+            for (let i = 0; i < ids.length; i += 100) {
+                const { error } = await sb.from('erreurs_app').delete().in('id', ids.slice(i, i + 100));
+                if (error) return showToast('Erreur : ' + error.message, 'error');
+            }
+            showToast('Erreur marquée comme traitée', 'success');
+            loadErreurs(); compterErreurs();
         }
 
         // ── MISE À JOUR APPLICATION ──
