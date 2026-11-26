@@ -405,3 +405,10 @@ async function majMotDePasse() {
 }
 
 init().catch(e => { console.error(e); showToast('Erreur au démarrage : ' + e.message, 'error'); });
+
+function relevePDFAdmin() {
+  const m = +document.getElementById('ex-mois').value, a = +document.getElementById('ex-annee').value, mid = document.getElementById('ex-maison').value;
+  const liste = (mid ? maisons.filter(x => x.id === mid) : maisons).map(x => ({ id: x.id, nom: x.nom }));
+  if (!liste.length) return showToast('Aucune maison', 'warning');
+  genererRelevePDF(liste, m, a);
+}

@@ -1,4 +1,4 @@
-const CACHE = 'smmd-v14';
+const CACHE = 'smmd-v15';
 const ASSETS = [
     './',
     './index.html',
@@ -25,7 +25,7 @@ const ASSETS = [
     './v2/chef.html',
     './v2/chef.js',
     './v2/admin.html',
-    './v2/admin.js', './v2/compta.js',
+    './v2/admin.js', './v2/compta.js', './v2/releve-pdf.js',
     './v2/chat-theme.css'
 ];
 

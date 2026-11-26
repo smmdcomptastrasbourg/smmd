@@ -145,6 +145,7 @@
           <div class="card-head"><h2>Exports</h2></div>
           <div class="stack" style="gap:10px">
             <label class="field"><span>Année</span><select id="ex-annee" class="input"></select></label>
+            <button class="btn quiet block" onclick="ouvrirRelevePDF(userProfile.maison_id, userProfile.maisons?.nom || 'Maison')">Relevé mensuel PDF</button>
             <button class="btn quiet block" onclick="exporterAnnee()">Rapport annuel Excel</button>
             <button class="btn quiet block" onclick="zipAnnee()">Tous les justificatifs de l'année (ZIP)</button>
           </div>
@@ -188,5 +189,6 @@
 
 <script src="commun.js?v=6"></script>
 <script src="chef.js?v=4"></script>
+<script src="releve-pdf.js?v=1"></script>
 </body>
 </html>
