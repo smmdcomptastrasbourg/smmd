@@ -232,10 +232,13 @@ async function ouvrirDetail(id) {
       ${t.commentaire ? `<div style="padding:6px 0"><span class="muted">Commentaire</span><p style="margin:2px 0 0">${escapeHtml(t.commentaire)}</p></div>` : ''}
     </div>
     ${!isIn ? `<div class="card" style="margin-bottom:12px"><div class="card-head"><h2>Justificatif</h2></div><div id="d-justif"><div class="spin"></div></div></div>` : ''}
+    <div id="d-annul"></div>
+    ${window.PORTEE_CHEF && rembourse ? `<button class="btn danger block" style="margin-bottom:10px" onclick="annulerRemboursement('${escapeHtml(t.id)}')">Annuler le remboursement</button>` : ''}
     <div class="grid2">
       <button class="btn ghost" onclick="modifierOperation('${escapeHtml(t.id)}')">${svg(IC.pen, 18)}Modifier</button>
       <button class="btn danger" onclick="supprimerOperation('${escapeHtml(t.id)}')">Supprimer</button>
     </div>`, { titre: 'Détail de l\'opération' });
+  if (!isIn && estPerso(t.methode_paiement)) afficherAnnulations(t.id);
   if (!isIn) {
     const imgs = await chargerImagesJustificatif(t.id);
     const box = document.getElementById('d-justif'); if (!box) return;
@@ -254,6 +257,46 @@ async function ouvrirDetail(id) {
     }
   }
 }
+// Historique des remboursements annulés d'une opération
+async function afficherAnnulations(txId) {
+  const { data, error } = await sb.from('annulations_remboursement').select('*').eq('transaction_id', txId).order('created_at', { ascending: false });
+  const box = document.getElementById('d-annul');
+  if (!box || error || !(data || []).length) return;
+  box.innerHTML = `<div class="card" style="margin-bottom:12px;border-color:var(--warn)"><div class="card-head"><h2>Remboursement annulé</h2></div>${data.map(a =>
+    `<div style="padding:6px 0;border-top:1px solid var(--border)"><p class="small" style="margin:0"><b>Le ${new Date(a.created_at).toLocaleDateString('fr-FR')}</b>${a.par === userProfile.id ? ' par vous' : ''} · ${eur(a.montant)}${a.date_remboursement ? ` (remboursé le ${new Date(a.date_remboursement).toLocaleDateString('fr-FR')})` : ''}</p>
+     <p class="small muted" style="margin:2px 0 0">Motif : ${escapeHtml(a.motif)}</p></div>`).join('')}</div>`;
+}
+
+// Chef : annule le remboursement d'une dépense (elle redevient « à rembourser »)
+function annulerRemboursement(id) {
+  const t = _tx[id]; if (!t) return;
+  ouvrirFeuille(`<p style="margin:0 0 12px">La dépense de <b>${eur(t.montant)}</b> (${escapeHtml(libMotif(t.motif))}, ${dateFr(t.created_at)}) de <b>${escapeHtml(nomMembre(t.profiles))}</b> redeviendra <b>« à rembourser »</b>. Le membre sera prévenu.</p>
+    <label class="field"><span>Motif de l'annulation (obligatoire)</span><textarea id="an-motif" class="input" maxlength="300" placeholder="Ex. : virement rejeté par la banque"></textarea></label>
+    <div class="grid2" style="margin-top:14px"><button class="btn quiet" onclick="ouvrirDetail('${escapeHtml(id)}')">Retour</button><button class="btn" id="an-ok" style="background:#B42318;border-color:#B42318">Annuler le remboursement</button></div>`, { titre: 'Annuler le remboursement' });
+  document.getElementById('an-ok').onclick = async () => {
+    const motif = document.getElementById('an-motif').value.trim();
+    if (motif.length < 3) { showToast('Indiquez le motif de l\'annulation', 'error'); return document.getElementById('an-motif').focus(); }
+    const btn = document.getElementById('an-ok'); btn.disabled = true;
+    // 1. La trace d'abord (si elle échoue, rien n'est modifié)
+    const { data: trace, error: e1 } = await sb.from('annulations_remboursement').insert([{ transaction_id: id, maison_id: userProfile.maison_id, membre_id: t.user_id,
+      montant: parseFloat(t.montant), date_remboursement: t.date_validation || null, motif, par: userProfile.id }]).select('id');
+    if (e1) { btn.disabled = false; return showToast(e1.message.includes('annulations_remboursement') ? 'Table absente : exécutez le script SQL « annulation_remboursement »' : 'Erreur : ' + e1.message, 'error'); }
+    // 2. La dépense redevient « à rembourser »
+    const { data: maj, error: e2 } = await sb.from('transactions').update({ statut: 'attente', date_validation: null })
+      .eq('id', id).eq('maison_id', userProfile.maison_id).eq('statut', 'valide').select('id');
+    if (e2 || !(maj || []).length) { btn.disabled = false; return showToast('Erreur : ' + (e2?.message || 'la dépense n\'est plus remboursée ou n\'est pas modifiable'), 'error'); }
+    // 3. Prévenir le membre
+    if (t.user_id && t.user_id !== userProfile.id) {
+      const msg = `Le remboursement de votre dépense de ${eur(t.montant)} (${libMotif(t.motif)}, ${dateFr(t.created_at)}) a été annulé par votre chef de maison. Motif : ${motif}. Elle est de nouveau « à rembourser ».`;
+      await sb.from('notifications').insert([{ user_id: t.user_id, lu: false, type: 'annulation', message: msg }]);
+      envoyerPush([t.user_id], 'Remboursement annulé', msg, './v2/membre.html');
+    }
+    t.statut = 'attente'; t.date_validation = null;
+    fermerFeuille(); showToast('Remboursement annulé — la dépense est de nouveau à rembourser', 'success');
+    rafraichirVue();
+  };
+}
+
 function voirImage(i) {
   const im = window._imgsDetail[i];
   const mime = detectMimeType(im.base64, im.mime_type);

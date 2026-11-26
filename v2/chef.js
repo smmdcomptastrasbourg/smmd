@@ -155,6 +155,7 @@ function filtreReleve() {
     if (st === 'sorties' && t.type !== 'depense') return false;
     if (st === 'entrees' && t.type !== 'recette') return false;
     if (st === 'attente' && !(t.type === 'depense' && t.statut === 'attente')) return false;
+    if (st === 'rembourse' && !(t.type === 'depense' && estPerso(t.methode_paiement) && t.statut === 'valide')) return false;
     if (st === 'sansjustif' && !(t.type === 'depense' && !aJustif(t, _relJ))) return false;
     if (q && ![t.motif, t.commentaire, nomMembre(t.profiles), PAIEMENTS[t.methode_paiement], String(t.montant).replace('.', ','), eur(t.montant)].join(' ').toLowerCase().includes(q)) return false;
     return true;
