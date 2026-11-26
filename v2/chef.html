@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>SMMD — Chef de maison</title>
+<link rel="icon" type="image/png" href="../icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<link rel="apple-touch-icon" href="../icon-192.png">
+<meta name="theme-color" content="#8B1E2D">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://xccnnckuphxloxfrqtkf.supabase.co" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="style.css?v=2">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
+<script src="../config.js?v=20261126c"></script>
+</head>
+<body class="layout-large">
+
+<div id="offline" class="hidden" role="status" style="position:sticky;top:0;z-index:60;background:#A14A0B;color:#fff;text-align:center;font-weight:600;font-size:14px;padding:8px 12px">
+  Hors connexion : vos saisies sont gardées et envoyées au retour du réseau
+</div>
+
+<nav class="sidenav" aria-label="Navigation principale">
+  <p class="brand">SMMD</p>
+  <button data-v="tdb" onclick="go('tdb')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21H3z"/></svg>Tableau de bord</button>
+  <button data-v="releve" onclick="go('releve')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>Relevé de la maison</button>
+  <button data-v="remb" onclick="go('remb')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h14l-3-3M21 17H7l3 3"/></svg>Remboursements<span class="cnt hidden" data-cnt="remb"></span></button>
+  <button data-v="alloc" onclick="go('alloc')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Allocations<span class="cnt hidden" data-cnt="alloc"></span></button>
+  <button data-v="membres" onclick="go('membres')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c0-3.5 3-5.5 7-5.5s7 2 7 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c2.4.6 4 2.4 4 5.5"/></svg>Membres</button>
+  <button data-v="profil" onclick="go('profil')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>Maison et profil</button>
+  <button class="new" onclick="ouvrirChoixSaisie()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Nouvelle opération</button>
+  <button onclick="ouvrirMessagerie()" style="margin-top:auto"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>Messagerie<span class="cnt hidden" data-cnt="msg" style="background:var(--red)"></span></button>
+</nav>
+
+<main class="app" id="app">
+  <!-- TABLEAU DE BORD -->
+  <section id="v-tdb" class="stack" aria-labelledby="t-tdb">
+    <div class="topbar">
+      <div class="who"><p class="small muted" id="maison-nom">Maison</p><h1 id="t-tdb">Tableau de bord</h1></div>
+      <button class="iconbtn only-mob" onclick="ouvrirMessagerie()" aria-label="Messagerie">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>
+        <span id="msg-badge" class="badge hidden"></span></button>
+    </div>
+    <div id="sync-banner" class="hidden"></div>
+    <div class="kpis">
+      <div class="card kpi" style="background:var(--primary);border-color:var(--primary);color:#fff"><p class="small" style="opacity:.92">Solde de la maison</p><p class="v num" id="k-solde">—</p></div>
+      <div class="card kpi"><p class="small muted">Entrées du mois</p><p class="v num ok" id="k-in">—</p></div>
+      <div class="card kpi"><p class="small muted">Sorties du mois</p><p class="v num" id="k-out">—</p></div>
+      <div class="card kpi"><p class="small muted">Avances à rembourser</p><p class="v num warn" id="k-att">—</p></div>
+    </div>
+    <div class="cols">
+      <div class="main">
+        <div class="card"><div class="card-head"><h2>À faire</h2><span class="pill warn hidden" id="todo-count"></span></div><div id="todo-list"><div class="skel" style="height:56px"></div></div></div>
+        <div class="card"><div class="card-head"><h2>Dernières opérations</h2><button class="link" onclick="go('releve')">Relevé</button></div><div id="dernieres"></div></div>
+      </div>
+      <div class="side">
+        <div class="card"><div class="card-head"><h2>Dépenses du mois</h2></div><p class="muted small" style="margin:0" id="parts-total"></p><div id="parts"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RELEVÉ -->
+  <section id="v-releve" class="stack hidden" aria-labelledby="t-releve">
+    <div class="between" style="flex-wrap:wrap">
+      <h1 id="t-releve">Relevé de la maison</h1>
+      <div class="row" style="flex-wrap:wrap;gap:8px">
+        <button class="btn quiet" onclick="exporterMois()">Exporter Excel</button>
+        <button class="btn quiet" onclick="zipMois()">Justificatifs (ZIP)</button>
+      </div>
+    </div>
+    <div class="card filters">
+      <label class="field"><span>Mois</span><select id="r-mois" class="input" onchange="chargerReleve()"></select></label>
+      <label class="field"><span>Membre</span><select id="r-membre" class="input" onchange="afficherReleve()"></select></label>
+      <label class="field"><span>Motif</span><select id="r-motif" class="input" onchange="afficherReleve()"></select></label>
+      <label class="field"><span>Statut</span><select id="r-statut" class="input" onchange="afficherReleve()">
+        <option value="">Tous</option><option value="sorties">Sorties</option><option value="entrees">Entrées</option><option value="attente">À rembourser</option><option value="sansjustif">Sans justificatif</option></select></label>
+      <label class="field grow"><span>Recherche</span><input id="r-q" class="input" type="search" placeholder="Commentaire, montant…" oninput="afficherReleve()"></label>
+    </div>
+    <div class="kpis">
+      <div class="card kpi"><p class="small muted">Entrées</p><p class="v num ok" id="r-in">—</p></div>
+      <div class="card kpi"><p class="small muted">Sorties</p><p class="v num" id="r-out">—</p></div>
+      <div class="card kpi"><p class="small muted">Sélection</p><p class="v num" id="r-sel">—</p></div>
+    </div>
+    <div id="r-table" class="card card-flush only-desk"></div>
+    <div id="r-liste" class="stack only-mob"></div>
+  </section>
+
+  <!-- REMBOURSEMENTS -->
+  <section id="v-remb" class="stack hidden" aria-labelledby="t-remb">
+    <h1 id="t-remb">Remboursements</h1>
+    <div id="rb-virements"></div>
+    <div id="rb-compte"></div>
+    <div id="rb-liste" class="stack"></div>
+    <div id="rb-foot" class="card sticky-foot hidden">
+      <div class="between" style="flex-wrap:wrap">
+        <div><p class="small muted" style="margin:0">Sélection</p><p class="num bold" style="font-size:20px;margin:0" id="rb-total">0,00 €</p></div>
+        <div class="row" style="flex-wrap:wrap;gap:8px">
+          <button class="btn quiet" onclick="rembourserSansVirement()">Remboursé autrement</button>
+          <button class="btn" id="rb-sepa" onclick="genererSepa()">Générer le virement SEPA</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ALLOCATIONS -->
+  <section id="v-alloc" class="stack hidden" aria-labelledby="t-alloc">
+    <h1 id="t-alloc">Allocations</h1>
+    <p class="muted small" style="margin:-6px 0 0">Touchez un membre : <b>déclaré</b> → confirmer · <b>non versé</b> → confirmer directement · <b>confirmé</b> → annuler.</p>
+    <div id="al-liste" class="stack"></div>
+  </section>
+
+  <!-- MEMBRES -->
+  <section id="v-membres" class="stack hidden" aria-labelledby="t-membres">
+    <h1 id="t-membres">Membres</h1>
+    <div id="m-liste" class="kpis" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr))"></div>
+    <div id="m-inactifs"></div>
+  </section>
+
+  <!-- MAISON ET PROFIL -->
+  <section id="v-profil" class="stack hidden" aria-labelledby="t-profil">
+    <h1 id="t-profil">Maison et profil</h1>
+    <div class="cols">
+      <div class="main">
+        <div class="card">
+          <div class="card-head"><h2>Compte bancaire de la maison</h2></div>
+          <p class="muted small" style="margin:0 0 8px">Utilisé comme compte émetteur des virements SEPA de remboursement.</p>
+          <div class="stack" style="gap:10px">
+            <label class="field"><span>Titulaire du compte</span><input id="cm-titulaire" class="input" maxlength="70"></label>
+            <label class="field"><span>IBAN de la maison</span><input id="cm-iban" class="input iban" autocomplete="off" spellcheck="false"></label>
+            <label class="field"><span>BIC (facultatif)</span><input id="cm-bic" class="input iban" autocomplete="off" spellcheck="false" maxlength="11"></label>
+            <p id="cm-err" class="red small hidden" style="margin:0"></p>
+            <button class="btn ghost" onclick="majCompteMaison()">Enregistrer le compte</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Exports</h2></div>
+          <div class="stack" style="gap:10px">
+            <label class="field"><span>Année</span><select id="ex-annee" class="input"></select></label>
+            <button class="btn quiet block" onclick="exporterAnnee()">Rapport annuel Excel</button>
+            <button class="btn quiet block" onclick="zipAnnee()">Tous les justificatifs de l'année (ZIP)</button>
+          </div>
+        </div>
+      </div>
+      <div class="side">
+        <div class="card">
+          <div class="setting"><label class="field"><span>Mon IBAN</span><input id="p-iban" class="input iban" autocomplete="off" spellcheck="false"></label>
+            <p id="p-iban-err" class="red small hidden" style="margin:0">IBAN invalide</p><button class="btn ghost" onclick="majIban()">Enregistrer</button></div>
+          <div class="setting"><label class="field"><span>Mon allocation mensuelle (€)</span><input id="p-alloc" class="input num" type="number" inputmode="decimal" min="0" step="0.01"></label>
+            <button class="btn ghost" onclick="majAllocation()">Enregistrer</button></div>
+          <div class="setting"><label class="field"><span>Nouveau mot de passe</span><input id="p-pass" class="input" type="password" autocomplete="new-password"></label>
+            <button class="btn ghost" onclick="majMotDePasse()">Changer</button></div>
+        </div>
+        <div class="card stack" style="gap:10px">
+          <a class="btn quiet block" href="membre.html">Mon espace membre</a>
+          <button class="btn quiet block" onclick="mettreAJour()">Rechercher une mise à jour</button>
+          <a class="btn quiet block" href="../chef.html">Revenir à l'ancienne version</a>
+          <button class="btn danger block" onclick="deconnexion()">Se déconnecter</button>
+          <p class="xs muted" style="margin:0;text-align:center" id="p-version"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<nav class="tabbar" aria-label="Navigation principale (mobile)">
+  <div class="in">
+    <button class="tab" data-v="tdb" onclick="go('tdb')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21H3z"/><path d="M9 21v-6h6v6"/></svg>Accueil</button>
+    <button class="tab" data-v="releve" onclick="go('releve')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>Relevé</button>
+    <button class="tab-add" onclick="ouvrirChoixSaisie()" aria-label="Nouvelle opération"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button class="tab" data-v="remb" onclick="go('remb')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h14l-3-3M21 17H7l3 3"/></svg>Rembours.<span class="badge hidden" data-cnt="remb" style="right:14px"></span></button>
+    <button class="tab" data-v="plus" onclick="menuPlus()"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>Plus<span class="badge hidden" data-cnt="alloc" style="right:14px;background:var(--warn)"></span></button>
+  </div>
+</nav>
+
+<div id="sheet-root"></div>
+<input type="file" id="scan-input" accept="image/*" capture="environment" class="hidden" onchange="scanFichier(this)">
+<input type="file" id="photo-input" accept="image/*,application/pdf" multiple class="hidden" onchange="ajouterPhotos(this)">
+
+<script src="commun.js?v=2"></script>
+<script src="chef.js?v=1"></script>
+</body>
+</html>

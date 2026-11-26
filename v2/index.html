@@ -18,8 +18,9 @@ const sb = supabase.createClient(SMMD_CONFIG.url, SMMD_CONFIG.key);
     document.getElementById('msg').innerHTML = 'Connectez-vous d\'abord sur <a href="../index.html">la page de connexion</a>, puis revenez à cette adresse.';
     return;
   }
-  // Pour l'instant seule l'app membre existe en v2 (chef et admin y trouvent un lien vers leur espace)
-  location.replace('membre.html');
+  const { data: p } = await sb.from('profiles').select('role').eq('id', user.id).maybeSingle();
+  // Membre et chef : nouvelle interface ; admin : lien depuis l'espace membre en attendant sa refonte
+  location.replace(p?.role === 'chef' ? 'chef.html' : 'membre.html');
 })();
 </script>
 </body>
