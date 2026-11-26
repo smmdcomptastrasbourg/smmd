@@ -37,6 +37,39 @@ window.PORTEE_CHEF = false;
 const porteeQ = q => window.PORTEE_CHEF ? q.eq('maison_id', userProfile.maison_id) : q.eq('user_id', userProfile.id);
 const nomMembre = p => p ? `${p.prenom || ''} ${p.nom || ''}`.trim() : 'Membre supprimé';
 
+// Service worker : met l'app en cache pour qu'elle s'ouvre hors connexion
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('../sw.js', { scope: '../' }).catch(() => {});
+
+// ─────────────────────────────────────────────── Démarrage (fonctionne aussi hors connexion)
+// La session est lue sur le téléphone ; le profil et les motifs sont gardés en cache
+// pour pouvoir ouvrir l'app et saisir sans réseau.
+async function demarrerSession() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { location.href = '../index.html'; return null; }
+  const cle = 'smmd_profil_' + session.user.id;
+  let profile = null;
+  try {
+    const { data, error } = await sb.from('profiles').select('*, maisons(nom)').eq('id', session.user.id).maybeSingle();
+    if (error) throw error;
+    profile = data;
+    if (profile) localStorage.setItem(cle, JSON.stringify(profile));
+  } catch (e) {
+    try { profile = JSON.parse(localStorage.getItem(cle) || 'null'); } catch (x) {}
+    if (profile) showToast('Hors connexion : données de la dernière visite', 'warning');
+  }
+  if (!profile) { location.href = '../index.html'; return null; }
+  if (!(await verifierCompteActif(profile))) return null;
+  return { session, profile };
+}
+async function chargerMotifs() {
+  try {
+    const { data, error } = await sb.from('motifs').select('nom').order('nom');
+    if (error) throw error;
+    localStorage.setItem('smmd_motifs', JSON.stringify(data || []));
+    return data || [];
+  } catch (e) { try { return JSON.parse(localStorage.getItem('smmd_motifs') || '[]'); } catch (x) { return []; } }
+}
+
 // ─────────────────────────────────────────────── Toast & confirmation
 function showToast(message, type = 'info') {
   if (type === 'error' && window.smmdSignaler) window.smmdSignaler('message', message);

@@ -1,4 +1,4 @@
-const CACHE = 'smmd-v11';
+const CACHE = 'smmd-v12';
 const ASSETS = [
     './',
     './index.html',
@@ -16,7 +16,17 @@ const ASSETS = [
     './icon-192.png',
     './icon-192-maskable.png',
     './icon-512.png',
-    './icon-512-maskable.png'
+    './icon-512-maskable.png',
+    './v2/index.html',
+    './v2/style.css',
+    './v2/commun.js',
+    './v2/membre.html',
+    './v2/membre.js',
+    './v2/chef.html',
+    './v2/chef.js',
+    './v2/admin.html',
+    './v2/admin.js',
+    './v2/chat-theme.css'
 ];
 
 self.addEventListener('install', e => {
@@ -37,29 +47,22 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+    if (e.request.method !== 'GET') return;
     const url = new URL(e.request.url);
+    // Jamais de cache pour les données Supabase (API, fonctions, stockage)
+    if (url.hostname.includes('supabase.co')) return;
 
-    // Ne jamais cacher : Supabase, CDNs externes, Edge Functions
-    if (url.hostname.includes('supabase.co') ||
-        url.hostname.includes('tailwindcss.com') ||
-        url.hostname.includes('googleapis.com') ||
-        url.hostname.includes('jsdelivr.net') ||
-        url.hostname.includes('cdnjs.cloudflare.com') ||
-        url.hostname.includes('fonts.gstatic.com')) {
-        return;
-    }
-
-    // Assets locaux → network-first avec fallback cache
+    // Fichiers de l'app et bibliothèques (CDN) : réseau d'abord, cache si hors connexion
     e.respondWith(
-        fetch(e.request, { cache: 'no-cache' })
+        fetch(e.request, url.origin === location.origin ? { cache: 'no-cache' } : undefined)
             .then(res => {
-                if (res && res.status === 200 && res.type !== 'opaque') {
+                if (res && (res.status === 200 || res.type === 'opaque')) {
                     const clone = res.clone();
                     caches.open(CACHE).then(c => c.put(e.request, clone));
                 }
                 return res;
             })
-            .catch(() => caches.match(e.request))
+            .catch(() => caches.match(e.request).then(r => r || caches.match(e.request, { ignoreSearch: true })))
     );
 });
 

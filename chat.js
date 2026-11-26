@@ -124,7 +124,7 @@ async function init() {
     if (!(await verifierCompteActif(profile))) return;
     userProfile = profile;
     document.getElementById('header-subtitle').textContent =
-        `${profile.prenom} ${profile.nom} — ${profile.role}`;
+        `${profile.prenom} ${profile.nom || ''} · ${({ user: 'Membre', chef: 'Chef de maison', admin: 'Administrateur' })[profile.role] || ''}`;
 
     // Charger tous les profils (pour nouvelle conv)
     // Annuaire minimal (id, prénom, nom, rôle, maison) — sans données sensibles
@@ -182,8 +182,8 @@ function renderConversations() {
     if (!filteredConvs.length) {
         el.innerHTML = `<div class="text-center py-16">
             <div class="text-5xl mb-3">💬</div>
-            <p class="text-[13px] font-black text-slate-400 uppercase tracking-widest">Aucune conversation</p>
-            <p class="text-[11px] text-slate-300 mt-1">Appuyez sur + pour démarrer</p>
+            <p style="font-size:17px;font-weight:700;color:#1C1917;margin:0">Aucune conversation</p>
+            <p style="font-size:15px;color:#57534E;margin:6px 0 0">Appuyez sur + pour écrire à quelqu'un</p>
         </div>`;
         return;
     }
@@ -323,7 +323,7 @@ function retourListe() {
 }
 
 function retourApp() {
-    const from = localStorage.getItem('smmd_chat_from') || 'user.html';
+    const from = localStorage.getItem('smmd_chat_from') || 'v2/index.html';
     window.location.href = from;
 }
 

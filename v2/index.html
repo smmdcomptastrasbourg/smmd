@@ -20,7 +20,7 @@ const sb = supabase.createClient(SMMD_CONFIG.url, SMMD_CONFIG.key);
   }
   const { data: p } = await sb.from('profiles').select('role').eq('id', user.id).maybeSingle();
   // Membre et chef : nouvelle interface ; admin : lien depuis l'espace membre en attendant sa refonte
-  location.replace(p?.role === 'chef' ? 'chef.html' : 'membre.html');
+  location.replace(p?.role === 'chef' ? 'chef.html' : p?.role === 'admin' ? 'admin.html' : 'membre.html');
 })();
 </script>
 </body>

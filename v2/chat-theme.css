@@ -1,0 +1,31 @@
+/* SMMD — Messagerie, thème direction D (chargé après les styles d'origine) */
+body { font-family: 'Inter', system-ui, -apple-system, sans-serif !important; background: #F6F5F4; color: #1C1917; }
+.chat-header, #chat-header, #list-header { background: #8B1E2D !important; }
+.conv-item { min-height: 64px; }
+.conv-item:active, .new-conv-btn:active { background: #F5E6E8 !important; }
+.conv-avatar { background: #F5E6E8 !important; color: #8B1E2D !important; font-weight: 800 !important; }
+.conv-name { font-size: 16px !important; font-weight: 700 !important; color: #1C1917; }
+.conv-last { font-size: 14px !important; color: #57534E !important; max-width: 100% !important; }
+.conv-time { font-size: 12px !important; color: #57534E !important; font-weight: 600 !important; }
+.conv-badge { background: #B42318 !important; font-size: 12px !important; }
+.msg-bubble { font-size: 16px !important; line-height: 1.45 !important; }
+.msg-row.mine .msg-bubble { background: #8B1E2D !important; color: #fff !important; }
+.msg-row.other .msg-bubble { background: #fff !important; color: #1C1917 !important; border: 1px solid #E7E5E4; }
+.msg-time, .msg-time-other { font-size: 12px !important; color: #57534E !important; font-weight: 600 !important; }
+.msg-check { font-size: 12px !important; }
+.msg-check.read { color: #2B5797 !important; }
+.date-sep span { background: #E7E5E4 !important; color: #57534E !important; font-size: 13px !important; font-weight: 600 !important; }
+#msg-input { font-size: 16px !important; font-family: inherit !important; }
+#msg-input:focus { border-color: #8B1E2D !important; }
+.btn-attach, .btn-send { width: 44px !important; height: 44px !important; }
+.btn-send { background: #8B1E2D !important; }
+.search-input { font-size: 16px !important; min-height: 48px; border-color: #E7E5E4 !important; background: #fff !important; }
+.section-title { font-size: 13px !important; letter-spacing: 0 !important; text-transform: none !important; color: #57534E !important; }
+.new-conv-btn { min-height: 56px; border-color: #E7E5E4 !important; }
+@media (prefers-color-scheme: dark) {
+  .msg-row.other .msg-bubble { background: #2a1818 !important; color: #f0e8e8 !important; border-color: #3a2020; }
+  .conv-name { color: #f0e8e8; } .conv-last, .conv-time { color: #b09090 !important; }
+}
+#header-subtitle, #chat-role { font-size: 13px !important; text-transform: none !important; letter-spacing: 0 !important; color: rgba(255,255,255,.85) !important; font-weight: 600 !important; }
+.uppercase { text-transform: none !important; letter-spacing: 0 !important; }
+.text-\[10px\], .text-\[11px\], .text-\[9px\] { font-size: 13px !important; }

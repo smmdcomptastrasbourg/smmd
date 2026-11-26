@@ -16,10 +16,9 @@ function rafraichirVue() {
 
 // ─────────────────────────────────────────────── Initialisation
 async function init() {
-  const { data: { user } } = await sb.auth.getUser();
-  if (!user) { location.href = '../index.html'; return; }
-  const { data: profile } = await sb.from('profiles').select('*, maisons(nom)').eq('id', user.id).maybeSingle();
-  if (!profile) { location.href = '../index.html'; return; }
+  const ctx = await demarrerSession();
+  if (!ctx) return;
+  const profile = ctx.profile;
   if (!(await verifierCompteActif(profile))) return;
   userProfile = profile;
   // Chef et admin : accès à leur espace (ancienne interface) en attendant leur refonte
@@ -33,8 +32,7 @@ async function init() {
   document.getElementById('maison-nom').textContent = 'Maison ' + (profile.maisons?.nom || '');
   document.getElementById('p-version').textContent = 'Version ' + (window.SMMD_VERSION || '') + ' · nouvelle interface';
 
-  const { data: m } = await sb.from('motifs').select('nom').order('nom');
-  motifs = m || [];
+  motifs = await chargerMotifs();
 
   majBandeauHorsLigne();
   await synchroniserFile();
@@ -59,7 +57,7 @@ async function chargerAccueil() {
       fetchAll(() => sb.from('allocations_versees').select('user_id,montant,statut,mois,annee').eq('maison_id', userProfile.maison_id)),
       sb.from('notifications').select('*').eq('user_id', userProfile.id).eq('lu', false).order('created_at', { ascending: false }).then(r => r.data || [])
     ]);
-  } catch (e) { showToast('Impossible de charger vos données — vérifiez la connexion', 'error'); return; }
+  } catch (e) { showToast(navigator.onLine ? 'Impossible de charger vos données — réessayez' : 'Hors connexion : vous pouvez saisir, l\'envoi se fera au retour du réseau', navigator.onLine ? 'error' : 'warning'); return; }
   mesTx.forEach(t => _tx[t.id] = t);
   const conf = allocs.filter(allocConfirmee);
   const somme = (arr, f) => arr.filter(f).reduce((s, x) => s + parseFloat(x.montant), 0);

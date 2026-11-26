@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>SMMD — Administration</title>
+<link rel="icon" type="image/png" href="../icon-192.png">
+<link rel="manifest" href="../manifest.json">
+<link rel="apple-touch-icon" href="../icon-192.png">
+<meta name="theme-color" content="#8B1E2D">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="style.css?v=3">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
+<script src="../config.js?v=20261126c"></script>
+</head>
+<body class="layout-large">
+
+<nav class="sidenav" aria-label="Navigation principale">
+  <p class="brand">SMMD · Admin</p>
+  <button data-v="tdb" onclick="go('tdb')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21H3z"/></svg>Vue d'ensemble</button>
+  <button data-v="membres" onclick="go('membres')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c0-3.5 3-5.5 7-5.5s7 2 7 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c2.4.6 4 2.4 4 5.5"/></svg>Comptes</button>
+  <button data-v="maisons" onclick="go('maisons')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6"/></svg>Maisons et motifs</button>
+  <button data-v="exports" onclick="go('exports')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Exports</button>
+  <button data-v="erreurs" onclick="go('erreurs')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>Erreurs<span class="cnt hidden" data-cnt="err" style="background:var(--red)"></span></button>
+  <button data-v="outils" onclick="go('outils')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg>Outils et profil</button>
+  <button onclick="ouvrirMessagerie()" style="margin-top:auto"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>Messagerie<span class="cnt hidden" data-cnt="msg" style="background:var(--red)"></span></button>
+</nav>
+
+<main class="app" id="app">
+  <section id="v-tdb" class="stack" aria-labelledby="t-tdb">
+    <div class="topbar"><div class="who"><p class="small muted">Administration</p><h1 id="t-tdb">Vue d'ensemble</h1></div>
+      <button class="iconbtn only-mob" onclick="ouvrirMessagerie()" aria-label="Messagerie"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg><span id="msg-badge" class="badge hidden"></span></button></div>
+    <div class="kpis">
+      <div class="card kpi" style="background:var(--primary);border-color:var(--primary);color:#fff"><p class="small" style="opacity:.92">Solde total des maisons</p><p class="v num" id="k-solde">—</p></div>
+      <div class="card kpi"><p class="small muted">Avances à rembourser</p><p class="v num warn" id="k-att">—</p></div>
+      <div class="card kpi"><p class="small muted">Comptes actifs</p><p class="v num" id="k-comptes">—</p></div>
+      <div class="card kpi"><p class="small muted">Erreurs (24 h)</p><p class="v num" id="k-err">—</p></div>
+    </div>
+    <div class="card card-flush"><div style="padding:16px 16px 6px"><h2>Par maison</h2></div><div class="tbl-wrap" id="t-maisons"></div></div>
+  </section>
+
+  <section id="v-membres" class="stack hidden" aria-labelledby="t-membres">
+    <div class="between" style="flex-wrap:wrap"><h1 id="t-membres">Comptes</h1><button class="btn" onclick="formCompte()">+ Créer un compte</button></div>
+    <div class="card filters">
+      <label class="field grow"><span>Recherche</span><input id="m-q" class="input" type="search" placeholder="Nom, identifiant…" oninput="afficherComptes()"></label>
+      <label class="field"><span>Maison</span><select id="m-maison" class="input" onchange="afficherComptes()"></select></label>
+      <label class="field"><span>État</span><select id="m-etat" class="input" onchange="afficherComptes()"><option value="actifs">Actifs</option><option value="inactifs">Désactivés</option><option value="">Tous</option></select></label>
+    </div>
+    <div id="m-liste" class="kpis" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))"></div>
+  </section>
+
+  <section id="v-maisons" class="stack hidden" aria-labelledby="t-maisons-h">
+    <h1 id="t-maisons-h">Maisons et motifs</h1>
+    <div class="cols">
+      <div class="main"><div class="card"><div class="card-head"><h2>Maisons</h2></div>
+        <div class="row" style="margin:6px 0 10px"><label class="sr-only" for="new-maison">Nouvelle maison</label><input id="new-maison" class="input" placeholder="Nom de la nouvelle maison"><button class="btn" onclick="ajouterMaison()">Ajouter</button></div>
+        <div id="ma-liste"></div></div></div>
+      <div class="side"><div class="card"><div class="card-head"><h2>Motifs de dépense</h2></div>
+        <div class="row" style="margin:6px 0 10px"><label class="sr-only" for="new-motif">Nouveau motif</label><input id="new-motif" class="input" placeholder="Nouveau motif"><button class="btn" onclick="ajouterMotif()">Ajouter</button></div>
+        <div id="mo-liste" class="chips" style="flex-wrap:wrap"></div></div></div>
+    </div>
+  </section>
+
+  <section id="v-exports" class="stack hidden" aria-labelledby="t-exports">
+    <h1 id="t-exports">Exports — toutes maisons</h1>
+    <div class="card filters">
+      <label class="field"><span>Mois</span><select id="ex-mois" class="input"></select></label>
+      <label class="field"><span>Année</span><select id="ex-annee" class="input"></select></label>
+      <label class="field"><span>Maison</span><select id="ex-maison" class="input"></select></label>
+    </div>
+    <div class="kpis" style="grid-template-columns:repeat(auto-fill,minmax(260px,1fr))">
+      <button class="card" style="text-align:left;cursor:pointer;font:inherit" onclick="exportMois()"><h2>Journal du mois (Excel)</h2><p class="small muted" style="margin:4px 0 0">Récapitulatif + un onglet par maison</p></button>
+      <button class="card" style="text-align:left;cursor:pointer;font:inherit" onclick="exportAnnee()"><h2>Rapport annuel (Excel)</h2><p class="small muted" style="margin:4px 0 0">Par maison, par membre, allocations, opérations</p></button>
+      <button class="card" style="text-align:left;cursor:pointer;font:inherit" onclick="zip('mois')"><h2>Justificatifs du mois (ZIP)</h2><p class="small muted" style="margin:4px 0 0">Maison / membre / mois</p></button>
+      <button class="card" style="text-align:left;cursor:pointer;font:inherit" onclick="zip('annee')"><h2>Justificatifs de l'année (ZIP)</h2><p class="small muted" style="margin:4px 0 0">Maison / membre / mois</p></button>
+      <button class="card" style="text-align:left;cursor:pointer;font:inherit;border-color:var(--primary)" onclick="zip('tout')"><h2>TOUS les justificatifs (ZIP)</h2><p class="small muted" style="margin:4px 0 0">Depuis le début · sur ordinateur, peut être long</p></button>
+    </div>
+  </section>
+
+  <section id="v-erreurs" class="stack hidden" aria-labelledby="t-erreurs">
+    <div class="between"><h1 id="t-erreurs">Erreurs des utilisateurs</h1>
+      <label class="sr-only" for="er-periode">Période</label><select id="er-periode" class="input" style="width:auto" onchange="chargerErreurs()"><option value="1">24 h</option><option value="7" selected>7 jours</option><option value="30">30 jours</option></select></div>
+    <p class="small muted" style="margin:-6px 0 0">Enregistrées automatiquement. Montants, IBAN et emails masqués.</p>
+    <div id="er-liste" class="stack"></div>
+  </section>
+
+  <section id="v-outils" class="stack hidden" aria-labelledby="t-outils">
+    <h1 id="t-outils">Outils et profil</h1>
+    <div class="cols"><div class="main">
+      <div class="card"><div class="card-head"><h2>Rapatrier les anciens justificatifs</h2></div>
+        <p class="small muted" style="margin:0 0 10px">Copie dans la base les justificatifs encore stockés à l'ancienne (bucket ou ancienne colonne). Rien n'est supprimé ; à relancer sans risque.</p>
+        <div id="mig-prog" class="hidden"><p class="bold" id="mig-status" style="margin:0 0 6px"></p><div class="bar"><div id="mig-bar" style="width:0;background:var(--primary)"></div></div><p class="xs muted" id="mig-detail"></p></div>
+        <div id="mig-res" class="small" style="margin:8px 0"></div>
+        <button class="btn ghost" id="btn-migrate" onclick="migrateJustificatifs()">Rapatrier tous les justificatifs</button></div>
+    </div><div class="side">
+      <div class="card stack" style="gap:10px">
+        <div class="setting"><label class="field"><span>Mon nouveau mot de passe</span><input id="p-pass" class="input" type="password" autocomplete="new-password"></label><button class="btn ghost" onclick="majMotDePasse()">Changer</button></div>
+        <a class="btn quiet block" href="membre.html">Mon espace membre</a>
+        <button class="btn quiet block" onclick="mettreAJour()">Rechercher une mise à jour</button>
+        <a class="btn quiet block" href="../admin.html">Revenir à l'ancienne version</a>
+        <button class="btn danger block" onclick="deconnexion()">Se déconnecter</button>
+        <p class="xs muted" style="margin:0;text-align:center" id="p-version"></p>
+      </div>
+    </div></div>
+  </section>
+</main>
+
+<nav class="tabbar" aria-label="Navigation (mobile)">
+  <div class="in">
+    <button class="tab" data-v="tdb" onclick="go('tdb')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21H3z"/></svg>Accueil</button>
+    <button class="tab" data-v="membres" onclick="go('membres')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c0-3.5 3-5.5 7-5.5s7 2 7 5.5"/></svg>Comptes</button>
+    <button class="tab" data-v="exports" onclick="go('exports')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Exports</button>
+    <button class="tab" data-v="erreurs" onclick="go('erreurs')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>Erreurs<span class="badge hidden" data-cnt="err" style="right:14px"></span></button>
+    <button class="tab" data-v="plus" onclick="menuPlus()"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>Plus</button>
+  </div>
+</nav>
+<div id="sheet-root"></div>
+<input type="file" id="scan-input" class="hidden"><input type="file" id="photo-input" class="hidden">
+<script src="commun.js?v=3"></script>
+<script src="admin.js?v=1"></script>
+</body>
+</html>

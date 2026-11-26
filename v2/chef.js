@@ -37,23 +37,22 @@ function compteur(cle, n) {
 
 // ─────────────────────────────────────────────── Initialisation
 async function init() {
-  const { data: { user } } = await sb.auth.getUser();
-  if (!user) { location.href = '../index.html'; return; }
-  const { data: profile } = await sb.from('profiles').select('*, maisons(nom)').eq('id', user.id).maybeSingle();
-  if (!profile) { location.href = '../index.html'; return; }
+  const ctx = await demarrerSession();
+  if (!ctx) return;
+  const profile = ctx.profile;
   if (!(await verifierCompteActif(profile))) return;
   if (profile.role !== 'chef') { location.href = 'membre.html'; return; }
   userProfile = profile;
   document.getElementById('maison-nom').textContent = 'Maison ' + (profile.maisons?.nom || '');
   document.getElementById('p-version').textContent = 'Version ' + (window.SMMD_VERSION || '') + ' · nouvelle interface';
-  const [m, mb, cm] = await Promise.all([
-    sb.from('motifs').select('nom').order('nom'),
-    fetchAll(() => sb.from('profiles').select('*').eq('maison_id', profile.maison_id).order('prenom')),
-    sb.from('comptes_maisons').select('*').eq('maison_id', profile.maison_id).maybeSingle()
-  ]);
-  motifs = m.data || [];
-  membres = mb;
-  compteMaison = cm.error ? null : cm.data;
+  motifs = await chargerMotifs();
+  try {
+    const [mb, cm] = await Promise.all([
+      fetchAll(() => sb.from('profiles').select('*').eq('maison_id', profile.maison_id).order('prenom')),
+      sb.from('comptes_maisons').select('*').eq('maison_id', profile.maison_id).maybeSingle()
+    ]);
+    membres = mb; compteMaison = cm.error ? null : cm.data;
+  } catch (e) { membres = [profile]; }
   majBandeauHorsLigne();
   await synchroniserFile();
   go('tdb');
@@ -76,7 +75,7 @@ async function chargerTdb() {
       fetchAll(() => sb.from('allocations_versees').select('*').eq('maison_id', userProfile.maison_id)),
       sb.from('virements_sepa').select('id,total,nb_virements,created_at').eq('maison_id', userProfile.maison_id).eq('statut', 'genere').then(r => r.data || [])
     ]);
-  } catch (e) { showToast('Impossible de charger les données — vérifiez la connexion', 'error'); return; }
+  } catch (e) { showToast(navigator.onLine ? 'Impossible de charger les données — réessayez' : 'Hors connexion : vous pouvez saisir, l\'envoi se fera au retour du réseau', navigator.onLine ? 'error' : 'warning'); return; }
   txs.forEach(t => _tx[t.id] = t);
   const somme = (a, f) => a.filter(f).reduce((s, x) => s + parseFloat(x.montant), 0);
   const conf = allocs.filter(allocConfirmee);
