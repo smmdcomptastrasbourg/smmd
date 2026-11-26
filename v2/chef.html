@@ -82,7 +82,7 @@
       <label class="field"><span>Membre</span><select id="r-membre" class="input" onchange="afficherReleve()"></select></label>
       <label class="field"><span>Motif</span><select id="r-motif" class="input" onchange="afficherReleve()"></select></label>
       <label class="field"><span>Statut</span><select id="r-statut" class="input" onchange="afficherReleve()">
-        <option value="">Tous</option><option value="sorties">Sorties</option><option value="entrees">Entrées</option><option value="attente">À rembourser</option><option value="sansjustif">Sans justificatif</option></select></label>
+        <option value="">Tous</option><option value="sorties">Sorties</option><option value="entrees">Entrées</option><option value="attente">À rembourser</option><option value="rembourse">Remboursées</option><option value="sansjustif">Sans justificatif</option></select></label>
       <label class="field grow"><span>Recherche</span><input id="r-q" class="input" type="search" placeholder="Commentaire, montant…" oninput="afficherReleve()"></label>
     </div>
     <div class="kpis">
@@ -186,7 +186,7 @@
 <input type="file" id="scan-input" accept="image/*" capture="environment" class="hidden" onchange="scanFichier(this)">
 <input type="file" id="photo-input" accept="image/*,application/pdf" multiple class="hidden" onchange="ajouterPhotos(this)">
 
-<script src="commun.js?v=4"></script>
-<script src="chef.js?v=2"></script>
+<script src="commun.js?v=5"></script>
+<script src="chef.js?v=3"></script>
 </body>
 </html>

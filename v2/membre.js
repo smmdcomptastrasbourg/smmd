@@ -76,7 +76,7 @@ async function chargerAccueil() {
   const sansJustif = aVerifier.filter(t => !aJustif(t, justifs));
   const items = [];
   notifs.forEach(n => items.push(`<div class="todo"><span class="ic" style="background:var(--ok-soft);color:var(--ok)">${svg(IC.bell)}</span><div style="flex:1">
-      <p class="bold">${escapeHtml({ remboursement: 'Remboursement reçu', allocation: 'Allocation confirmée' }[n.type] || 'Information')}</p><p class="small muted">${escapeHtml(n.message)}</p>
+      <p class="bold">${escapeHtml({ remboursement: 'Remboursement reçu', allocation: 'Allocation confirmée', annulation: 'Remboursement annulé' }[n.type] || 'Information')}</p><p class="small muted">${escapeHtml(n.message)}</p>
       <button class="act" style="border-color:var(--ok);color:var(--ok)" onclick="notifLue('${escapeHtml(n.id)}')">J'ai vu</button></div></div>`));
   const alloc = parseFloat(userProfile.allocation_mensuelle) || 0;
   const allocMois = allocs.find(a => a.user_id === userProfile.id && parseInt(a.mois) === mois && parseInt(a.annee) === annee);
