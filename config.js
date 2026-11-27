@@ -115,30 +115,32 @@ async function scanJustificatif(file) {
     }
   } catch (e) { /* on garde la clé publique en repli */ }
 
-  let res;
-  try {
-    res = await fetch(
-      `${SMMD_CONFIG.url}/functions/v1/scan-ticket`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SMMD_CONFIG.key,
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ base64, mime })
-      }
-    );
-  } catch (netErr) {
-    throw new Error('Pas de connexion réseau. Vérifiez votre connexion et réessayez.');
+  // Liste des motifs (si connue) : l'IA propose le plus adapté
+  let listeMotifs = [];
+  try { if (typeof motifs !== 'undefined' && Array.isArray(motifs)) listeMotifs = motifs.map(m => (m && m.nom) || m).filter(x => typeof x === 'string'); } catch (e) {}
+
+  // Un nouvel essai automatique si le service est saturé ou ne répond pas à temps
+  let data = {}, res = null;
+  for (let essai = 0; essai < 2; essai++) {
+    const ctl = new AbortController(), minuteur = setTimeout(() => ctl.abort(), 45000);
+    try {
+      res = await fetch(`${SMMD_CONFIG.url}/functions/v1/scan-ticket`, {
+        method: 'POST', signal: ctl.signal,
+        headers: { 'Content-Type': 'application/json', 'apikey': SMMD_CONFIG.key, 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ base64, mime, motifs: listeMotifs })
+      });
+      data = {}; try { data = await res.json(); } catch (e) { /* réponse non JSON */ }
+      if (res.ok || res.status === 401 || res.status === 403 || res.status === 400) break;
+    } catch (netErr) {
+      res = null;
+      if (essai === 1) throw new Error(netErr.name === 'AbortError' ? 'L\'IA met trop de temps à répondre.' : 'Pas de connexion réseau. Vérifiez votre connexion et réessayez.');
+    } finally { clearTimeout(minuteur); }
+    if (essai === 0) await new Promise(ok => setTimeout(ok, 1500));
   }
 
-  let data = {};
-  try { data = await res.json(); } catch (e) { /* réponse non JSON */ }
-
-  if (!res.ok) {
-    if (res.status === 401 || res.status === 403) throw new Error('Session expirée — reconnectez-vous.');
-    throw new Error(data.error || `Format non supporté ou image illisible (erreur ${res.status}). Essayez avec une photo plus nette.`);
+  if (!res || !res.ok) {
+    if (res && (res.status === 401 || res.status === 403)) throw new Error('Session expirée — reconnectez-vous.');
+    throw new Error(data.error || `Service de lecture indisponible (erreur ${res ? res.status : 'réseau'}).`);
   }
 
   return data;

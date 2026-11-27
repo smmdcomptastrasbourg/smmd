@@ -352,10 +352,10 @@ async function scanFichier(input) {
   if (!file) return;
   if (!navigator.onLine) return ouvrirSaisie({ photos: [file] });
   ouvrirFeuille(`<div style="text-align:center;padding:30px 0"><div class="spin" style="margin:0 auto 14px;width:36px;height:36px"></div>
-    <p class="bold" style="margin:0">L'IA lit votre ticket…</p><p class="small muted">Montant, date et description</p></div>`, { titre: 'Scan du ticket' });
+    <p class="bold" style="margin:0">L'IA lit votre ticket…</p><p class="small muted">Montant, date, description et motif</p></div>`, { titre: 'Scan du ticket' });
   try {
     const r = await scanJustificatif(file);
-    ouvrirSaisie({ photos: [file], montant: r.montant ?? '', date: r.date || null, commentaire: r.commentaire || '', confiance: r.confiance || 'basse', depuisScan: true });
+    ouvrirSaisie({ photos: [file], montant: r.montant ?? '', date: r.date || null, commentaire: r.commentaire || '', motif: r.motif || undefined, confiance: r.confiance || 'basse', depuisScan: true });
   } catch (e) {
     ouvrirSaisie({ photos: [file], erreurScan: e.message || 'Lecture impossible' });
   }
