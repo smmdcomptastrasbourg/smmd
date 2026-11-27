@@ -126,10 +126,14 @@ async function rapLireFichier(f) {
   } catch (e) { showToast('Fichier illisible : ' + e.message, 'error'); }
 }
 // Google renvoie parfois « high demand » / surcharge : on réessaie automatiquement (4 tentatives, attente croissante)
+// Pages déjà lues gardées en mémoire : relancer le même fichier ne relit que les pages manquantes
+const _rapCacheIA = new Map();
 async function rapAppelIA(base64, mime, dire) {
-  const attentes = [4000, 10000, 20000];
+  const cle = base64.length + ':' + base64.slice(1000, 1200) + base64.slice(-200);
+  if (_rapCacheIA.has(cle)) return _rapCacheIA.get(cle);
+  const attentes = [3000, 8000, 15000];
   for (let essai = 0; ; essai++) {
-    try { return await rapAppelIA1(base64, mime); }
+    try { const r = await rapAppelIA1(base64, mime); _rapCacheIA.set(cle, r); return r; }
     catch (e) {
       const passager = /high demand|overload|try again|unavailable|temporar|rate|quota|503|502|500|546|surcharg|trop lourde/i.test(e.message);
       if (!passager || essai >= attentes.length) throw e;
@@ -187,7 +191,7 @@ async function rapLireScan(f) {
     };
     const total = morceaux.length;
     dire(`Lecture par l'IA : 0 / ${total} page${total > 1 ? 's' : ''}…`);
-    await suivant();   // une page à la fois : moins de refus « service surchargé »
+    await Promise.all([suivant(), suivant(), suivant()]);   // 3 pages en parallèle ; le serveur bascule sur un autre modèle si l'un est saturé
     rep.releves.sort((a, b) => a._page - b._page);
     if (echecs.length === total) throw new Error(echecs[0]);
     const rel = rapDepuisIA(rep);

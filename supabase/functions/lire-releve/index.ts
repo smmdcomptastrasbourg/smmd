@@ -4,7 +4,7 @@
 // → { releves: [ { date_releve, solde_debut, solde_fin, lignes: [ { date, libelle, debit, credit } ] } ] }
 //
 // Secrets : la clé Gemini déjà utilisée par « scan-ticket » (GEMINI_API_KEY, ou GOOGLE_API_KEY) ;
-//           GEMINI_MODEL facultatif (par défaut gemini-3.8-flash)
+//           GEMINI_MODEL facultatif : un ou plusieurs modèles séparés par des virgules (des modèles de secours suivent)
 // Déploiement : « Verify JWT » ACTIVÉ (seuls les utilisateurs connectés peuvent l'appeler)
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -16,7 +16,11 @@ const cors = {
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 const CLE = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY") || Deno.env.get("GEMINI_KEY") || "";
-const MODELE = Deno.env.get("GEMINI_MODEL") || "gemini-3.8-flash";
+// Plusieurs modèles possibles, essayés dans l'ordre si le premier est saturé ou indisponible
+const MODELES = (Deno.env.get("GEMINI_MODEL") || "gemini-3.8-flash").split(",").map(x => x.trim()).filter(Boolean)
+  .concat(["gemini-3.8-flash", "gemini-3.8-flash-lite", "gemini-flash-latest", "gemini-flash-lite-latest"])
+  .filter((x, i, a) => a.indexOf(x) === i);
+const attendre = (ms: number) => new Promise(ok => setTimeout(ok, ms));
 
 const CONSIGNE = `Tu lis des relevés de compte bancaire français (souvent Crédit Mutuel), éventuellement scannés, éventuellement plusieurs mois dans le même document.
 Pour CHAQUE relevé (chaque mois), renvoie :
@@ -61,16 +65,29 @@ Deno.serve(async (req) => {
 
     const { base64, mime } = await req.json();
     if (!base64) return json({ error: "Fichier manquant" }, 400);
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODELE}:generateContent?key=${CLE}`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ inline_data: { mime_type: mime || "application/pdf", data: String(base64).replace(/^data:[^,]*,/, "") } }, { text: CONSIGNE }] }],
-        generationConfig: { temperature: 0, responseMimeType: "application/json", responseSchema: SCHEMA },
-      }),
-    });
-    const j = await r.json();
-    if (!r.ok) return json({ error: "Lecture impossible : " + (j.error?.message || r.status) }, 502);
-    const txt = j.candidates?.[0]?.content?.parts?.map((x: { text?: string }) => x.text || "").join("") || "";
+    const donnees = String(base64).replace(/^data:[^,]*,/, "");
+    const appel = async (modele: string, reflexion: boolean) => {
+      const gen: Record<string, unknown> = { temperature: 0, responseMimeType: "application/json", responseSchema: SCHEMA };
+      if (reflexion) gen.thinkingConfig = { thinkingLevel: "minimal" };   // lecture de tableau : pas besoin de « réfléchir », beaucoup plus rapide
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modele}:generateContent?key=${CLE}`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ parts: [{ inline_data: { mime_type: mime || "application/pdf", data: donnees } }, { text: CONSIGNE }] }], generationConfig: gen }),
+      });
+      return { r, j: await r.json().catch(() => ({})) };
+    };
+    let txt = "", derniere = "";
+    essais: for (const modele of MODELES) {
+      for (let tentative = 0; tentative < 2; tentative++) {
+        let { r, j } = await appel(modele, true);
+        if (r.status === 400 && /thinking/i.test(j.error?.message || "")) ({ r, j } = await appel(modele, false));
+        if (r.ok) { txt = j.candidates?.[0]?.content?.parts?.map((x: { text?: string }) => x.text || "").join("") || ""; if (txt) break essais; derniere = "réponse vide"; continue; }
+        derniere = j.error?.message || `erreur ${r.status}`;
+        if (r.status === 404 || r.status === 400 || /no longer available|not found|not supported/i.test(derniere)) continue essais;  // modèle inconnu : suivant
+        if (r.status === 429 || r.status >= 500) { await attendre(1500); continue; }                                             // saturé : on réessaie puis modèle suivant
+        return json({ error: "Lecture impossible : " + derniere }, 502);
+      }
+    }
+    if (!txt) return json({ error: "Service d'IA indisponible pour le moment (" + derniere + ")" }, 503);
     let out;
     try { out = JSON.parse(txt); } catch (_) { return json({ error: "Réponse illisible de l'IA, réessayez" }, 502); }
     return json(out);
