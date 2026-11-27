@@ -8,24 +8,25 @@ let compteMaison = null;
 const SEL_TX = 'id,user_id,type,montant,statut,motif,commentaire,created_at,methode_paiement,justificatif_url,date_validation,profiles(prenom,nom,iban)';
 const nomDe = id => nomMembre(membres.find(m => m.id === id));
 const initiales = m => ((m?.prenom || '?')[0] + ((m?.nom || '')[0] || '')).toUpperCase();
-const VUES = ['tdb', 'releve', 'remb', 'alloc', 'membres', 'profil'];
+const VUES = ['tdb', 'releve', 'remb', 'banque', 'alloc', 'membres', 'profil'];
 
 // ─────────────────────────────────────────────── Navigation
 function go(v) {
   _vue = v;
   VUES.forEach(n => document.getElementById('v-' + n).classList.toggle('hidden', n !== v));
   document.querySelectorAll('.tab, .sidenav button[data-v]').forEach(t => {
-    const actif = t.dataset.v === v || (t.dataset.v === 'plus' && ['alloc', 'membres', 'profil'].includes(v));
+    const actif = t.dataset.v === v || (t.dataset.v === 'plus' && ['banque', 'alloc', 'membres', 'profil'].includes(v));
     if (actif) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
   });
   window.scrollTo({ top: 0 });
   rafraichirVue();
 }
 function rafraichirVue() {
-  ({ tdb: chargerTdb, releve: chargerReleve, remb: chargerRemb, alloc: chargerAllocations, membres: chargerMembres, profil: chargerProfil })[_vue]?.();
+  ({ tdb: chargerTdb, releve: chargerReleve, remb: chargerRemb, banque: () => rapInit(userProfile.maison_id, userProfile.maisons?.nom || '', 'rap-box'), alloc: chargerAllocations, membres: chargerMembres, profil: chargerProfil })[_vue]?.();
 }
 function menuPlus() {
   ouvrirFeuille(`<div class="stack" style="gap:10px">
+    <button class="btn quiet block" onclick="fermerFeuille();go('banque')">Rapprochement bancaire</button>
     <button class="btn quiet block" onclick="fermerFeuille();go('alloc')">Allocations</button>
     <button class="btn quiet block" onclick="fermerFeuille();go('membres')">Membres</button>
     <button class="btn quiet block" onclick="fermerFeuille();go('profil')">Maison et profil</button>

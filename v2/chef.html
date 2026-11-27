@@ -29,6 +29,7 @@
   <button data-v="tdb" onclick="go('tdb')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21H3z"/></svg>Tableau de bord</button>
   <button data-v="releve" onclick="go('releve')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>Relevé de la maison</button>
   <button data-v="remb" onclick="go('remb')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h14l-3-3M21 17H7l3 3"/></svg>Remboursements<span class="cnt hidden" data-cnt="remb"></span></button>
+  <button data-v="banque" onclick="go('banque')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10h18M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 21h18M12 3 3 8h18z"/></svg>Rapprochement</button>
   <button data-v="alloc" onclick="go('alloc')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Allocations<span class="cnt hidden" data-cnt="alloc"></span></button>
   <button data-v="membres" onclick="go('membres')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c0-3.5 3-5.5 7-5.5s7 2 7 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c2.4.6 4 2.4 4 5.5"/></svg>Membres</button>
   <button data-v="profil" onclick="go('profil')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>Maison et profil</button>
@@ -112,6 +113,12 @@
   </section>
 
   <!-- ALLOCATIONS -->
+  <section id="v-banque" class="stack hidden" aria-labelledby="t-banque">
+    <h1 id="t-banque">Rapprochement bancaire</h1>
+    <p class="small muted" style="margin:-6px 0 0">Comparez chaque mois le relevé du compte de la maison avec SMMD.</p>
+    <div id="rap-box"></div>
+  </section>
+
   <section id="v-alloc" class="stack hidden" aria-labelledby="t-alloc">
     <h1 id="t-alloc">Allocations</h1>
     <p class="muted small" style="margin:-6px 0 0">Touchez un membre : <b>déclaré</b> → confirmer · <b>non versé</b> → confirmer directement · <b>confirmé</b> → annuler.</p>
@@ -188,8 +195,9 @@
 <input type="file" id="photo-input" accept="image/*,application/pdf" multiple class="hidden" onchange="ajouterPhotos(this)">
 
 <script src="commun.js?v=6"></script>
-<script src="chef.js?v=5"></script>
-<script src="guide.js?v=3"></script>
+<script src="rapprochement.js?v=1"></script>
+<script src="chef.js?v=6"></script>
+<script src="guide.js?v=4"></script>
 <script src="releve-pdf.js?v=1"></script>
 </body>
 </html>

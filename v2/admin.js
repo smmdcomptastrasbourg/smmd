@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════
 _vue = 'tdb';
 let maisons = [], comptes = [];
-const VUES = ['tdb', 'membres', 'maisons', 'exports', 'compta', 'erreurs', 'outils'];
+const VUES = ['tdb', 'membres', 'maisons', 'exports', 'banque', 'compta', 'erreurs', 'outils'];
 const nomMaison = id => maisons.find(m => m.id === id)?.nom || '—';
 const ROLES = { user: 'Membre', chef: 'Chef de maison', admin: 'Administrateur' };
 
@@ -11,16 +11,17 @@ function go(v) {
   _vue = v;
   VUES.forEach(n => document.getElementById('v-' + n).classList.toggle('hidden', n !== v));
   document.querySelectorAll('.tab, .sidenav button[data-v]').forEach(t => {
-    const on = t.dataset.v === v || (t.dataset.v === 'plus' && ['maisons', 'compta', 'outils'].includes(v));
+    const on = t.dataset.v === v || (t.dataset.v === 'plus' && ['maisons', 'banque', 'compta', 'outils'].includes(v));
     if (on) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
   });
   window.scrollTo({ top: 0 });
   rafraichirVue();
 }
-function rafraichirVue() { ({ tdb: chargerTdb, membres: chargerComptes, maisons: chargerMaisons, exports: initExports, compta: () => initCompta(), erreurs: chargerErreurs, outils: () => chargerSauvegarde() })[_vue]?.(); }
+function rafraichirVue() { ({ tdb: chargerTdb, membres: chargerComptes, maisons: chargerMaisons, exports: initExports, banque: () => rapVueAdmin('rap-admin', maisons), compta: () => initCompta(), erreurs: chargerErreurs, outils: () => chargerSauvegarde() })[_vue]?.(); }
 function menuPlus() {
   ouvrirFeuille(`<div class="stack" style="gap:10px">
     <button class="btn quiet block" onclick="fermerFeuille();go('maisons')">Maisons et motifs</button>
+    <button class="btn quiet block" onclick="fermerFeuille();go('banque')">Rapprochement bancaire</button>
     <button class="btn quiet block" onclick="fermerFeuille();go('compta')">Comptabilité (FEC)</button>
     <button class="btn quiet block" onclick="fermerFeuille();go('outils')">Outils et profil</button></div>`, { titre: 'Plus' });
 }

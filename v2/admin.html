@@ -24,6 +24,7 @@
   <button data-v="membres" onclick="go('membres')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c0-3.5 3-5.5 7-5.5s7 2 7 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c2.4.6 4 2.4 4 5.5"/></svg>Comptes</button>
   <button data-v="maisons" onclick="go('maisons')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6"/></svg>Maisons et motifs</button>
   <button data-v="exports" onclick="go('exports')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Exports</button>
+  <button data-v="banque" onclick="go('banque')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10h18M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 21h18M12 3 3 8h18z"/></svg>Rapprochement</button>
   <button data-v="compta" onclick="go('compta')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 3h16v18H4zM8 7h8M8 11h8M8 15h5"/></svg>Comptabilité</button>
   <button data-v="erreurs" onclick="go('erreurs')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>Erreurs<span class="cnt hidden" data-cnt="err" style="background:var(--red)"></span></button>
   <button data-v="outils" onclick="go('outils')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg>Outils et profil</button>
@@ -80,6 +81,11 @@
       <button class="card" style="text-align:left;cursor:pointer;font:inherit" onclick="zip('annee')"><h2>Justificatifs de l'année (ZIP)</h2><p class="small muted" style="margin:4px 0 0">Maison / membre / mois</p></button>
       <button class="card" style="text-align:left;cursor:pointer;font:inherit;border-color:var(--primary)" onclick="zip('tout')"><h2>TOUS les justificatifs (ZIP)</h2><p class="small muted" style="margin:4px 0 0">Depuis le début · sur ordinateur, peut être long</p></button>
     </div>
+  </section>
+
+  <section id="v-banque" class="stack hidden" aria-labelledby="t-banque">
+    <h1 id="t-banque">Rapprochement bancaire</h1>
+    <div id="rap-admin"></div>
   </section>
 
   <section id="v-compta" class="stack hidden" aria-labelledby="t-compta">
@@ -154,7 +160,8 @@
 <script src="compta.js?v=1"></script>
 <script src="releve-pdf.js?v=1"></script>
 <script src="sauvegarde.js?v=2"></script>
-<script src="admin.js?v=5"></script>
-<script src="guide.js?v=3"></script>
+<script src="rapprochement.js?v=1"></script>
+<script src="admin.js?v=6"></script>
+<script src="guide.js?v=4"></script>
 </body>
 </html>
