@@ -4,7 +4,7 @@
 // → { releves: [ { date_releve, solde_debut, solde_fin, lignes: [ { date, libelle, debit, credit } ] } ] }
 //
 // Secrets : la clé Gemini déjà utilisée par « scan-ticket » (GEMINI_API_KEY, ou GOOGLE_API_KEY) ;
-//           GEMINI_MODEL facultatif (par défaut gemini-2.5-flash)
+//           GEMINI_MODEL facultatif (par défaut gemini-3.8-flash)
 // Déploiement : « Verify JWT » ACTIVÉ (seuls les utilisateurs connectés peuvent l'appeler)
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -16,7 +16,7 @@ const cors = {
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 const CLE = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY") || Deno.env.get("GEMINI_KEY") || "";
-const MODELE = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash";
+const MODELE = Deno.env.get("GEMINI_MODEL") || "gemini-3.8-flash";
 
 const CONSIGNE = `Tu lis des relevés de compte bancaire français (souvent Crédit Mutuel), éventuellement scannés, éventuellement plusieurs mois dans le même document.
 Pour CHAQUE relevé (chaque mois), renvoie :
