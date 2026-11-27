@@ -535,6 +535,7 @@ async function rapCreerOp(id) {
   const payload = { user_id: userProfile.id, maison_id: RAP.maison, type: dep ? 'depense' : 'recette', montant: Math.abs(+l.montant), commentaire: l.libelle.slice(0, 200),
     created_at: new Date(l.date_op + 'T12:00:00').toISOString(), statut: 'valide', justificatif_url: null };
   if (dep) { payload.motif = document.getElementById('rap-motif')?.value || 'autre'; payload.methode_paiement = 'cb_maison'; }
+  else { payload.motif = 'RECETTE'; payload.methode_paiement = null; }   // même convention que la saisie normale
   try {
     const { data, error } = await sb.from('transactions').insert([payload]).select('*');
     if (error) throw error;
