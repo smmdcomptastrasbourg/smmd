@@ -376,7 +376,7 @@ function ouvrirSaisie(init = {}) {
   ouvrirFeuille(`
     <div class="stack" style="gap:14px">
       ${_saisie.depuisScan && conf ? `<div class="banner ${conf[0] === 'red' ? 'warn' : conf[0]}">${svg(IC.check, 18)}<span>Ticket lu par l'IA — ${conf[1]}</span></div>` : ''}
-      ${_saisie.erreurScan ? `<div class="banner warn">${svg(IC.alert, 18)}<span>L'IA n'a pas pu lire le ticket. Complétez à la main, la photo est gardée.</span></div>` : ''}
+      ${_saisie.erreurScan ? `<div class="banner warn">${svg(IC.alert, 18)}<span>L'IA n'a pas pu lire le ticket (${escapeHtml(_saisie.erreurScan)}). Complétez à la main, la photo est gardée.</span></div>` : ''}
       ${!navigator.onLine ? `<div class="banner warn">${svg(IC.cloud, 18)}<span>Hors connexion : enregistrée sur le téléphone, envoyée au retour du réseau</span></div>` : ''}
       ${_saisie.mode === 'ajout' ? `<div class="seg" role="group" aria-label="Type d'opération">
         <button aria-pressed="${_saisie.type === 'depense'}" onclick="saisieType('depense')">Dépense</button>

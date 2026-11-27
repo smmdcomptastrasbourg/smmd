@@ -140,7 +140,9 @@ async function scanJustificatif(file) {
 
   if (!res || !res.ok) {
     if (res && (res.status === 401 || res.status === 403)) throw new Error('Session expirée — reconnectez-vous.');
-    throw new Error(data.error || `Service de lecture indisponible (erreur ${res ? res.status : 'réseau'}).`);
+    const msg = data.error || `Service de lecture indisponible (erreur ${res ? res.status : 'réseau'}).`;
+    try { window.smmdSignaler && window.smmdSignaler('scan', 'Scan ticket : ' + msg, data.detail || ''); } catch (e) {}
+    throw new Error(msg);
   }
 
   return data;

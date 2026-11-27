@@ -18,7 +18,7 @@ const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SE
 const CLE = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY") || Deno.env.get("GEMINI_KEY") || "";
 // Plusieurs modèles possibles, essayés dans l'ordre si le premier est saturé ou indisponible
 const MODELES = (Deno.env.get("GEMINI_MODEL") || "gemini-3.8-flash").split(",").map(x => x.trim()).filter(Boolean)
-  .concat(["gemini-3.8-flash", "gemini-3.8-flash-lite", "gemini-flash-latest", "gemini-flash-lite-latest"])
+  .concat(["gemini-3.8-flash", "gemini-3.8-flash-lite", "gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.5-flash", "gemini-2.0-flash"])
   .filter((x, i, a) => a.indexOf(x) === i);
 const attendre = (ms: number) => new Promise(ok => setTimeout(ok, ms));
 
@@ -80,6 +80,7 @@ Deno.serve(async (req) => {
       for (let tentative = 0; tentative < 2; tentative++) {
         let { r, j } = await appel(modele, true);
         if (r.status === 400 && /thinking/i.test(j.error?.message || "")) ({ r, j } = await appel(modele, false));
+        if (r.ok && !(j.candidates?.[0]?.content?.parts || []).length) { derniere = "réponse vide"; continue essais; }
         if (r.ok) { txt = j.candidates?.[0]?.content?.parts?.map((x: { text?: string }) => x.text || "").join("") || ""; if (txt) break essais; derniere = "réponse vide"; continue; }
         derniere = j.error?.message || `erreur ${r.status}`;
         if (r.status === 404 || r.status === 400 || /no longer available|not found|not supported/i.test(derniere)) continue essais;  // modèle inconnu : suivant

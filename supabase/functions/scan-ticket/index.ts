@@ -19,67 +19,71 @@ const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SE
 const CLE = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY") || Deno.env.get("GEMINI_KEY") || "";
 const liste = (v: string | undefined, defaut: string[]) => (v ? v.split(",").map(x => x.trim()).filter(Boolean) : defaut);
 const RAPIDES = liste(Deno.env.get("GEMINI_MODEL_RAPIDE"), ["gemini-3.8-flash-lite", "gemini-flash-lite-latest"]);
-const PRECIS = liste(Deno.env.get("GEMINI_MODEL"), ["gemini-3.8-flash"]).concat(["gemini-flash-latest"]);
+const PRECIS = liste(Deno.env.get("GEMINI_MODEL"), ["gemini-3.8-flash"])
+  .concat(["gemini-flash-latest", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash-lite"])   // anciens modèles en dernier recours
+  .filter((x, i, a) => a.indexOf(x) === i);
 const attendre = (ms: number) => new Promise(ok => setTimeout(ok, ms));
 
 const SCHEMA = {
   type: "OBJECT",
   properties: {
-    montant: { type: "NUMBER", nullable: true },
-    date: { type: "STRING", nullable: true },
+    montant: { type: "NUMBER" },
+    date: { type: "STRING" },
     commentaire: { type: "STRING" },
-    confiance: { type: "STRING", enum: ["haute", "moyenne", "basse"] },
-    motif: { type: "STRING", nullable: true },
+    confiance: { type: "STRING" },
+    motif: { type: "STRING" },
   },
-  required: ["montant", "date", "commentaire", "confiance"],
+  required: ["commentaire", "confiance"],
 };
 const consigne = (motifs: string[]) => `Tu lis un ticket de caisse, une facture ou un reçu français (photo ou PDF).
 Renvoie :
-- montant : le TOTAL payé TTC en euros (nombre, ex. 23.5), pas un sous-total ni la TVA ; null si illisible
-- date : la date d'achat au format AAAA-MM-JJ ; null si absente
+- montant : le TOTAL payé TTC en euros (nombre, ex. 23.5), pas un sous-total ni la TVA ; omets-le si illisible
+- date : la date d'achat au format AAAA-MM-JJ ; omets-la si absente
 - commentaire : le nom du commerçant et, en quelques mots, ce qui a été acheté (ex. « Carrefour — courses alimentaires »), 60 caractères maximum
-- confiance : « haute » si montant et date sont nets, « moyenne » si un doute, « basse » si la lecture est incertaine
-${motifs.length ? `- motif : le motif le plus adapté parmi exactement : ${motifs.join(", ")} ; null si aucun ne convient` : ""}
+- confiance : exactement « haute » si montant et date sont nets, « moyenne » si un doute, « basse » si la lecture est incertaine
+${motifs.length ? `- motif : le motif le plus adapté parmi exactement : ${motifs.join(", ")} ; omets-le si aucun ne convient` : ""}
 N'invente rien.`;
 
 type Res = { ok: true; data: Record<string, unknown> } | { ok: false; status: number; message: string };
 async function lire(modele: string, donnees: string, mime: string, motifs: string[]): Promise<Res> {
-  const corps = (reflexion: boolean) => JSON.stringify({
+  const corps = (reflexion: boolean, schema: boolean) => JSON.stringify({
     contents: [{ parts: [{ inline_data: { mime_type: mime, data: donnees } }, { text: consigne(motifs) }] }],
-    generationConfig: { temperature: 0, responseMimeType: "application/json", responseSchema: SCHEMA, ...(reflexion ? { thinkingConfig: { thinkingLevel: "minimal" } } : {}) },
+    generationConfig: { temperature: 0, responseMimeType: "application/json", ...(schema ? { responseSchema: SCHEMA } : {}), ...(reflexion ? { thinkingConfig: { thinkingLevel: "minimal" } } : {}) },
   });
-  const envoyer = async (reflexion: boolean) => {
+  const envoyer = async (reflexion: boolean, schema = true) => {
     const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 30000);
     try {
       const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modele}:generateContent?key=${CLE}`,
-        { method: "POST", headers: { "Content-Type": "application/json" }, body: corps(reflexion), signal: ctl.signal });
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: corps(reflexion, schema), signal: ctl.signal });
       return { r, j: await r.json().catch(() => ({})) };
     } finally { clearTimeout(t); }
   };
   try {
     let { r, j } = await envoyer(true);
     if (r.status === 400 && /thinking/i.test(j.error?.message || "")) ({ r, j } = await envoyer(false));
+    if (r.status === 400 && /schema|response_schema|responseSchema|Invalid JSON payload/i.test(j.error?.message || "")) ({ r, j } = await envoyer(false, false));
     if (!r.ok) return { ok: false, status: r.status, message: j.error?.message || `erreur ${r.status}` };
     const txt = j.candidates?.[0]?.content?.parts?.map((x: { text?: string }) => x.text || "").join("") || "";
-    return { ok: true, data: JSON.parse(txt) };
+    const brut = txt.replace(/^```(?:json)?\s*|\s*```$/g, "").trim();
+    return { ok: true, data: JSON.parse(brut) };
   } catch (e) {
     return { ok: false, status: 504, message: (e as Error).name === "AbortError" ? "délai dépassé" : (e as Error).message };
   }
 }
 // Essaie une liste de modèles ; un modèle saturé est réessayé une fois, un modèle inconnu est sauté
 async function premierQuiRepond(modeles: string[], donnees: string, mime: string, motifs: string[]) {
-  let derniere = "";
+  const erreurs: string[] = [];
   for (const m of modeles) {
     for (let essai = 0; essai < 2; essai++) {
       const r = await lire(m, donnees, mime, motifs);
       if (r.ok) return { data: r.data, modele: m };
-      derniere = r.message;
+      erreurs.push(`${m} : ${r.message.slice(0, 140)}`);
       const passager = r.status === 429 || r.status >= 500;
       if (!passager) break;                       // modèle inconnu / requête refusée : modèle suivant
       if (essai === 0) await attendre(800);
     }
   }
-  return { data: null, erreur: derniere };
+  return { data: null, erreur: erreurs.join(" | ") };
 }
 
 function nettoyer(d: Record<string, unknown>, motifs: string[]) {
@@ -113,7 +117,7 @@ Deno.serve(async (req) => {
     if (!res || res.montant === null || res.confiance === "basse") {
       const precis = await premierQuiRepond(PRECIS, donnees, typeMime, listeMotifs);
       if (precis.data) res = nettoyer(precis.data, listeMotifs);
-      else if (!res) return json({ error: "Service d'IA indisponible pour le moment (" + (precis.erreur || rapide.erreur) + ")" }, 503);
+      else if (!res) return json({ error: "Service d'IA indisponible pour le moment", detail: [rapide.erreur, precis.erreur].filter(Boolean).join(" | ") }, 503);
     }
     return json(res);
   } catch (e) {
