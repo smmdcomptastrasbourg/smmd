@@ -89,8 +89,11 @@ function rapDepuisIA(rep) {
     const cpt = {}; lignes.forEach(l => { const k = l.date.slice(0, 7); cpt[k] = (cpt[k] || 0) + 1; });
     const k = Object.entries(cpt).sort((a, b) => b[1] - a[1])[0]?.[0] || (rapDate(r.date_releve) || '').slice(0, 7);
     if (!k) continue;
-    if (!parMois[k]) parMois[k] = { annee: +k.slice(0, 4), mois: +k.slice(5, 7), source: 'scan', solde_debut: r.solde_debut ?? null, solde_fin: r.solde_fin ?? null, lignes: [] };
-    else parMois[k].solde_fin = r.solde_fin ?? parMois[k].solde_fin;
+    // Page de suite (verso) : pas de soldes imprimés → l'IA renvoie rien ou 0
+    const sansSolde = (r.solde_debut === null || r.solde_debut === undefined || +r.solde_debut === 0) && (r.solde_fin === null || r.solde_fin === undefined || +r.solde_fin === 0) && lignes.length;
+    const sd = sansSolde ? null : (r.solde_debut ?? null), sf = sansSolde ? null : (r.solde_fin ?? null);
+    if (!parMois[k]) parMois[k] = { annee: +k.slice(0, 4), mois: +k.slice(5, 7), source: 'scan', solde_debut: sd, solde_fin: sf, lignes: [] };
+    else { if (parMois[k].solde_debut === null) parMois[k].solde_debut = sd; if (sf !== null) parMois[k].solde_fin = sf; }
     parMois[k].lignes.push(...lignes);
   }
   return Object.values(parMois).sort((a, b) => a.annee - b.annee || a.mois - b.mois);
@@ -122,25 +125,63 @@ async function rapLireFichier(f) {
     rapApercu(rapParMois(res, /<STMTTRN>/i.test(texte) ? 'ofx' : 'csv'), f.name);
   } catch (e) { showToast('Fichier illisible : ' + e.message, 'error'); }
 }
+async function rapAppelIA(base64, mime) {
+  const { data: { session } } = await sb.auth.getSession();
+  const res = await fetch(`${SMMD_CONFIG.url}/functions/v1/lire-releve`, { method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': SMMD_CONFIG.key, 'Authorization': `Bearer ${session?.access_token}` }, body: JSON.stringify({ base64, mime }) });
+  const r = await res.json().catch(() => ({}));
+  if (res.status === 404) throw new Error('Fonction « lire-releve » non déployée dans Supabase');
+  if (res.status === 546) throw new Error('page trop lourde pour le serveur');
+  if (!res.ok) throw new Error(r.error || r.message || 'Erreur ' + res.status);
+  return r;
+}
+const rapB64 = octets => { let bin = ''; for (let i = 0; i < octets.length; i += 0x8000) bin += String.fromCharCode.apply(null, octets.subarray(i, i + 0x8000)); return btoa(bin); };
+// Un PDF de plusieurs pages est découpé dans le navigateur : une page = un appel (le serveur a peu de mémoire)
+async function rapPagesPDF(f) {
+  if (!window.PDFLib) await chargerScript('https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js');
+  const src = await PDFLib.PDFDocument.load(await f.arrayBuffer(), { ignoreEncryption: true });
+  const pages = [];
+  for (let i = 0; i < src.getPageCount(); i++) {
+    const d = await PDFLib.PDFDocument.create();
+    const [pg] = await d.copyPages(src, [i]); d.addPage(pg);
+    pages.push(rapB64(await d.save()));
+  }
+  return pages;
+}
 async function rapLireScan(f) {
   if (!f) return;
-  if (f.size > 14 * 1024 * 1024) return showToast('Fichier trop lourd (14 Mo max) : envoyez quelques mois à la fois', 'error');
   const etat = document.getElementById('rap-imp-etat');
-  if (etat) etat.textContent = 'Lecture du relevé par l\'IA… (jusqu\'à une minute)';
+  const dire = t => { if (etat) etat.textContent = t; };
+  dire('Préparation du relevé…');
   try {
-    let mime = f.type || 'application/pdf';
-    const base64 = await fileToBase64(f);
-    if (mime.startsWith('image/')) mime = 'image/jpeg';
-    const { data: { session } } = await sb.auth.getSession();
-    const res = await fetch(`${SMMD_CONFIG.url}/functions/v1/lire-releve`, { method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': SMMD_CONFIG.key, 'Authorization': `Bearer ${session?.access_token}` }, body: JSON.stringify({ base64, mime }) });
-    const r = await res.json().catch(() => ({}));
-    if (res.status === 404) throw new Error('Fonction « lire-releve » non déployée dans Supabase');
-    if (!res.ok) throw new Error(r.error || 'Erreur ' + res.status);
-    const rel = rapDepuisIA(r);
+    let morceaux;
+    if ((f.type || '').startsWith('image/')) morceaux = [{ base64: await fileToBase64(f), mime: 'image/jpeg' }];
+    else {
+      let pages;
+      try { pages = await rapPagesPDF(f); } catch (e) { pages = null; }
+      if (pages) morceaux = pages.map(b => ({ base64: b, mime: 'application/pdf' }));
+      else { if (f.size > 8 * 1024 * 1024) throw new Error('PDF illisible ou trop lourd : envoyez quelques mois à la fois'); morceaux = [{ base64: await fileToBase64(f), mime: 'application/pdf' }]; }
+    }
+    const rep = { releves: [] }, echecs = [];
+    let fait = 0;
+    const suivant = async () => {
+      while (morceaux.length) {
+        const i = morceaux.length - 1, m = morceaux.pop();
+        try { const r = await rapAppelIA(m.base64, m.mime); (r.releves || []).forEach(x => rep.releves.push({ ...x, _page: i })); }
+        catch (e) { echecs.push(`page ${i + 1} : ${e.message}`); }
+        fait++; dire(`Lecture par l'IA : ${fait} page${fait > 1 ? 's' : ''} lue${fait > 1 ? 's' : ''}…`);
+      }
+    };
+    const total = morceaux.length;
+    dire(`Lecture par l'IA : 0 / ${total} page${total > 1 ? 's' : ''}…`);
+    await Promise.all([suivant(), suivant()]);
+    rep.releves.sort((a, b) => a._page - b._page);
+    if (echecs.length === total) throw new Error(echecs[0]);
+    const rel = rapDepuisIA(rep);
     if (!rel.length) throw new Error('Aucune opération trouvée sur ce document');
+    if (echecs.length) showToast(`${echecs.length} page(s) non lue(s) : ${echecs.join(' · ')}. Vérifiez les contrôles de soldes.`, 'warning');
     rapApercu(rel, f.name);
-  } catch (e) { if (etat) etat.textContent = ''; showToast('Lecture impossible : ' + e.message, 'error'); }
+  } catch (e) { dire(''); showToast('Lecture impossible : ' + e.message, 'error'); }
 }
 let _rapApercu = [];
 function rapControle(r) {

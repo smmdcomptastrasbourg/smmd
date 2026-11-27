@@ -21,7 +21,7 @@ const MODELE = Deno.env.get("GEMINI_MODEL") || "gemini-3.8-flash";
 const CONSIGNE = `Tu lis des relevés de compte bancaire français (souvent Crédit Mutuel), éventuellement scannés, éventuellement plusieurs mois dans le même document.
 Pour CHAQUE relevé (chaque mois), renvoie :
 - date_releve : date d'édition du relevé (AAAA-MM-JJ)
-- solde_debut : le solde au début du relevé (« SOLDE CREDITEUR AU … » en tête, ou « SOLDE NUL » = 0). Négatif si débiteur.
+- solde_debut : le solde au début du relevé (null si la page n'en imprime pas, ex. page de suite / verso) (« SOLDE CREDITEUR AU … » en tête, ou « SOLDE NUL » = 0). Négatif si débiteur.
 - solde_fin : le solde en fin de relevé. Négatif si débiteur.
 - lignes : toutes les opérations, dans l'ordre, avec
   date (date d'opération AAAA-MM-JJ),
@@ -42,7 +42,7 @@ const SCHEMA = {
             date: { type: "STRING" }, libelle: { type: "STRING" }, debit: { type: "NUMBER" }, credit: { type: "NUMBER" } },
             required: ["date", "libelle", "debit", "credit"] } },
         },
-        required: ["solde_debut", "solde_fin", "lignes"],
+        required: ["lignes"],
       },
     },
   },
