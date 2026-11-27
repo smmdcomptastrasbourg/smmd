@@ -125,7 +125,20 @@ async function rapLireFichier(f) {
     rapApercu(rapParMois(res, /<STMTTRN>/i.test(texte) ? 'ofx' : 'csv'), f.name);
   } catch (e) { showToast('Fichier illisible : ' + e.message, 'error'); }
 }
-async function rapAppelIA(base64, mime) {
+// Google renvoie parfois « high demand » / surcharge : on réessaie automatiquement (4 tentatives, attente croissante)
+async function rapAppelIA(base64, mime, dire) {
+  const attentes = [4000, 10000, 20000];
+  for (let essai = 0; ; essai++) {
+    try { return await rapAppelIA1(base64, mime); }
+    catch (e) {
+      const passager = /high demand|overload|try again|unavailable|temporar|rate|quota|503|502|500|546|surcharg|trop lourde/i.test(e.message);
+      if (!passager || essai >= attentes.length) throw e;
+      if (dire) dire(`Le service d'IA est très demandé, nouvel essai dans ${attentes[essai] / 1000} s…`);
+      await new Promise(ok => setTimeout(ok, attentes[essai]));
+    }
+  }
+}
+async function rapAppelIA1(base64, mime) {
   const { data: { session } } = await sb.auth.getSession();
   const res = await fetch(`${SMMD_CONFIG.url}/functions/v1/lire-releve`, { method: 'POST',
     headers: { 'Content-Type': 'application/json', 'apikey': SMMD_CONFIG.key, 'Authorization': `Bearer ${session?.access_token}` }, body: JSON.stringify({ base64, mime }) });
@@ -167,14 +180,14 @@ async function rapLireScan(f) {
     const suivant = async () => {
       while (morceaux.length) {
         const i = morceaux.length - 1, m = morceaux.pop();
-        try { const r = await rapAppelIA(m.base64, m.mime); (r.releves || []).forEach(x => rep.releves.push({ ...x, _page: i })); }
+        try { const r = await rapAppelIA(m.base64, m.mime, dire); (r.releves || []).forEach(x => rep.releves.push({ ...x, _page: i })); }
         catch (e) { echecs.push(`page ${i + 1} : ${e.message}`); }
         fait++; dire(`Lecture par l'IA : ${fait} page${fait > 1 ? 's' : ''} lue${fait > 1 ? 's' : ''}…`);
       }
     };
     const total = morceaux.length;
     dire(`Lecture par l'IA : 0 / ${total} page${total > 1 ? 's' : ''}…`);
-    await Promise.all([suivant(), suivant()]);
+    await suivant();   // une page à la fois : moins de refus « service surchargé »
     rep.releves.sort((a, b) => a._page - b._page);
     if (echecs.length === total) throw new Error(echecs[0]);
     const rel = rapDepuisIA(rep);

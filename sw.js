@@ -1,4 +1,4 @@
-const CACHE = 'smmd-v20';
+const CACHE = 'smmd-v21';
 const ASSETS = [
     './',
     './index.html',
